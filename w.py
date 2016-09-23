@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 class Point_3D(object):
     '3维空间点'
 
@@ -8,12 +10,27 @@ class Point_3D(object):
 
 
 class Airfoil(object):
-    '2维翼型描述, 百分比形式'
+    '2维翼型描述'
 
-    def __init__(self, _x, _y_up, _y_down):
-        self.x = _x
-        self.y_up = _y_up
-        self.y_down = _y_down
+    def __init__(self, _file, _len=650):
+        self.len=_len
+
+        self.x=[]
+        self.y_up=[]
+        self.y_down=[]
+
+        airfoil = open(_file)
+        for line in airfoil:
+            (_x, _y_up, _y_down) = line.split()
+            self.x.append(float(_x))
+            self.y_up.append(float(_y_up))
+            self.y_down.append(float(_y_down))
+        airfoil.close()
+
+    def show(self):
+        plt.plot(self.x,self.y_up,label="UP")
+        plt.plot(self.x,self.y_down,label="DOWN")
+        plt.show()
 
 
 class Section(object):
@@ -37,4 +54,8 @@ class Section(object):
         self.up_pts=[]
         self.down_pts=[]
 
+    def calc_desc_pts(self):
 
+
+bf=Airfoil("./data/table11.dat", 650)
+bf.show()
