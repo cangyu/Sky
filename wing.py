@@ -93,14 +93,3 @@ for i in range(0, face_num):
     wing.vectors[i]=faces[i]
 
 wing.save('wing.stl')
-
-#显示
-fig=pyplot.figure()
-axes=mplot3d.Axes3D(fig)
-
-axes.add_collection3d(mplot3d.art3d.Poly3DCollection(wing.vectors))
-
-scale=wing.points.flatten(-1)
-axes.auto_scale_xyz(scale,scale,scale)
-
-#pyplot.show()
