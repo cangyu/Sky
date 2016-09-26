@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame,
                              QSplitter, QStyleFactory, QApplication)
 from PyQt5.QtCore import Qt
 
-
 class Example(QWidget):
     def __init__(self):
         super().__init__()
@@ -76,11 +75,6 @@ class Example(QWidget):
         self.lbl.setText(text)
         self.lbl.adjustSize()
 
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = Example()
-    sys.exit(app.exec_())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

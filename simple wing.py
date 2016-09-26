@@ -132,8 +132,9 @@ class Section(object):
 class Wing(object):
     '''简单机翼，由一个个剖面组成'''
 
-    def __init__(self, _len):
+    def __init__(self, _len, _storage_dst):
         self.len=_len
+        self.filename=_storage_dst
 
         self.airfoil_list=[]
         self.z_list = []
@@ -169,15 +170,11 @@ class Wing(object):
         for i in range(0, len(wing_surf)):
             wing.vectors[i] = wing_surf[i]
 
-        wing.save('wing.stl')
+        wing.save(self.filename)
 
 
 if __name__ == '__main__':
 
-    '''
-    简单后掠机翼示例
-    30度后掠，3度上反，2度负扭转
-    '''
     a1 = Airfoil("./data/table11.dat")
     Span=4270/2
     section_num=12
@@ -187,7 +184,7 @@ if __name__ == '__main__':
     dihedral_angle=0
     twist_angle=0
 
-    w1=Wing(Span)
+    w1=Wing(Span,'./result/wing_'+str(Span)+'_'+str(sweep_back_angle)+'.stl')
     #剖面翼型
     for i in range(0, section_num):
         w1.airfoil_list.append(a1)
