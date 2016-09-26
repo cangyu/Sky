@@ -69,7 +69,7 @@ class Section(object):
             self.down_pts[i][2] = self.z
 
         # 计算由于绕前缘扭转带来的改变
-        rotate = math.pow(math.e, complex(0, math.radians(self.theta))) #e^iθ
+        rotate = complex(math.cos(math.radians(self.theta)),math.sin(math.radians(self.theta)))
         for i in range(1, self.n):
             t = complex(self.up_pts[i][0] - self.up_pts[0][0], self.up_pts[i][1] - self.up_pts[0][1]) * rotate
             self.up_pts[i][0] = self.up_pts[0][0] + t.real
@@ -135,7 +135,7 @@ class Wing(object):
     def __init__(self, _len):
         self.len=_len
 
-        self.airfoil_list = []
+        self.airfoil_list=[]
         self.z_list = []
         self.x_front_list = []
         self.x_tail_list = []
@@ -145,7 +145,7 @@ class Wing(object):
 
     def calc_sections(self):
         for i in range(0, len(self.z_list)):
-            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i],self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
+            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i]*self.len,self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
         for i in range(0, len(self.z_list)):
             self.section_list[i].calc_discrete_pts()
 
@@ -172,23 +172,38 @@ class Wing(object):
         wing.save('wing.stl')
 
 
+if __name__ == '__main__':
 
+    '''
+    简单后掠机翼示例
+    30度后掠，3度上反，2度负扭转
+    '''
+    a1 = Airfoil("./data/table11.dat")
+    Span=4270/2
+    section_num=12
+    max_chord_len=650
+    min_chord_len=210
+    sweep_back_angle=30
+    dihedral_angle=0
+    twist_angle=0
 
+    w1=Wing(Span)
+    #剖面翼型
+    for i in range(0, section_num):
+        w1.airfoil_list.append(a1)
+    #剖面分布
+    w1.z_list=np.linspace(0, 1, section_num)
+    #前缘点
+    w1.x_front_list=np.linspace(0, Span*math.tan(math.radians(sweep_back_angle)), section_num)
+    #后缘点
+    l=np.linspace(max_chord_len,min_chord_len, section_num)
+    for i in range(0, section_num):
+        w1.x_tail_list.append(w1.x_front_list[i]+l[i])
+    #上反
+    w1.dy_list=np.linspace(0, Span*math.tan(math.radians(dihedral_angle)), section_num)
+    #扭转
+    for i in range(0, section_num):
+        w1.theta_list.append(twist_angle)
 
-bf = Airfoil("./data/table11.dat")
-
-Span=4270
-section_num=20
-
-max_chord_len=650
-min_chord_len=210
-
-l=np.linspace(max_chord_len,min_chord_len, section_num)
-delta_x=np.linspace(0, Span/2/math.sqrt(3), section_num)
-delta_z=np.linspace(0, Span/2, section_num)
-
-section=[]
-for i in range(0, section_num):
-    section.append(Section(bf,delta_z[i],delta_x[i],delta_x[i]+l[i],0,0))
-
-
+    w1.calc_sections()
+    w1.generate_wing_stl()
