@@ -69,7 +69,7 @@ class Section(object):
             self.down_pts[i][2] = self.z
 
         # 计算由于绕前缘扭转带来的改变
-        rotate = math.pow(math.e, complex(0, 1) * math.radians(self.theta))
+        rotate = math.pow(math.e, complex(0, math.radians(self.theta))) #e^iθ
         for i in range(1, self.n):
             t = complex(self.up_pts[i][0] - self.up_pts[0][0], self.up_pts[i][1] - self.up_pts[0][1]) * rotate
             self.up_pts[i][0] = self.up_pts[0][0] + t.real
@@ -129,6 +129,51 @@ class Section(object):
 
         return surf
 
+class Wing(object):
+    '''简单机翼，由一个个剖面组成'''
+
+    def __init__(self, _len):
+        self.len=_len
+
+        self.airfoil_list = []
+        self.z_list = []
+        self.x_front_list = []
+        self.x_tail_list = []
+        self.dy_list = []
+        self.theta_list = []
+        self.section_list=[]
+
+    def calc_sections(self):
+        for i in range(0, len(self.z_list)):
+            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i],self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
+        for i in range(0, len(self.z_list)):
+            self.section_list[i].calc_discrete_pts()
+
+
+    def generate_wing_stl(self):
+        wing_surf=[]
+
+        #上下表面与尾缘
+        for i in range(0, len(self.section_list)-1):
+            for face in self.section_list[i].generate_surf(self.section_list[i],self.section_list[i+1]):
+                wing_surf.append(face)
+
+        #根部与翼梢
+        for face in self.section_list[0].generate_face():
+            wing_surf.append(face)
+        for face in self.section_list[-1].generate_face():
+            wing_surf.append(face)
+
+        #生成STL格式文件
+        wing = mesh.Mesh(np.zeros(len(wing_surf), dtype=mesh.Mesh.dtype))
+        for i in range(0, len(wing_surf)):
+            wing.vectors[i] = wing_surf[i]
+
+        wing.save('wing.stl')
+
+
+
+
 
 bf = Airfoil("./data/table11.dat")
 
@@ -146,4 +191,4 @@ section=[]
 for i in range(0, section_num):
     section.append(Section(bf,delta_z[i],delta_x[i],delta_x[i]+l[i],0,0))
 
-wing = mesh.Mesh()
+
