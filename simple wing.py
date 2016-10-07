@@ -31,7 +31,7 @@ class Section(object):
     def __init__(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
         '''
         :param _airfoil: 剖面上的翼型
-        :param _z: 剖面与根部的距离，百分比形式,[0,1]
+        :param _z: 剖面与根部的距离
         :param _x_front: 前缘点在x方向上的位置
         :param _x_tail: 后缘点在x方向上的位置
         :param _dy: 由于机翼上反角导致的在y方向上引起的偏移
@@ -104,7 +104,7 @@ class Section(object):
 
     def generate_surf(cls, start, end):
         '''
-        生成两个剖面之间的曲面，两个剖面要有相同的样本点n
+        生成两个剖面之间的曲面，两个剖面要有相同的样本点数量n
         :param start: 起始剖面
         :param end: 结束剖面
         :return: 一个数组，包含了构成曲面的所有三角形
@@ -132,24 +132,23 @@ class Section(object):
 class Wing(object):
     '''简单机翼，由一个个剖面组成'''
 
-    def __init__(self, _len, _storage_dst):
-        self.len=_len
+    def __init__(self, _storage_dst):
         self.filename=_storage_dst
-
-        self.airfoil_list=[]
-        self.z_list = []
-        self.x_front_list = []
-        self.x_tail_list = []
-        self.dy_list = []
-        self.theta_list = []
         self.section_list=[]
+		
+    def set_parameters(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
+        self.airfoil_list=_airfoil
+        self.z_list = _z
+        self.x_front_list = _x_front
+        self.x_tail_list = _x_tail
+        self.dy_list = _dy
+        self.theta_list = _theta
 
     def calc_sections(self):
         for i in range(0, len(self.z_list)):
-            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i]*self.len,self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
+            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i],self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
         for i in range(0, len(self.z_list)):
             self.section_list[i].calc_discrete_pts()
-
 
     def generate_wing_stl(self):
         wing_surf=[]
@@ -172,10 +171,10 @@ class Wing(object):
 
         wing.save(self.filename)
 
-
 if __name__ == '__main__':
 
     a1 = Airfoil("./data/table11.dat")
+
     Span=4270/2
     section_num=12
     max_chord_len=650
@@ -184,23 +183,28 @@ if __name__ == '__main__':
     dihedral_angle=0
     twist_angle=0
 
-    w1=Wing(Span,'./result/wing_'+str(Span)+'_'+str(sweep_back_angle)+'.stl')
-    #剖面翼型
+    # 剖面翼型
+    airfoil_dist=[]
     for i in range(0, section_num):
-        w1.airfoil_list.append(a1)
-    #剖面分布
-    w1.z_list=np.linspace(0, 1, section_num)
-    #前缘点
-    w1.x_front_list=np.linspace(0, Span*math.tan(math.radians(sweep_back_angle)), section_num)
-    #后缘点
-    l=np.linspace(max_chord_len,min_chord_len, section_num)
+        airfoil_dist.append(a1)
+    # 剖面分布
+    z_dist=np.linspace(0, Span, section_num)
+    # 前缘点
+    x_front_dist = np.linspace(0, Span * math.tan(math.radians(sweep_back_angle)), section_num)
+    # 后缘点
+    x_tail_dist=[]
+    length=np.linspace(max_chord_len,min_chord_len, section_num)
     for i in range(0, section_num):
-        w1.x_tail_list.append(w1.x_front_list[i]+l[i])
-    #上反
-    w1.dy_list=np.linspace(0, Span*math.tan(math.radians(dihedral_angle)), section_num)
-    #扭转
+        x_tail_dist.append(x_front_dist[i]+length[i])
+    # 上反
+    dy_dist = np.linspace(0, Span * math.tan(math.radians(dihedral_angle)), section_num)
+    # 扭转
+    theta_dist=[]
     for i in range(0, section_num):
-        w1.theta_list.append(twist_angle)
+        theta_dist.append(twist_angle)
 
+    # Wing generation
+    w1=Wing('./result/wing_'+str(Span)+'_'+str(sweep_back_angle)+'.stl')
+    w1.set_parameters(airfoil_dist, z_dist,x_front_dist, x_tail_dist, dy_dist, theta_dist)
     w1.calc_sections()
     w1.generate_wing_stl()
