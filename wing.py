@@ -24,7 +24,6 @@ class Airfoil(object):
         plt.plot(self.x, self.y_down, label="DOWN")
         plt.show()
 
-
 class Section(object):
     '组成3维机翼的真实剖面'
 
@@ -178,8 +177,8 @@ if __name__ == '__main__':
     Span=4270/2
     section_num=12
     max_chord_len=650
-    min_chord_len=210
-    sweep_back_angle=30
+    min_chord_len=650
+    sweep_back_angle=0
     dihedral_angle=0
     twist_angle=0
 
