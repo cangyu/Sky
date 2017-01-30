@@ -177,10 +177,10 @@ if __name__ == '__main__':
     Span=4270/2
     section_num=12
     max_chord_len=650
-    min_chord_len=650
-    sweep_back_angle=0
-    dihedral_angle=0
-    twist_angle=0
+    min_chord_len=350
+    sweep_back_angle=30
+    dihedral_angle=10
+    twist_angle=-4
 
     # 剖面翼型
     airfoil_dist=[]
@@ -203,7 +203,7 @@ if __name__ == '__main__':
         theta_dist.append(twist_angle)
 
     # Wing generation
-    w1=Wing('./result/wing_'+str(Span)+'_'+str(sweep_back_angle)+'.stl')
+    w1=Wing('./result/wing.stl')
     w1.set_parameters(airfoil_dist, z_dist,x_front_dist, x_tail_dist, dy_dist, theta_dist)
     w1.calc_sections()
     w1.generate_wing_stl()
