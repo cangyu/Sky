@@ -1,82 +1,55 @@
 import sys
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame,
-                             QSplitter, QStyleFactory, QApplication)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QGridLayout
+from PyQt5.QtWidgets import QPushButton
 
-class Example(QWidget):
-    def __init__(self):
-        super().__init__()
+class ParametricModeling(QWidget):
+    def __init__(self, parent=None):
+        QWidget.__init__(self)
+        self.setWindowTitle('简单客机一体化设计')
 
-        self.initUI()
+        tjtw=QLabel('机头宽度(mm):')
+        ejtw=QLineEdit()
 
-    def initUI(self):
-        hbox = QHBoxLayout(self)
+        tjth=QLabel('机头宽度(mm):')
+        ejth = QLineEdit()
 
-        topleft = QFrame(self)
-        topleft.setFrameShape(QFrame.StyledPanel)
+        tjtl=QLabel('机头长度(mm):')
+        ejtl = QLineEdit()
 
-        topright = QFrame(self)
-        topright.setFrameShape(QFrame.StyledPanel)
-
-        bottom = QFrame(self)
-        bottom.setFrameShape(QFrame.StyledPanel)
-
-        splitter1 = QSplitter(Qt.Horizontal)
-        splitter1.addWidget(topleft)
-        splitter1.addWidget(topright)
-
-        splitter2 = QSplitter(Qt.Vertical)
-        splitter2.addWidget(splitter1)
-        splitter2.addWidget(bottom)
-
-        hbox.addWidget(splitter2)
-        self.setLayout(hbox)
-
-        self.setGeometry(300, 300, 300, 200)
-        self.setWindowTitle('QSplitter')
-        self.show()
-
-    def onChanged(self, text):
-        self.lbl.setText(text)
-        self.lbl.adjustSize()
+        btn_gen=QPushButton(self)
+        btn_gen.setText('生成')
+        btn_gen.setToolTip('根据输入参数生成模型')
 
 
-import sys
-from PyQt5.QtWidgets import (QWidget, QLabel,
-                             QComboBox, QApplication)
+        btn_exit=QPushButton(self)
+        btn_exit.setText('退出')
+        btn_exit.setToolTip('退出本程序')
 
+        grid=QGridLayout()
+        grid.setSpacing(10)
 
-class Example(QWidget):
-    def __init__(self):
-        super().__init__()
+        grid.addWidget(tjtl, 0, 0)
+        grid.addWidget(ejtl, 0, 1)
+        grid.addWidget(tjtw, 1, 0)
+        grid.addWidget(ejtw, 1, 1)
+        grid.addWidget(tjth, 2, 0)
+        grid.addWidget(ejth, 2, 1)
+        grid.addWidget(btn_gen, 3, 0)
+        grid.addWidget(btn_exit, 3, 1)
 
-        self.initUI()
-
-    def initUI(self):
-        self.lbl = QLabel("Ubuntu", self)
-
-        combo = QComboBox(self)
-        combo.addItem("Ubuntu")
-        combo.addItem("Mandriva")
-        combo.addItem("Fedora")
-        combo.addItem("Arch")
-        combo.addItem("Gentoo")
-
-        combo.move(50, 50)
-        self.lbl.move(50, 150)
-
-        combo.activated[str].connect(self.onActivated)
-
-        self.setGeometry(300, 300, 300, 200)
-        self.setWindowTitle('QComboBox')
-        self.show()
-
-    def onActivated(self, text):
-        self.lbl.setText(text)
-        self.lbl.adjustSize()
+        self.setLayout(grid)
+        self.resize(350, 300)
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = Example()
+    app=QApplication(sys.argv)
+
+    ythsj=ParametricModeling()
+    ythsj.show()
+
     sys.exit(app.exec_())
+

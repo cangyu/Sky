@@ -1,34 +1,106 @@
 import math
 import numpy as np
+import matplotlib.pyplot as plt
+from stl import mesh
 
-'''剖面形状'''
-DESIGN_NUM = 100
-RADIUS = 1
+L=6380
+L0=0.25*L
+L2=0.3*L
+L1=L-L0-L2
 
-x = np.linspace(0, 1, DESIGN_NUM)
-y_up = np.linspace(RADIUS, 0, DESIGN_NUM)
-y_down = np.linspace(-RADIUS, 0, DESIGN_NUM)
+D=L1/8
+h0=0.6*D
+h1=D-h0
 
-for i in range(0, DESIGN_NUM):
-    y_up[i] = math.sqrt(1 - math.pow(x[i], 2))
-    y_down[i] = -y_up[i]
+h2=0.28*D
+h3=D-h2
 
-fuselage_section = open('./data/fuselage_section01.dat', 'w')
-for i in range(0, DESIGN_NUM):
-    fuselage_section.write(str(x[i]) + '\t' + str(y_up[i]) + '\t' + str(y_down[i]) + '\n')
+dh=h0-h2
 
-fuselage_section.close()
+def get_y_up(x):
+    if x<0:
+        return 0
+    elif x<L0:
+        return h0*math.sqrt(1-math.pow((x-L0)/L0,2))
+    elif x<L0+L1:
+        return h0
+    elif x<L:
+        return dh+h2*math.sqrt(1-math.pow((x-(L0+L1))/L2,2))
+    else:
+        return dh
 
-'''机身描述'''
-SECTION_NUM=10
-FUSELAGE_LEN=6380
+def get_y_down(x):
+    if x<0:
+        return 0
+    elif x<L0:
+        return -h1*math.sqrt(1-math.pow((x-L0)/L0,2))
+    elif x<L0+L1:
+        return -h1
+    elif x<L:
+        return dh-h3*math.sqrt(1-math.pow((x-(L0+L1))/L2,2))
+    else:
+        return dh
 
-frame_shape=['./data/fuselage_section01.dat']*SECTION_NUM
-height_dist=[0]*SECTION_NUM
-radius_dist=[650]*SECTION_NUM
-z_dist=np.linspace(0, FUSELAGE_LEN, SECTION_NUM)
 
-fuselage_desc=open('./data/fuselage1.dat','w')
-for i in range(0, SECTION_NUM):
-    fuselage_desc.write(frame_shape[i]+'\t'+str(height_dist[i])+'\t'+str(radius_dist[i])+'\t'+str(z_dist[i])+'\n')
-fuselage_desc.close()
+delta_step=10
+x_tou=np.arange(0, L0, delta_step)
+x_shen=np.arange(L0, L0+L1, delta_step)
+x_wei=np.arange(L0+L1, L, delta_step)
+
+x=[]
+y_up=[]
+y_down=[]
+
+for i in range(0, len(x_tou)):
+    x.append(x_tou[i])
+
+for i in range(0, len(x_shen)):
+    x.append(x_shen[i])
+
+for i in range(0, len(x_wei)):
+    x.append(x_wei[i])
+
+x.append(L)
+
+for i in range(0, len(x)):
+    y_up.append(get_y_up(x[i]))
+    y_down.append(get_y_down(x[i]))
+
+y_mid=[]
+
+for i in range(0, len(x)):
+    y_mid.append((y_up[i]+y_down[i])/2)
+
+
+plt.plot(x, y_up, label="UP")
+plt.plot(x, y_down, label="DOWN")
+plt.plot(x, y_mid, label="MID")
+plt.gca().set_aspect(1)
+
+
+fuselage_surf=[]
+
+for i in range(0, len(x)-1):
+    rl=(y_up[i]-y_down[i])/2
+    rr=(y_up[i+1]-y_down[i+1])/2
+
+    theta=0
+    delta_theta=5
+    while theta<360:
+        pl0=[x[i], rl*math.cos(math.radians(theta)), rl*math.sin(math.radians(theta))]
+        pl1=[x[i], rl*math.cos(math.radians(theta+delta_theta)), rl*math.sin(math.radians(theta+delta_theta))]
+        pr0 = [x[i+1], rr * math.cos(math.radians(theta)), rr * math.sin(math.radians(theta))]
+        pr1 = [x[i+1], rr * math.cos(math.radians(theta + delta_theta)), rr * math.sin(math.radians(theta + delta_theta))]
+
+        fuselage_surf.append([pl0, pl1, pr0])
+        fuselage_surf.append([pr0, pr1, pl1])
+
+        theta=theta+delta_theta
+
+fuselage = mesh.Mesh(np.zeros(len(fuselage_surf), dtype=mesh.Mesh.dtype))
+for i in range(0, len(fuselage_surf)):
+    fuselage.vectors[i] = fuselage_surf[i]
+
+fuselage.save('./result/fuselage_20170130.stl')
+
+plt.show()

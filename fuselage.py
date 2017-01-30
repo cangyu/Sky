@@ -108,6 +108,8 @@ class Section(object):
         return surf
 
 class Fuselage(object):
+    '''由若干剖面组成的机身'''
+
     def __init__(self, _storage_dst):
         self.filename = _storage_dst
         self.section_dist = []
