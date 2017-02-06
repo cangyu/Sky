@@ -103,4 +103,4 @@ for i in range(0, len(fuselage_surf)):
 
 fuselage.save('./result/fuselage.stl')
 
-plt.show()
+#plt.show()

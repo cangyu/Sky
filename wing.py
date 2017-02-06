@@ -170,40 +170,63 @@ class Wing(object):
 
         wing.save(self.filename)
 
+    def generate_wing_linear(self, airfoil, span, section_num, max_chord, min_chord, sweep_back, dihedral, twist):
+        '''
+        全部参数线性分布的简单机翼
+        :param airfoil: 剖面翼型描述文件
+        :param span: 机翼的展长
+        :param section_num: 构成机翼的剖面数量
+        :param max_chord: 根部弦长
+        :param min_chord: 尖部弦长
+        :param sweep_back: 后掠角
+        :param dihedral: 上反角
+        :param twist: 扭转角
+        :return: None
+        '''
+
+        # 剖面翼型
+        _airfoil = Airfoil(airfoil)
+        airfoil_dist = []
+        for i in range(0, section_num):
+            airfoil_dist.append(_airfoil)
+
+        # 剖面分布
+        z_dist = np.linspace(0, span, section_num)
+
+        # 前缘点
+        x_front_dist = np.linspace(0, span * math.tan(math.radians(sweep_back)), section_num)
+
+        # 后缘点
+        x_tail_dist = []
+        length = np.linspace(max_chord, min_chord, section_num)
+        for i in range(0, section_num):
+            x_tail_dist.append(x_front_dist[i] + length[i])
+
+        # 上反
+        dy_dist = np.linspace(0, span * math.tan(math.radians(dihedral)), section_num)
+
+        # 扭转
+        theta_dist = []
+        for i in range(0, section_num):
+            theta_dist.append(twist)
+
+        # Wing generation
+        self.set_parameters(airfoil_dist, z_dist, x_front_dist, x_tail_dist, dy_dist, theta_dist)
+        self.calc_sections()
+        self.generate_wing_stl()
+
+        return self
+
 if __name__ == '__main__':
 
-    a1 = Airfoil("./data/table11.dat")
+    '''机翼'''
+    w=Wing('./result/wing.stl')
+    w.generate_wing_linear('./data/table06.dat', 2135, 12, 650, 350, 30, 8, -4)
 
-    Span=4270/2
-    section_num=12
-    max_chord_len=650
-    min_chord_len=350
-    sweep_back_angle=30
-    dihedral_angle=10
-    twist_angle=-4
+    '''垂尾'''
+    vs=Wing('./result/vertical_stabilizer.stl')
+    vs.generate_wing_linear('./data/naca0012.dat', 336, 6, 140, 60, 10, 0, 0)
 
-    # 剖面翼型
-    airfoil_dist=[]
-    for i in range(0, section_num):
-        airfoil_dist.append(a1)
-    # 剖面分布
-    z_dist=np.linspace(0, Span, section_num)
-    # 前缘点
-    x_front_dist = np.linspace(0, Span * math.tan(math.radians(sweep_back_angle)), section_num)
-    # 后缘点
-    x_tail_dist=[]
-    length=np.linspace(max_chord_len,min_chord_len, section_num)
-    for i in range(0, section_num):
-        x_tail_dist.append(x_front_dist[i]+length[i])
-    # 上反
-    dy_dist = np.linspace(0, Span * math.tan(math.radians(dihedral_angle)), section_num)
-    # 扭转
-    theta_dist=[]
-    for i in range(0, section_num):
-        theta_dist.append(twist_angle)
-
-    # Wing generation
-    w1=Wing('./result/wing.stl')
-    w1.set_parameters(airfoil_dist, z_dist,x_front_dist, x_tail_dist, dy_dist, theta_dist)
-    w1.calc_sections()
-    w1.generate_wing_stl()
+    '''平尾'''
+    hs=Wing('./result/horizontal_stabilizer.stl')
+    hs.generate_wing_linear('./data/naca0012.dat', 236, 6, 120, 50, 20, 0, 0)
