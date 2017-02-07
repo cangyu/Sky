@@ -3,6 +3,7 @@ import numpy as np
 import math
 from stl import mesh
 
+
 class Airfoil(object):
     '2维翼型描述, 弦长为单位1'
 
@@ -23,6 +24,7 @@ class Airfoil(object):
         plt.plot(self.x, self.y_up, label="UP")
         plt.plot(self.x, self.y_down, label="DOWN")
         plt.show()
+
 
 class Section(object):
     '组成3维机翼的真实剖面'
@@ -68,7 +70,7 @@ class Section(object):
             self.down_pts[i][2] = self.z
 
         # 计算由于绕前缘扭转带来的改变
-        rotate = complex(math.cos(math.radians(self.theta)),math.sin(math.radians(self.theta)))
+        rotate = complex(math.cos(math.radians(self.theta)), math.sin(math.radians(self.theta)))
         for i in range(1, self.n):
             t = complex(self.up_pts[i][0] - self.up_pts[0][0], self.up_pts[i][1] - self.up_pts[0][1]) * rotate
             self.up_pts[i][0] = self.up_pts[0][0] + t.real
@@ -90,10 +92,10 @@ class Section(object):
             self.chord[i][2] = 0.5 * (self.up_pts[i][2] + self.down_pts[i][2])
 
     def generate_face(self):
-        face=[]
-        face.append([self.up_pts[0],self.up_pts[1],self.chord[1]])
+        face = []
+        face.append([self.up_pts[0], self.up_pts[1], self.chord[1]])
         face.append([self.down_pts[0], self.down_pts[1], self.chord[1]])
-        for i in range(1, self.n-1):
+        for i in range(1, self.n - 1):
             face.append([self.chord[i], self.up_pts[i], self.up_pts[i + 1]])
             face.append([self.chord[i], self.down_pts[i], self.down_pts[i + 1]])
             face.append([self.chord[i], self.chord[i + 1], self.up_pts[i + 1]])
@@ -108,35 +110,36 @@ class Section(object):
         :param end: 结束剖面
         :return: 一个数组，包含了构成曲面的所有三角形
         '''
-        assert start.n==end.n
+        assert start.n == end.n
 
-        surf=[]
-        n=start.n
-        #上表面
+        surf = []
+        n = start.n
+        # 上表面
         for i in range(0, n - 1):
             surf.append([start.up_pts[i], start.up_pts[i + 1], end.up_pts[i]])
             surf.append([end.up_pts[i], end.up_pts[i + 1], start.up_pts[i + 1]])
 
-        #下表面
+        # 下表面
         for i in range(0, n - 1):
             surf.append([start.down_pts[i], start.down_pts[i + 1], end.down_pts[i]])
             surf.append([end.down_pts[i], end.down_pts[i + 1], start.down_pts[i + 1]])
 
-        #后缘垂面
+        # 后缘垂面
         surf.append([start.up_pts[n - 1], start.down_pts[n - 1], end.up_pts[n - 1]])
         surf.append([end.up_pts[n - 1], end.down_pts[n - 1], start.down_pts[n - 1]])
 
         return surf
 
+
 class Wing(object):
     '''简单机翼，由一个个剖面组成'''
 
     def __init__(self, _storage_dst):
-        self.filename=_storage_dst
-        self.section_list=[]
-		
+        self.filename = _storage_dst
+        self.section_list = []
+
     def set_parameters(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
-        self.airfoil_list=_airfoil
+        self.airfoil_list = _airfoil
         self.z_list = _z
         self.x_front_list = _x_front
         self.x_tail_list = _x_tail
@@ -145,30 +148,33 @@ class Wing(object):
 
     def calc_sections(self):
         for i in range(0, len(self.z_list)):
-            self.section_list.append(Section(self.airfoil_list[i],self.z_list[i],self.x_front_list[i],self.x_tail_list[i],self.dy_list[i], self.theta_list[i]))
+            self.section_list.append(
+                Section(self.airfoil_list[i], self.z_list[i], self.x_front_list[i], self.x_tail_list[i],
+                        self.dy_list[i], self.theta_list[i]))
         for i in range(0, len(self.z_list)):
             self.section_list[i].calc_discrete_pts()
 
     def generate_wing_stl(self):
-        wing_surf=[]
+        wing_surf = []
 
-        #上下表面与尾缘
-        for i in range(0, len(self.section_list)-1):
-            for face in self.section_list[i].generate_surf(self.section_list[i],self.section_list[i+1]):
+        # 上下表面与尾缘
+        for i in range(0, len(self.section_list) - 1):
+            for face in self.section_list[i].generate_surf(self.section_list[i], self.section_list[i + 1]):
                 wing_surf.append(face)
 
-        #根部与翼梢
+        # 根部与翼梢
         for face in self.section_list[0].generate_face():
             wing_surf.append(face)
         for face in self.section_list[-1].generate_face():
             wing_surf.append(face)
 
-        #生成STL格式文件
+        # 生成STL格式文件
         wing = mesh.Mesh(np.zeros(len(wing_surf), dtype=mesh.Mesh.dtype))
         for i in range(0, len(wing_surf)):
             wing.vectors[i] = wing_surf[i]
 
         wing.save(self.filename)
+
 
     def generate_wing_linear(self, airfoil, span, section_num, max_chord, min_chord, sweep_back, dihedral, twist):
         '''
@@ -216,17 +222,3 @@ class Wing(object):
         self.generate_wing_stl()
 
         return self
-
-if __name__ == '__main__':
-
-    '''机翼'''
-    w=Wing('./result/wing.stl')
-    w.generate_wing_linear('./data/table06.dat', 2135, 12, 650, 350, 30, 8, -4)
-
-    '''垂尾'''
-    vs=Wing('./result/vertical_stabilizer.stl')
-    vs.generate_wing_linear('./data/naca0012.dat', 336, 6, 140, 60, 10, 0, 0)
-
-    '''平尾'''
-    hs=Wing('./result/horizontal_stabilizer.stl')
-    hs.generate_wing_linear('./data/naca0012.dat', 236, 6, 120, 50, 20, 0, 0)
