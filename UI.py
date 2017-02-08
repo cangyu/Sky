@@ -4,25 +4,11 @@ from aeroplane import Aircraft
 import math
 import os
 
-'''尾翼'''
-# 平尾容量
-Vh = 0
-
-# 平尾面积
-Sh = 0
-
-# 尾力臂
-lh = 0
-
 
 class ParametricModeling(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self)
 
-        self.initParam()
-        self.initUI()
-
-    def initParam(self):
         # 总长，直径，擦地角，机头比例，机尾比例，机头上层比例，机尾上层比例
         self.js = [6380, 650, 12, 0.25, 0.3, 0.8, 0.16]
         # 长径比
@@ -45,9 +31,46 @@ class ParametricModeling(QWidget):
 
         # 垂尾
         self.cw = ['./data/naca0012.dat', 336, 6, 140, 60, 10, 0, 0]
+        # 面积
+        self.cw_S = 0
+        # 垂尾力臂长度
+        self.cw_lv = 0
+        # 垂尾容量
+        self.cw_Vv = 0
+        # 展弦比
+        self.cw_AR = 0
+        # 1/4弦线后掠角
+        self.cw_A_25 = 0
+        # 梯形比
+        self.cw_Taper_Ratio = 0
+        # 平均气动弦长
+        self.cw_MAC = 0
 
         # 平尾
         self.pw = ['./data/naca0012.dat', 236, 6, 120, 50, 20, 0, 0]
+        # 面积
+        self.pw_S = 0
+        # 平尾力臂长度
+        self.pw_lv = 0
+        # 平尾容量
+        self.pw_Vv = 0
+        # 展弦比
+        self.pw_AR = 0
+        # 1/4弦线后掠角
+        self.pw_A_25 = 0
+        # 梯形比
+        self.pw_Taper_Ratio = 0
+        # 平均气动弦长
+        self.pw_MAC = 0
+
+        self.airfoil_list = []
+        airfoil_dir = './data/'
+        for f in os.listdir(airfoil_dir):
+            cur_filename = os.path.join(airfoil_dir, f)
+            if os.path.isfile(cur_filename) and cur_filename.endswith('.dat'):
+                self.airfoil_list.append(f)
+
+        self.initUI()
 
     def initUI(self):
         self.setWindowTitle('简单客机一体化设计')
@@ -62,10 +85,13 @@ class ParametricModeling(QWidget):
         pingwei_layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
 
-        global_layout.addLayout(jishen_layout)
-        global_layout.addLayout(jiyi_layout)
-        global_layout.addLayout(chuiwei_layout)
-        global_layout.addLayout(pingwei_layout)
+        comp_layout = QGridLayout()
+        comp_layout.addLayout(jishen_layout, 0, 0)
+        comp_layout.addLayout(jiyi_layout, 0, 1)
+        comp_layout.addLayout(chuiwei_layout, 1, 0)
+        comp_layout.addLayout(pingwei_layout, 1, 1)
+
+        global_layout.addLayout(comp_layout)
         global_layout.addLayout(btn_layout)
 
         # 机身
@@ -140,16 +166,7 @@ class ParametricModeling(QWidget):
 
         self.yixing_label = QLabel('翼型:')
         self.yixing_combobox = QComboBox()
-
-        airfoil_list = []
-        airfoil_dir='./data/'
-        for f in os.listdir(airfoil_dir):
-            cur_filename=os.path.join(airfoil_dir, f)
-            if os.path.isfile(cur_filename) and cur_filename.endswith('.dat'):
-                airfoil_list.append(f)
-
-        self.yixing_combobox.addItems(airfoil_list)
-
+        self.yixing_combobox.addItems(self.airfoil_list)
         jiyi_origin_param_layout.addWidget(self.yixing_label, 0, 0)
         jiyi_origin_param_layout.addWidget(self.yixing_combobox, 0, 1)
 
@@ -173,7 +190,7 @@ class ParametricModeling(QWidget):
         jiyi_origin_param_layout.addWidget(self.yijian_len_label, 4, 0)
         jiyi_origin_param_layout.addWidget(self.yijian_len_lineedit, 4, 1)
 
-        self.houluejiao_label = QLabel('后掠角:')
+        self.houluejiao_label = QLabel('前缘后掠角:')
         self.houluejiao_lineedit = QLineEdit()
         jiyi_origin_param_layout.addWidget(self.houluejiao_label, 5, 0)
         jiyi_origin_param_layout.addWidget(self.houluejiao_lineedit, 5, 1)
@@ -208,9 +225,123 @@ class ParametricModeling(QWidget):
         self.chuiwei_label = QLabel('垂尾设计参数：')
         chuiwei_layout.addWidget(self.chuiwei_label)
 
+        chuiwei_canshu_layout = QHBoxLayout()
+        chuiwei_layout.addLayout(chuiwei_canshu_layout)
+
+        chuiwei_origin_param_layout = QGridLayout()
+        chuiwei_derived_param_layout = QVBoxLayout()
+        chuiwei_canshu_layout.addLayout(chuiwei_origin_param_layout)
+        chuiwei_canshu_layout.addLayout(chuiwei_derived_param_layout)
+
+        self.cw_yixing_label = QLabel('翼型:')
+        self.cw_yixing_combobox = QComboBox()
+        self.cw_yixing_combobox.addItems(self.airfoil_list)
+        chuiwei_origin_param_layout.addWidget(self.cw_yixing_label, 0, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_yixing_combobox, 0, 1)
+
+        self.cw_zhangchang_label = QLabel('展长(mm):')
+        self.cw_zhangchang_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_zhangchang_label, 1, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_zhangchang_lineedit, 1, 1)
+
+        self.cw_section_num_label = QLabel('控制剖面数量:')
+        self.cw_section_num_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_section_num_label, 2, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_section_num_lineedit, 2, 1)
+
+        self.cw_yigen_len_label = QLabel('翼根长度(mm):')
+        self.cw_yigen_len_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_yigen_len_label, 3, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_yigen_len_lineedit, 3, 1)
+
+        self.cw_yijian_len_label = QLabel('翼尖长度(mm):')
+        self.cw_yijian_len_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_yijian_len_label, 4, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_yijian_len_lineedit, 4, 1)
+
+        self.cw_houluejiao_label = QLabel('前缘后掠角:')
+        self.cw_houluejiao_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_houluejiao_label, 5, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_houluejiao_lineedit, 5, 1)
+
+        self.cw_pos_label = QLabel('垂尾力臂长度(mm):')
+        self.cw_pos_lineedit = QLineEdit()
+        chuiwei_origin_param_layout.addWidget(self.cw_pos_label, 6, 0)
+        chuiwei_origin_param_layout.addWidget(self.cw_pos_lineedit, 6, 1)
+
+        self.cw_mianji = QLabel('垂尾面积: %.2f' % (self.cw_S))
+        self.cw_weirongliang = QLabel('垂尾容量: %.2f' % (self.cw_Vv))
+        self.cw_zhangxianbi = QLabel('展弦比: %.2f' % (self.cw_AR))
+        self.cw_25houluejiao = QLabel('1/4弦线后掠角: %.2f' % (self.cw_A_25))
+        self.cw_tixingbi = QLabel('梯形比: %.2f' % (self.cw_Taper_Ratio))
+        self.cw_pjqdxc = QLabel('平均气动弦长: %.2f' % (self.cw_MAC))
+        chuiwei_derived_param_layout.addWidget(self.cw_mianji)
+        chuiwei_derived_param_layout.addWidget(self.cw_weirongliang)
+        chuiwei_derived_param_layout.addWidget(self.cw_zhangxianbi)
+        chuiwei_derived_param_layout.addWidget(self.cw_25houluejiao)
+        chuiwei_derived_param_layout.addWidget(self.cw_tixingbi)
+        chuiwei_derived_param_layout.addWidget(self.cw_pjqdxc)
+
         # 平尾
         self.pingwei_label = QLabel('平尾设计参数：')
         pingwei_layout.addWidget(self.pingwei_label)
+
+        pingwei_canshu_layout = QHBoxLayout()
+        pingwei_layout.addLayout(pingwei_canshu_layout)
+
+        pingwei_origin_param_layout = QGridLayout()
+        pingwei_derived_param_layout = QVBoxLayout()
+        pingwei_canshu_layout.addLayout(pingwei_origin_param_layout)
+        pingwei_canshu_layout.addLayout(pingwei_derived_param_layout)
+
+        self.pw_yixing_label = QLabel('翼型:')
+        self.pw_yixing_combobox = QComboBox()
+        self.pw_yixing_combobox.addItems(self.airfoil_list)
+        pingwei_origin_param_layout.addWidget(self.pw_yixing_label, 0, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_yixing_combobox, 0, 1)
+
+        self.pw_zhangchang_label = QLabel('展长(mm):')
+        self.pw_zhangchang_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_zhangchang_label, 1, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_zhangchang_lineedit, 1, 1)
+
+        self.pw_section_num_label = QLabel('控制剖面数量:')
+        self.pw_section_num_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_section_num_label, 2, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_section_num_lineedit, 2, 1)
+
+        self.pw_yigen_len_label = QLabel('翼根长度(mm):')
+        self.pw_yigen_len_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_yigen_len_label, 3, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_yigen_len_lineedit, 3, 1)
+
+        self.pw_yijian_len_label = QLabel('翼尖长度(mm):')
+        self.pw_yijian_len_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_yijian_len_label, 4, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_yijian_len_lineedit, 4, 1)
+
+        self.pw_houluejiao_label = QLabel('前缘后掠角:')
+        self.pw_houluejiao_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_houluejiao_label, 5, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_houluejiao_lineedit, 5, 1)
+
+        self.pw_pos_label = QLabel('平尾力臂长度(mm):')
+        self.pw_pos_lineedit = QLineEdit()
+        pingwei_origin_param_layout.addWidget(self.pw_pos_label, 6, 0)
+        pingwei_origin_param_layout.addWidget(self.pw_pos_lineedit, 6, 1)
+
+        self.pw_mianji = QLabel('平尾面积: %.2f' % (self.pw_S))
+        self.pw_weirongliang = QLabel('平尾容量: %.2f' % (self.pw_Vv))
+        self.pw_zhangxianbi = QLabel('展弦比: %.2f' % (self.pw_AR))
+        self.pw_25houluejiao = QLabel('1/4弦线后掠角: %.2f' % (self.pw_A_25))
+        self.pw_tixingbi = QLabel('梯形比: %.2f' % (self.pw_Taper_Ratio))
+        self.pw_pjqdxc = QLabel('平均气动弦长: %.2f' % (self.pw_MAC))
+        pingwei_derived_param_layout.addWidget(self.pw_mianji)
+        pingwei_derived_param_layout.addWidget(self.pw_weirongliang)
+        pingwei_derived_param_layout.addWidget(self.pw_zhangxianbi)
+        pingwei_derived_param_layout.addWidget(self.pw_25houluejiao)
+        pingwei_derived_param_layout.addWidget(self.pw_tixingbi)
+        pingwei_derived_param_layout.addWidget(self.pw_pjqdxc)
 
         # 功能按键
         self.btn_calc = QPushButton(self)
@@ -244,7 +375,7 @@ class ParametricModeling(QWidget):
         self.js[6] = float(self.hr2_lineedit.text())
 
         # 机翼
-        self.jy[0] = './data/'+self.yixing_combobox.currentText()
+        self.jy[0] = './data/' + self.yixing_combobox.currentText()
         self.jy[1] = float(self.zhangchang_lineedit.text())
         self.jy[2] = float(self.section_num_lineedit.text())
         self.jy[3] = float(self.yigen_len_lineedit.text())
@@ -253,6 +384,18 @@ class ParametricModeling(QWidget):
         self.jy[6] = float(self.shangfanjiao_lineedit.text())
         self.jy[7] = float(self.niuzhuanjiao_lineedit.text())
         self.jy_pos = float(self.jiyi_pos_lineedit.text())
+
+        #垂尾
+        self.cw[0] = './data/' + self.cw_yixing_combobox.currentText()
+        self.cw[1] = float(self.zhangchang_lineedit.text())
+        self.cw[2] = float(self.section_num_lineedit.text())
+        self.cw[3] = float(self.yigen_len_lineedit.text())
+        self.cw[4] = float(self.yijian_len_lineedit.text())
+        self.cw[5] = float(self.houluejiao_lineedit.text())
+        self.jy_pos = float(self.jiyi_pos_lineedit.text())
+
+        #平尾
+
 
     def update_param(self):
         '''计算衍生参数'''
