@@ -2,10 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 from stl import mesh
+from PyQt5.QtWidgets import *
+import os
 
 
 class Airfoil(object):
-    '2维翼型描述, 弦长为单位1'
+    '''2维翼型描述, 弦长为单位1'''
 
     def __init__(self, _file):
         self.x = []
@@ -27,7 +29,7 @@ class Airfoil(object):
 
 
 class Section(object):
-    '组成3维机翼的真实剖面'
+    ''''组成3维机翼的真实剖面'''
 
     def __init__(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
         '''
@@ -134,11 +136,152 @@ class Section(object):
 class Wing(object):
     '''简单机翼，由一个个剖面组成'''
 
-    def __init__(self, _storage_dst):
-        self.filename = _storage_dst
-        self.section_list = []
+    '翼型列表'
+    airfoil_list = []
+    airfoil_dir = './airfoil/'
 
-    def set_parameters(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
+    @staticmethod
+    def update_airfoil_list():
+        for f in os.listdir(Wing.airfoil_dir):
+            cur_filename = os.path.join(Wing.airfoil_dir, f)
+            if os.path.isfile(cur_filename) and cur_filename.endswith('.dat'):
+                Wing.airfoil_list.append(f)
+
+    def __init__(self, _filename):
+        self.filename = _filename
+        self.SectionNum = 12
+        self.section_list = []
+        self.widget = QWidget()
+
+        'intrinsic description'
+        self.Airfoil = ''  # 翼型
+        self.Span = 6380  # 展长
+        self.C_root = 620  # 翼根弦长
+        self.C_tip = 258  # 翼尖弦长
+        self.SweepBack = 30  # 后掠角
+        self.Dihedral = 5  # 上反角
+        self.Twist = -4  # 绕前缘扭转角
+        self.X_25 = 1600  # 1/4弦长位置
+
+        'derived description'
+        self.S = 0  # 参考机翼面积
+        self.AR = 0  # 展弦比
+        self.A_25 = 0  # 1/4弦线后掠角
+        self.TaperRatio = 0  # 梯形比
+        self.MAC = 0  # 平均气动弦长
+
+    def init_widget(self, _widget_name):
+        layout = QVBoxLayout()
+        self.widget.setLayout(layout)
+
+        label = QLabel('机翼设计参数：')
+        layout.addWidget(label)
+
+        param_layout = QHBoxLayout()
+        layout.addLayout(param_layout)
+
+        intrinsic_param_layout = QGridLayout()
+        derived_param_layout = QVBoxLayout()
+
+        param_layout.addLayout(intrinsic_param_layout)
+        param_layout.addLayout(derived_param_layout)
+
+        airfoil_label = QLabel('翼型:')
+        self.airfoil_combobox = QComboBox()
+        self.airfoil_combobox.addItems(Wing.airfoil_list)
+        intrinsic_param_layout.addWidget(airfoil_label, 0, 0)
+        intrinsic_param_layout.addWidget(self.airfoil_combobox, 0, 1)
+
+        span_label = QLabel('展长(cm):')
+        self.span_lineedit = QLineEdit()
+        self.span_lineedit.setText(str(self.Span))
+        intrinsic_param_layout.addWidget(span_label, 1, 0)
+        intrinsic_param_layout.addWidget(self.span_lineedit, 1, 1)
+
+        section_num_label = QLabel('控制剖面数量:')
+        self.section_num_lineedit = QLineEdit()
+        self.section_num_lineedit.setText(str(self.SectionNum))
+        intrinsic_param_layout.addWidget(section_num_label, 2, 0)
+        intrinsic_param_layout.addWidget(self.section_num_lineedit, 2, 1)
+
+        wing_root_len_label = QLabel('翼根长度(cm):')
+        self.wing_root_len_lineedit = QLineEdit()
+        self.wing_root_len_lineedit.setText(str(self.C_root))
+        intrinsic_param_layout.addWidget(wing_root_len_label, 3, 0)
+        intrinsic_param_layout.addWidget(self.wing_root_len_lineedit, 3, 1)
+
+        wing_tip_len_label = QLabel('翼尖长度(cm):')
+        self.wing_tip_len_lineedit = QLineEdit()
+        self.wing_tip_len_lineedit.setText(str(self.C_tip))
+        intrinsic_param_layout.addWidget(wing_tip_len_label, 4, 0)
+        intrinsic_param_layout.addWidget(self.wing_tip_len_lineedit, 4, 1)
+
+        sweep_back_label = QLabel('前缘后掠角(°):')
+        self.sweep_back_lineedit = QLineEdit()
+        self.sweep_back_lineedit.setText(str(self.SweepBack))
+        intrinsic_param_layout.addWidget(sweep_back_label, 5, 0)
+        intrinsic_param_layout.addWidget(self.sweep_back_lineedit, 5, 1)
+
+        dihedral_label = QLabel('上反角(°):')
+        self.dihedral_lineedit = QLineEdit()
+        self.dihedral_lineedit.setText(str(self.Dihedral))
+        intrinsic_param_layout.addWidget(dihedral_label, 6, 0)
+        intrinsic_param_layout.addWidget(self.dihedral_lineedit, 6, 1)
+
+        twist_label = QLabel('扭转角(°):')
+        self.twist_lineedit = QLineEdit()
+        self.twist_lineedit.setText(str(self.Twist))
+        intrinsic_param_layout.addWidget(twist_label, 7, 0)
+        intrinsic_param_layout.addWidget(self.twist_lineedit, 7, 1)
+
+        x25_label = QLabel('1/4弦线X轴位置(cm):')
+        self.x25_lineedit = QLineEdit()
+        self.x25_lineedit.setText(str(self.X_25))
+        intrinsic_param_layout.addWidget(x25_label, 8, 0)
+        intrinsic_param_layout.addWidget(self.x25_lineedit, 8, 1)
+
+        self.ref_area = QLabel('参考面积: %.2f' % (self.S))
+        self.aspect_ratio = QLabel('展弦比: %.2f' % (self.AR))
+        self.sweep_back_25 = QLabel('1/4弦线后掠角: %.2f' % (self.A_25))
+        self.taper_ratio = QLabel('梯形比: %.2f' % (self.TaperRatio))
+        self.mac = QLabel('平均气动弦长: %.2f' % (self.MAC))
+        derived_param_layout.addWidget(self.ref_area)
+        derived_param_layout.addWidget(self.aspect_ratio)
+        derived_param_layout.addWidget(self.sweep_back_25)
+        derived_param_layout.addWidget(self.taper_ratio)
+        derived_param_layout.addWidget(self.mac)
+
+        return self.widget, _widget_name
+
+    def get_intrinsic_param(self):
+        self.Airfoil = Wing.airfoil_dir + self.airfoil_combobox.currentText()
+        self.Span = float(self.span_lineedit.text())
+        self.SectionNum = int(self.section_num_lineedit.text())
+        self.C_root = float(self.wing_root_len_lineedit.text())
+        self.C_tip = float(self.wing_tip_len_lineedit.text())
+        self.SweepBack = float(self.sweep_back_lineedit.text())
+        self.Dihedral = float(self.dihedral_lineedit.text())
+        self.Twist = float(self.twist_lineedit.text())
+        self.X_25 = float(self.x25_lineedit.text())
+
+    def update_derived_param(self):
+        self.get_intrinsic_param()
+
+        self.S = float(0.5 * self.Span * (self.C_root + self.C_tip))
+        self.AR = float(math.pow(self.Span, 2) / self.S)
+        self.TaperRatio = float(self.C_tip / self.C_root)
+        self.A_25 = math.degrees(math.atan(math.tan(math.radians(self.SweepBack)) - (1 - self.TaperRatio) / (
+            self.TaperRatio * (1 + self.TaperRatio))))
+        self.MAC = float(
+            2 / 3 * self.C_root * (1 - math.pow(self.TaperRatio, 3)) / (1 - math.pow(self.TaperRatio, 2)))
+
+        self.ref_area.setText('参考面积: %.2f' % (self.S))
+        self.aspect_ratio.setText('展弦比: %.2f' % (self.AR))
+        self.sweep_back_25.setText('1/4弦线后掠角: %.2f' % (self.A_25))
+        self.taper_ratio.setText('梯形比: %.2f' % (self.TaperRatio))
+        self.mac.setText('平均气动弦长: %.2f' % (self.MAC))
+
+    def set_real_description(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
         self.airfoil_list = _airfoil
         self.z_list = _z
         self.x_front_list = _x_front
@@ -146,8 +289,10 @@ class Wing(object):
         self.dy_list = _dy
         self.theta_list = _theta
 
+        self.SectionNum = len(_z)
+
     def calc_sections(self):
-        for i in range(0, len(self.z_list)):
+        for i in range(0, self.SectionNum):
             self.section_list.append(
                 Section(self.airfoil_list[i], self.z_list[i], self.x_front_list[i], self.x_tail_list[i],
                         self.dy_list[i], self.theta_list[i]))
@@ -176,49 +321,8 @@ class Wing(object):
         wing.save(self.filename)
 
 
-    def generate_wing_linear(self, airfoil, span, section_num, max_chord, min_chord, sweep_back, dihedral, twist):
-        '''
-        全部参数线性分布的简单机翼
-        :param airfoil: 剖面翼型描述文件
-        :param span: 机翼的展长
-        :param section_num: 构成机翼的剖面数量
-        :param max_chord: 根部弦长
-        :param min_chord: 尖部弦长
-        :param sweep_back: 后掠角
-        :param dihedral: 上反角
-        :param twist: 扭转角
-        :return: None
-        '''
+class VerticalStabilizer(Wing):
+   '''垂尾'''
 
-        # 剖面翼型
-        _airfoil = Airfoil(airfoil)
-        airfoil_dist = []
-        for i in range(0, section_num):
-            airfoil_dist.append(_airfoil)
-
-        # 剖面分布
-        z_dist = np.linspace(0, span, section_num)
-
-        # 前缘点
-        x_front_dist = np.linspace(0, span * math.tan(math.radians(sweep_back)), section_num)
-
-        # 后缘点
-        x_tail_dist = []
-        length = np.linspace(max_chord, min_chord, section_num)
-        for i in range(0, section_num):
-            x_tail_dist.append(x_front_dist[i] + length[i])
-
-        # 上反
-        dy_dist = np.linspace(0, span * math.tan(math.radians(dihedral)), section_num)
-
-        # 扭转
-        theta_dist = []
-        for i in range(0, section_num):
-            theta_dist.append(twist)
-
-        # Wing generation
-        self.set_parameters(airfoil_dist, z_dist, x_front_dist, x_tail_dist, dy_dist, theta_dist)
-        self.calc_sections()
-        self.generate_wing_stl()
-
-        return self
+   def __init__(self):
+       pass

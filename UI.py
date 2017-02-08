@@ -4,13 +4,12 @@ from aeroplane import Aircraft
 import math
 import os
 
-
 class ParametricModeling(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self)
 
         # 总长，直径，擦地角，机头比例，机尾比例，机头上层比例，机尾上层比例
-        self.js = [6380, 650, 12, 0.25, 0.3, 0.8, 0.16]
+        self.js = [6380, 550, 12, 0.25, 0.3, 0.8, 0.16]
         # 长径比
         self.js_cjb = [0, 0, 0, 0]
 
@@ -62,13 +61,6 @@ class ParametricModeling(QWidget):
         self.pw_Taper_Ratio = 0
         # 平均气动弦长
         self.pw_MAC = 0
-
-        self.airfoil_list = []
-        airfoil_dir = './data/'
-        for f in os.listdir(airfoil_dir):
-            cur_filename = os.path.join(airfoil_dir, f)
-            if os.path.isfile(cur_filename) and cur_filename.endswith('.dat'):
-                self.airfoil_list.append(f)
 
         self.initUI()
 
@@ -424,7 +416,7 @@ class ParametricModeling(QWidget):
         # 机翼
         self.jy[0] = './data/' + self.yixing_combobox.currentText()
         self.jy[1] = float(self.zhangchang_lineedit.text())
-        self.jy[2] = float(self.section_num_lineedit.text())
+        self.jy[2] = int(self.section_num_lineedit.text())
         self.jy[3] = float(self.yigen_len_lineedit.text())
         self.jy[4] = float(self.yijian_len_lineedit.text())
         self.jy[5] = float(self.houluejiao_lineedit.text())
@@ -435,7 +427,7 @@ class ParametricModeling(QWidget):
         # 垂尾
         self.cw[0] = './data/' + self.cw_yixing_combobox.currentText()
         self.cw[1] = float(self.cw_zhangchang_lineedit.text())
-        self.cw[2] = float(self.cw_section_num_lineedit.text())
+        self.cw[2] = int(self.cw_section_num_lineedit.text())
         self.cw[3] = float(self.cw_yigen_len_lineedit.text())
         self.cw[4] = float(self.cw_yijian_len_lineedit.text())
         self.cw[5] = float(self.cw_houluejiao_lineedit.text())
@@ -444,7 +436,7 @@ class ParametricModeling(QWidget):
         # 平尾
         self.pw[0] = './data/' + self.pw_yixing_combobox.currentText()
         self.pw[1] = float(self.pw_zhangchang_lineedit.text())
-        self.pw[2] = float(self.pw_section_num_lineedit.text())
+        self.pw[2] = int(self.pw_section_num_lineedit.text())
         self.pw[3] = float(self.pw_yigen_len_lineedit.text())
         self.pw[4] = float(self.pw_yijian_len_lineedit.text())
         self.pw[5] = float(self.pw_houluejiao_lineedit.text())
