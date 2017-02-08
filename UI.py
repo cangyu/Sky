@@ -34,7 +34,7 @@ class ParametricModeling(QWidget):
         # 面积
         self.cw_S = 0
         # 垂尾力臂长度
-        self.cw_lv = 0.5*self.js[0]
+        self.cw_lv = 0.5 * self.js[0]
         # 垂尾容量
         self.cw_Vv = 0
         # 展弦比
@@ -51,7 +51,7 @@ class ParametricModeling(QWidget):
         # 面积
         self.pw_S = 0
         # 平尾力臂长度
-        self.pw_lv = 0.49*self.js[0]
+        self.pw_lv = 0.49 * self.js[0]
         # 平尾容量
         self.pw_Vv = 0
         # 展弦比
@@ -79,19 +79,31 @@ class ParametricModeling(QWidget):
         global_layout = QVBoxLayout()
         self.setLayout(global_layout)
 
+        comp_tab = QTabWidget()
+        global_layout.addWidget(comp_tab)
+
         jishen_layout = QVBoxLayout()
         jiyi_layout = QVBoxLayout()
         chuiwei_layout = QVBoxLayout()
         pingwei_layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
 
-        comp_layout = QGridLayout()
-        comp_layout.addLayout(jishen_layout, 0, 0)
-        comp_layout.addLayout(jiyi_layout, 0, 1)
-        comp_layout.addLayout(chuiwei_layout, 1, 0)
-        comp_layout.addLayout(pingwei_layout, 1, 1)
+        jishen_widget = QWidget()
+        jishen_widget.setLayout(jishen_layout)
+        comp_tab.addTab(jishen_widget, "机身")
 
-        global_layout.addLayout(comp_layout)
+        jiyi_widget = QWidget()
+        jiyi_widget.setLayout(jiyi_layout)
+        comp_tab.addTab(jiyi_widget, "机翼")
+
+        chuiwei_widget = QWidget()
+        chuiwei_widget.setLayout(chuiwei_layout)
+        comp_tab.addTab(chuiwei_widget, "垂尾")
+
+        pingwei_widget = QWidget()
+        pingwei_widget.setLayout(pingwei_layout)
+        comp_tab.addTab(pingwei_widget, "平尾")
+
         global_layout.addLayout(btn_layout)
 
         # 机身
@@ -127,7 +139,7 @@ class ParametricModeling(QWidget):
 
         self.jitou_ratio_label = QLabel('机头占全长比例:')
         self.jitou_ratio_dsb = QDoubleSpinBox()
-        self.jitou_ratio_dsb.setRange(0.0,1.0)
+        self.jitou_ratio_dsb.setRange(0.0, 1.0)
         self.jitou_ratio_dsb.setSingleStep(0.01)
         self.jitou_ratio_dsb.setValue(0.18)
         jishen_origin_param_layout.addWidget(self.jitou_ratio_label, 3, 0)
@@ -135,7 +147,7 @@ class ParametricModeling(QWidget):
 
         self.jiwei_ratio_label = QLabel('机尾占全长比例:')
         self.jiwei_ratio_dsb = QDoubleSpinBox()
-        self.jiwei_ratio_dsb.setRange(0.0,1.0)
+        self.jiwei_ratio_dsb.setRange(0.0, 1.0)
         self.jiwei_ratio_dsb.setSingleStep(0.01)
         self.jiwei_ratio_dsb.setValue(0.23)
         jishen_origin_param_layout.addWidget(self.jiwei_ratio_label, 4, 0)
@@ -143,7 +155,7 @@ class ParametricModeling(QWidget):
 
         self.hr0_label = QLabel('机头上层占直径比例:')
         self.hr0_dsb = QDoubleSpinBox()
-        self.hr0_dsb.setRange(0.0,1.0)
+        self.hr0_dsb.setRange(0.0, 1.0)
         self.hr0_dsb.setSingleStep(0.01)
         self.hr0_dsb.setValue(0.8)
         jishen_origin_param_layout.addWidget(self.hr0_label, 5, 0)
@@ -151,7 +163,7 @@ class ParametricModeling(QWidget):
 
         self.hr2_label = QLabel('机尾上层占直径比例:')
         self.hr2_dsb = QDoubleSpinBox()
-        self.hr2_dsb.setRange(0.0,1.5)
+        self.hr2_dsb.setRange(0.0, 1.5)
         self.hr2_dsb.setSingleStep(0.01)
         self.hr2_dsb.setValue(0.18)
         jishen_origin_param_layout.addWidget(self.hr2_label, 6, 0)
@@ -480,11 +492,11 @@ class ParametricModeling(QWidget):
             2 / 3 * self.cw[3] * (1 - math.pow(self.cw_Taper_Ratio, 3)) / (1 - math.pow(self.cw_Taper_Ratio, 2)))
 
         self.cw_mianji.setText('垂尾面积: %.2f' % (self.cw_S))
-        self.cw_weirongliang .setText('垂尾容量: %.2f' % (self.cw_Vv))
+        self.cw_weirongliang.setText('垂尾容量: %.2f' % (self.cw_Vv))
         self.cw_zhangxianbi.setText('展弦比: %.2f' % (self.cw_AR))
         self.cw_25houluejiao.setText('1/4弦线后掠角: %.2f' % (self.cw_A_25))
         self.cw_tixingbi.setText('梯形比: %.2f' % (self.cw_Taper_Ratio))
-        self.cw_pjqdxc .setText('平均气动弦长: %.2f' % (self.cw_MAC))
+        self.cw_pjqdxc.setText('平均气动弦长: %.2f' % (self.cw_MAC))
 
         # 平尾
         self.pw_S = float(0.5 * self.pw[1] * (self.pw[3] + self.pw[4]))
