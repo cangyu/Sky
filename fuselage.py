@@ -4,18 +4,28 @@ import matplotlib.pyplot as plt
 from stl import mesh
 
 
+# 简单机身
 class Fuselage(object):
-    '''简单机身'''
-
-    def __init__(self, storage_dst):
-        # 文件存储路径
-        self.filename = storage_dst
-
-        # 剖面曲线
+    def __init__(self, _filename):
+        # real description
+        self.filename = _filename
         self.x = []
         self.y_up = []
         self.y_down = []
         self.y_mid = []
+
+        # intrinsic description
+        self.L = 6380  # 全长
+        self.D = 700  # 中部直径
+        self.Theta_fc = 30  # 擦地角
+        self.r0 = 0.18 #头部长度比例
+        self.r2 = 0.23 #尾部长度比例
+        self.r1 = 1.0 - self.r0 - self.r2 #中部长度比例
+
+        self.L0 = self.L * self.r0 #头部长度
+        self.L1 = self.L * self.r1 #中部长度
+        self.L2 = self.L * self.r2 #尾部长度
+
 
     def set_parameter(self, _l, _d, _tfc, _r0, _r2, _hr0, _hr2):
         '''
@@ -169,3 +179,21 @@ class Fuselage(object):
         fuselage.save(self.filename)
 
         return fuselage
+
+
+# 剖面头尾为1/4椭圆组成
+class SimpleFuselage(Fuselage):
+    def __init__(self, _filename):
+        Fuselage.__init__(self, _filename)
+
+        self.hr0 = 0.8
+        self.hr2 = 0.18
+
+        self.h0 = self.D * self.hr0
+        self.h1 = self.D - self.h0
+
+        self.h2 = self.D * self.hr2
+        self.h3 = self.D - self.h2
+
+        self.dh = self.h0 - self.h2
+

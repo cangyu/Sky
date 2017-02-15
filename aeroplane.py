@@ -61,8 +61,8 @@ def rotate(_solid, axis, angle):
             p[3 * i + 2] = z
 
 
+#整机
 class Aircraft(object):
-    '''整机'''
 
     def __init__(self, _js, _jy, _cw, _pw):
         '''
