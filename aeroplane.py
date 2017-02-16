@@ -1,11 +1,7 @@
-import math
-import stl
-from stl import mesh
-import numpy
-import time
-import os
-from wing import Wing
-from fuselage import Fuselage
+from wing import *
+from fuselage import *
+from PyQt5.QtWidgets import *
+import os, time, vtk
 
 
 # 沿坐标轴平移
@@ -61,76 +57,147 @@ def rotate(_solid, axis, angle):
             p[3 * i + 2] = z
 
 
-#整机
+# 显示生成的stl模型
+class STL_Viewer(object):
+    def __init__(self):
+
+        self.reader = vtk.vtkSTLReader()
+        self.mapper = vtk.vtkPolyDataMapper()
+        self.actor = vtk.vtkActor()
+        self.ren = vtk.vtkRenderer()
+        self.renWin = vtk.vtkRenderWindow()
+        self.iren = vtk.vtkRenderWindowInteractor()
+
+    def show(self, _filename):
+
+        self.reader.SetFileName(_filename)
+
+        if vtk.VTK_MAJOR_VERSION <= 5:
+            self.mapper.SetInput(self.reader.GetOutput())
+        else:
+            self.mapper.SetInputConnection(self.reader.GetOutputPort())
+
+        self.actor.SetMapper(self.mapper)
+        self.renWin.AddRenderer(self.ren)  # Create a rendering window and renderer
+        self.iren.SetRenderWindow(self.renWin)  # Create a render window interactor
+        self.ren.AddActor(self.actor)  # Assign actor to the renderer
+
+        self.iren.Initialize()  # Enable user interface interactor
+        self.renWin.Render()
+        self.iren.Start()
+
+
+# 整机
 class Aircraft(object):
+    def __init__(self):
+        Wing.update_airfoil_list()
 
-    def __init__(self, _js, _jy, _cw, _pw):
-        '''
-        从参数表生成部件
-        :param _js: 机身参数列表
-        :param _jy: 机翼参数列表
-        :param _cw: 垂尾参数列表
-        :param _pw: 平尾参数列表
-        '''
-        self.jishen_param = _js
-        self.jiyi_param = _jy
-        self.chuiwei_param = _cw
-        self.pingwei_param = _pw
+        # component
+        self.fuselage = SimpleFuselage('fuselage.stl')
+        self.wing = Wing('wing.stl')
+        self.vertical_stabilizer = VerticalStabilizer('vertical_stabilizer.stl')
+        self.horizontal_stabilizer = HorizontalStabilizer('horizontal_stabilizer.stl')
 
-        # 以当前时间创建文件夹，存放结果
-        self.cur_folder_name = time.strftime(r"%Y-%m-%d_%H-%M-%S", time.localtime())
-        os.mkdir(r'%s/result/%s' % (os.getcwd(), self.cur_folder_name))
+        # position of each part relevant to the nose of fuselage
+        self.delta_Wing = [2000, 0, 0]
+        self.delta_VerticalStabilizer = [5300, 0, 0]
+        self.delta_HorizontalStabilizer = [5000, 0, 0]
 
-        # 创建部件
-        f = Fuselage('./result/' + self.cur_folder_name + '/fuselage.stl')
-        f.set_parameter(_js[0], _js[1], _js[2], _js[3], _js[4], _js[5], _js[6])
-        f.generate()
+        # widget
+        self.widget = QWidget()
+        self.comp_tab = QTabWidget()
 
-        w = Wing('./result/' + self.cur_folder_name + '/wing.stl')
-        w.generate_wing_linear(_jy[0], _jy[1], _jy[2], _jy[3], _jy[4], _jy[5], _jy[6], _jy[7])
+        # layout
+        self.layout = QVBoxLayout()
 
-        vs = Wing('./result/' + self.cur_folder_name + '/vertical_stabilizer.stl')
-        vs.generate_wing_linear(_cw[0], _cw[1], _cw[2], _cw[3], _cw[4], _cw[5], _cw[6], _cw[7])
+        # Viewer
+        self.viewer = STL_Viewer()
 
-        hs = Wing('./result/' + self.cur_folder_name + '/horizontal_stabilizer.stl')
-        hs.generate_wing_linear(_pw[0], _pw[1], _pw[2], _pw[3], _pw[4], _pw[5], _pw[6], _pw[7])
+    def init_widget(self):
+        self.fuselage.init_widget()
+        self.wing.init_widget()
+        self.vertical_stabilizer.init_widget()
+        self.horizontal_stabilizer.init_widget()
 
-    def set_pos(self):
-        pass
+        self.widget.setLayout(self.layout)
+        self.widget.setWindowTitle('简单飞机一体化设计')
+
+        self.layout.addWidget(self.comp_tab)
+
+        self.comp_tab.addTab(self.fuselage.widget, '机身')
+        self.comp_tab.addTab(self.wing.widget, '机翼')
+        self.comp_tab.addTab(self.vertical_stabilizer.widget, '垂尾')
+        self.comp_tab.addTab(self.horizontal_stabilizer.widget, '平尾')
+
+    def set_pos(self, _wing_pos, _vs_pos, _hs_pos):
+        self.delta_Wing = _wing_pos
+        self.delta_VerticalStabilizer = _vs_pos
+        self.delta_HorizontalStabilizer = _hs_pos
+
+    def update_derived_param(self):
+        self.fuselage.update_derived_param()
+        self.wing.update_derived_param()
+        self.vertical_stabilizer.update_derived_param()
+        self.horizontal_stabilizer.update_derived_param()
 
     def generate(self):
-        # 机身
-        fuselage = mesh.Mesh.from_file('./result/' + self.cur_folder_name + '/fuselage.stl')
+        # create a folder with current timestamp to store generated model
+        cur_time = time.strftime(r"%Y-%m-%d_%H-%M-%S", time.localtime())
+        cur_folder_path = './result/' + cur_time + '/'
+        cur_folder_name = cur_time
+        os.mkdir(r'%s/result/%s' % (os.getcwd(), cur_folder_name))
 
-        # 机翼
-        wing_left = mesh.Mesh.from_file('./result/' + self.cur_folder_name + '/wing.stl')
-        wing_right = mesh.Mesh.from_file('./result/' + self.cur_folder_name + '/wing.stl')
+        self.fuselage.filename = cur_folder_path + self.fuselage.filename
+        self.wing.filename = cur_folder_path + self.wing.filename
+        self.vertical_stabilizer.filename = cur_folder_path + self.vertical_stabilizer.filename
+        self.horizontal_stabilizer.filename = cur_folder_path + self.horizontal_stabilizer.filename
 
+        # generate component
+        self.fuselage.generate()
+        self.wing.generate()
+        self.vertical_stabilizer.generate()
+        self.horizontal_stabilizer.generate()
+
+        # import component
+        fuselage = mesh.Mesh.from_file(cur_folder_path + 'fuselage.stl')
+        wing_left = mesh.Mesh.from_file(cur_folder_path + 'wing.stl')
+        wing_right = mesh.Mesh.from_file(cur_folder_path + 'wing.stl')
+        hs_left = mesh.Mesh.from_file(cur_folder_path + 'horizontal_stabilizer.stl')
+        hs_right = mesh.Mesh.from_file(cur_folder_path + 'horizontal_stabilizer.stl')
+        vs_mid = mesh.Mesh.from_file(cur_folder_path + 'vertical_stabilizer.stl')
+
+        # transform to specified position
         mirror(wing_right, 'z')
-        move(wing_left, 'x', 2000)
-        move(wing_right, 'x', 2000)
+        mirror(hs_right, 'z')
+        rotate(vs_mid, 'x', -90)
 
-        # 垂尾
-        vertical_stabilizer = mesh.Mesh.from_file('./result/' + self.cur_folder_name + '/vertical_stabilizer.stl')
-        rotate(vertical_stabilizer, 'x', -90)
-        move(vertical_stabilizer, 'x', 6000)
+        move(wing_left, 'x', self.delta_Wing[0])
+        move(wing_left, 'y', self.delta_Wing[1])
+        move(wing_left, 'z', self.delta_Wing[2])
 
-        # 平尾
-        horizontal_stabilizer_left = mesh.Mesh.from_file(
-            './result/' + self.cur_folder_name + '/horizontal_stabilizer.stl')
-        horizontal_stabilizer_right = mesh.Mesh.from_file(
-            './result/' + self.cur_folder_name + '/horizontal_stabilizer.stl')
+        move(wing_right, 'x', self.delta_Wing[0])
+        move(wing_right, 'y', self.delta_Wing[1])
+        move(wing_right, 'z', self.delta_Wing[2])
 
-        mirror(horizontal_stabilizer_right, 'z')
-        move(horizontal_stabilizer_left, 'x', 6000)
-        move(horizontal_stabilizer_right, 'x', 6000)
+        move(hs_left, 'x', self.delta_HorizontalStabilizer[0])
+        move(hs_left, 'y', self.delta_HorizontalStabilizer[1])
+        move(hs_left, 'z', self.delta_HorizontalStabilizer[2])
+
+        move(hs_right, 'x', self.delta_HorizontalStabilizer[0])
+        move(hs_right, 'y', self.delta_HorizontalStabilizer[1])
+        move(hs_right, 'z', self.delta_HorizontalStabilizer[2])
+
+        move(vs_mid, 'x', self.delta_VerticalStabilizer[0])
+        move(vs_mid, 'y', self.delta_VerticalStabilizer[1])
+        move(vs_mid, 'z', self.delta_VerticalStabilizer[2])
 
         # 整机
-        combined = mesh.Mesh(numpy.concatenate([fuselage.data,
-                                                wing_left.data,
-                                                wing_right.data,
-                                                vertical_stabilizer.data,
-                                                horizontal_stabilizer_left.data,
-                                                horizontal_stabilizer_right.data]))
+        combined = mesh.Mesh(np.concatenate([fuselage.data,
+                                             wing_left.data,
+                                             wing_right.data,
+                                             vs_mid.data,
+                                             hs_left.data,
+                                             hs_right.data]))
 
-        combined.save('./result/' + self.cur_folder_name + '/aircraft.stl')
+        combined.save(cur_folder_path + 'aircraft.stl')
+        self.viewer.show(cur_folder_path + 'aircraft.stl')
