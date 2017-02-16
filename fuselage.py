@@ -11,7 +11,6 @@ class Fuselage():
     __metaclass__ = ABCMeta
 
     def __init__(self, _filename):
-
         # real description, 右手系, 机头鼻尖为(0, 0, 0)
         self.filename = _filename  # 当前机身的文件名
         self.x = []  # 各个剖面沿x方向的坐标
@@ -148,11 +147,11 @@ class Fuselage():
 
     @abstractmethod
     def calc_y_up(self, x):
-        print('should calculate the value of y_up at %.4f in derived class!' % x)
+        pass
 
     @abstractmethod
     def calc_y_down(self, x):
-        print('should calculate the value of y_down at %.4f in derived class!' % x)
+        pass
 
     def calc_profile(self, _step):
         # 生成x方向离散点
@@ -279,7 +278,6 @@ class SimpleFuselage(Fuselage):
         self.intrinsic_param_cnt += 1
 
     def update_derived_param(self):
-
         Fuselage.update_derived_param(self)
 
         self.hr0 = self.hr0_dsb.value()

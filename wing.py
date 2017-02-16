@@ -1,10 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import math
+import math, os
 from stl import mesh
 from PyQt5.QtWidgets import *
-import os
-import sys
 
 
 # 2维翼型描述, 弦长为单位1
@@ -31,21 +29,12 @@ class Airfoil(object):
 # 组成3维机翼的真实剖面
 class Section(object):
     def __init__(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
-        '''
-        :param _airfoil: 剖面上的翼型
-        :param _z: 剖面与根部的距离
-        :param _x_front: 前缘点在x方向上的位置
-        :param _x_tail: 后缘点在x方向上的位置
-        :param _dy: 由于机翼上反角导致的在y方向上引起的偏移
-        :param _theta: 绕前缘的扭转角
-        '''
-
-        self.airfoil = _airfoil
-        self.z = _z
-        self.x_front = _x_front
-        self.x_tail = _x_tail
-        self.dy = _dy
-        self.theta = _theta
+        self.airfoil = _airfoil  # 剖面的翼型
+        self.z = _z  # 剖面与根部的距离
+        self.x_front = _x_front  # 前缘点在x方向上的位置
+        self.x_tail = _x_tail  # 后缘点在x方向上的位置
+        self.dy = _dy  # 由于机翼上反角导致的在y方向上引起的偏移
+        self.theta = _theta  # 绕前缘的扭转角
 
         self.n = len(_airfoil.x)
         self.chord = np.zeros((self.n, 3))  # 剖面弦线上的离散点
@@ -134,8 +123,7 @@ class Section(object):
 
 # 简单机翼, 由一个个剖面组成
 class Wing(object):
-    # 翼型列表
-    airfoil_list = []
+    airfoil_list = []  # 翼型列表
     airfoil_dir = './airfoil/'
 
     @staticmethod
@@ -294,14 +282,51 @@ class Wing(object):
         self.theta_list = _theta
 
     def calc_sections(self):
+        self.section_list.clear()
+
         for i in range(0, self.SectionNum):
             self.section_list.append(
                 Section(self.airfoil_list[i], self.z_list[i], self.x_front_list[i], self.x_tail_list[i],
                         self.dy_list[i], self.theta_list[i]))
+
         for i in range(0, len(self.z_list)):
             self.section_list[i].calc_discrete_pts()
 
+    # 目前只生成全部参数线性分布的简单机翼
+    def calc_real_desc(self):
+
+        # 剖面翼型
+        _airfoil = Airfoil(self.Airfoil)
+        airfoil_dist = []
+        for i in range(0, self.SectionNum):
+            airfoil_dist.append(_airfoil)
+
+        # 剖面分布
+        z_dist = np.linspace(0, self.Span, self.SectionNum)
+
+        # 前缘点
+        x_front_dist = np.linspace(0, self.Span * math.tan(math.radians(self.SweepBack)), self.SectionNum)
+
+        # 后缘点
+        x_tail_dist = []
+        length = np.linspace(self.C_root, self.C_tip, self.SectionNum)
+        for i in range(0, self.SectionNum):
+            x_tail_dist.append(x_front_dist[i] + length[i])
+
+        # 上反
+        dy_dist = np.linspace(0, self.Span * math.tan(math.radians(self.Dihedral)), self.SectionNum)
+
+        # 扭转
+        theta_dist = []
+        for i in range(0, self.SectionNum):
+            theta_dist.append(self.Twist)
+
+        # Wing generation
+        self.set_real_description(airfoil_dist, z_dist, x_front_dist, x_tail_dist, dy_dist, theta_dist)
+        self.calc_sections()
+
     def generate(self):
+        self.calc_real_desc()
         wing_surf = []
 
         # 上下表面与尾缘
@@ -352,7 +377,6 @@ class VerticalStabilizer(Wing):
 
     def update_derived_param(self):
         Wing.update_derived_param(self)
-
         self.capacity.setText('垂尾容量: %.4f' % self.V_v)
 
 
@@ -385,5 +409,4 @@ class HorizontalStabilizer(Wing):
 
     def update_derived_param(self):
         Wing.update_derived_param(self)
-
         self.capacity.setText('平尾容量: %.4f' % self.V_h)

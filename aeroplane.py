@@ -120,7 +120,6 @@ class Aircraft(object):
         self.horizontal_stabilizer.init_widget()
 
         self.widget.setLayout(self.layout)
-        self.widget.setWindowTitle('简单飞机一体化设计')
 
         self.layout.addWidget(self.comp_tab)
 
