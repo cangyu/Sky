@@ -148,13 +148,17 @@ class Wing(object):
 
         # intrinsic description
         self.Airfoil = ''  # 翼型
-        self.Span = 4380  # 展长
-        self.C_root = 620  # 翼根弦长
-        self.C_tip = 258  # 翼尖弦长
+        self.Span = 34.8  # 展长
+        self.C_root = 13.0  # 翼根弦长
+        self.C_tip = 2.58  # 翼尖弦长
         self.SweepBack = 30  # 后掠角
         self.Dihedral = 5  # 上反角
         self.Twist = -4  # 绕前缘扭转角
-        self.X_25 = 1600  # 1/4弦长位置
+
+        # installation description
+        self.X_25 = 20.0  # 1/4弦长位置
+        self.dY = -1.0  # Y方向偏移量
+        self.dZ = 0  # Z方向偏移量
 
         # derived description
         self.S = 0  # 参考机翼面积
@@ -167,13 +171,13 @@ class Wing(object):
         self.widget = QWidget()
         self.airfoil_label = QLabel('翼型:')
         self.airfoil_combobox = QComboBox()
-        self.span_label = QLabel('展长(cm):')
+        self.span_label = QLabel('展长(m):')
         self.span_lineedit = QLineEdit()
         self.section_num_label = QLabel('控制剖面数量:')
         self.section_num_lineedit = QLineEdit()
-        self.wing_root_len_label = QLabel('翼根长度(cm):')
+        self.wing_root_len_label = QLabel('翼根长度(m):')
         self.wing_root_len_lineedit = QLineEdit()
-        self.wing_tip_len_label = QLabel('翼尖长度(cm):')
+        self.wing_tip_len_label = QLabel('翼尖长度(m):')
         self.wing_tip_len_lineedit = QLineEdit()
         self.sweep_back_label = QLabel('前缘后掠角(°):')
         self.sweep_back_lineedit = QLineEdit()
@@ -181,8 +185,12 @@ class Wing(object):
         self.dihedral_lineedit = QLineEdit()
         self.twist_label = QLabel('扭转角(°):')
         self.twist_lineedit = QLineEdit()
-        self.x25_label = QLabel('1/4弦线X轴位置(cm):')
+        self.x25_label = QLabel('1/4弦线X轴位置(m):')
         self.x25_lineedit = QLineEdit()
+        self.dy_label = QLabel('Y方向偏移量(m):')
+        self.dy_lineedit = QLineEdit()
+        self.dz_label = QLabel('Z方向偏移量(m):')
+        self.dz_lineedit = QLineEdit()
 
         self.ref_area = QLabel('参考面积: %.2f' % self.S)
         self.aspect_ratio = QLabel('展弦比: %.2f' % self.AR)
@@ -193,6 +201,7 @@ class Wing(object):
         # layout
         self.layout = QVBoxLayout()
         self.label = QLabel('机翼设计参数:')
+        self.installation_label = QLabel('安装参数:')
         self.param_layout = QHBoxLayout()
         self.intrinsic_param_layout = QGridLayout()
         self.derived_param_layout = QVBoxLayout()
@@ -236,9 +245,19 @@ class Wing(object):
         self.intrinsic_param_layout.addWidget(self.twist_label, 7, 0)
         self.intrinsic_param_layout.addWidget(self.twist_lineedit, 7, 1)
 
+        self.intrinsic_param_layout.addWidget(self.installation_label, 8, 0)
+
         self.x25_lineedit.setText(str(self.X_25))
-        self.intrinsic_param_layout.addWidget(self.x25_label, 8, 0)
-        self.intrinsic_param_layout.addWidget(self.x25_lineedit, 8, 1)
+        self.intrinsic_param_layout.addWidget(self.x25_label, 9, 0)
+        self.intrinsic_param_layout.addWidget(self.x25_lineedit, 9, 1)
+
+        self.dy_lineedit.setText(str(self.dY))
+        self.intrinsic_param_layout.addWidget(self.dy_label, 10, 0)
+        self.intrinsic_param_layout.addWidget(self.dy_lineedit, 10, 1)
+
+        self.dz_lineedit.setText(str(self.dZ))
+        self.intrinsic_param_layout.addWidget(self.dz_label, 11, 0)
+        self.intrinsic_param_layout.addWidget(self.dz_lineedit, 11, 1)
 
         self.derived_param_layout.addWidget(self.ref_area)
         self.derived_param_layout.addWidget(self.aspect_ratio)
@@ -256,7 +275,10 @@ class Wing(object):
         self.SweepBack = float(self.sweep_back_lineedit.text())
         self.Dihedral = float(self.dihedral_lineedit.text())
         self.Twist = float(self.twist_lineedit.text())
+
         self.X_25 = float(self.x25_lineedit.text())
+        self.dY = float(self.dy_lineedit.text())
+        self.dZ = float(self.dz_lineedit.text())
 
         # calc derived param
         self.S = float(0.5 * self.Span * (self.C_root + self.C_tip))
@@ -357,13 +379,17 @@ class VerticalStabilizer(Wing):
         self.SectionNum = 5
 
         # intrinsic description
-        self.Span = 800
-        self.C_root = 400
-        self.C_tip = 300
+        self.Span = 9.0
+        self.C_root = 6.6
+        self.C_tip = 2.6
         self.SweepBack = 40
         self.Dihedral = 0
         self.Twist = 0
-        self.X_25 = 5200
+
+        # installation param
+        self.X_25 = 52.0
+        self.dY = 0
+        self.dZ = 0
 
         # derived description
         self.V_v = 0.079  # 垂尾容量
@@ -389,13 +415,17 @@ class HorizontalStabilizer(Wing):
         self.SectionNum = 4
 
         # intrinsic description
-        self.Span = 720
-        self.C_root = 330
-        self.C_tip = 190
-        self.SweepBack = 20
+        self.Span = 10.2
+        self.C_root = 5.0
+        self.C_tip = 1.9
+        self.SweepBack = 25
         self.Dihedral = 0
         self.Twist = 0
-        self.X_25 = 5000
+
+        # installation description
+        self.X_25 = 54.0
+        self.dY = 0
+        self.dZ = 0
 
         # derived description
         self.V_h = 0

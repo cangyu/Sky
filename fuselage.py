@@ -19,8 +19,8 @@ class Fuselage():
         self.y_mid = []  # 机身在xy平面内投影，中线的y坐标
 
         # intrinsic description
-        self.L = 6380  # 全长
-        self.D = 700  # 中部直径
+        self.L = 62.8  # 全长
+        self.D = 6.0  # 中部直径
         self.Theta_fc = 30  # 擦地角
 
         self.r0 = 0.18  # 头部长度比例
@@ -44,11 +44,11 @@ class Fuselage():
         self.widget = QWidget()
         self.label = QLabel('机身设计参数:')
 
-        self.L_label = QLabel('机身全长(cm):')
+        self.L_label = QLabel('机身全长(m):')
         self.L_lineedit = QLineEdit()
         self.L_lineedit.setText(str(self.L))
 
-        self.D_label = QLabel('机身直径(cm):')
+        self.D_label = QLabel('机身直径(m):')
         self.D_lineedit = QLineEdit()
         self.D_lineedit.setText(str(self.D))
 
@@ -138,12 +138,12 @@ class Fuselage():
         self.lambda_tail = self.L2 / self.D
 
         # show changed
-        self.LvD_total_label.setText('机身长径比: %.2f' % self.lambda_total)
-        self.LvD_front_label.setText('头部长径比: %.2f' % self.lambda_front)
-        self.LvD_mid_label.setText('中部长径比: %.2f' % self.lambda_mid)
-        self.LvD_tail_label.setText('尾部长径比: %.2f' % self.lambda_tail)
-        self.HeadingDirCapacity_label.setText('航向机身容量: %.2f' % self.HeadingDirCapacity)
-        self.PitchDirCapacity_label.setText('纵向机身容量: %.2f' % self.PitchDirCapacity)
+        self.LvD_total_label.setText('机身长径比: %.6f' % self.lambda_total)
+        self.LvD_front_label.setText('头部长径比: %.6f' % self.lambda_front)
+        self.LvD_mid_label.setText('中部长径比: %.6f' % self.lambda_mid)
+        self.LvD_tail_label.setText('尾部长径比: %.6f' % self.lambda_tail)
+        self.HeadingDirCapacity_label.setText('航向机身容量: %.6f' % self.HeadingDirCapacity)
+        self.PitchDirCapacity_label.setText('纵向机身容量: %.6f' % self.PitchDirCapacity)
 
     @abstractmethod
     def calc_y_up(self, x):
@@ -197,7 +197,7 @@ class Fuselage():
         plt.gca().set_aspect(1)
         plt.show()
 
-    def generate(self, _delta_len=5, _delta_theta=10):
+    def generate(self, _delta_len=0.05, _delta_theta=10):
         fuselage_surf = []
 
         self.calc_profile(_delta_len)
@@ -232,8 +232,6 @@ class Fuselage():
             fuselage.vectors[i] = fuselage_surf[i]
 
         fuselage.save(self.filename)
-
-        return fuselage
 
 
 # 剖面头尾为1/4椭圆组成
