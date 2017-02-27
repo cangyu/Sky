@@ -2,7 +2,7 @@
 Parametric Modeling Tool for Aircraft Design.
 
 ##Description
-The program is devoted to BWB(a.k.a. Blended-Wing-Body) design, and aims at generating models ready for 
+The program is devoted to BWB design(a.k.a. Blended-Wing-Body), and aims at generating models ready for 
 CFD calculation and further optimization.
 
 ##Implementation
@@ -15,8 +15,7 @@ Once you get all these tiny components, assemble them all and you get the model
 2017-02 ~ Now: Next, I will focus on BWB modeling and using IGES instead of STL.
 
 ##Examples
-![V1.0界面](./pic/UI_V1.0.jpg)
-![V1.0模型](./pic/VIEW_V1.0.jpg)
+![V1.0模型](https://github.com/cangyu/Sky/blob/master/pic/VIEW_V1.0.JPG)
 
 ##Dependencies
 If you want to run this program, following packages are needed:
@@ -25,3 +24,7 @@ If you want to run this program, following packages are needed:
 > * numpy
 > * matplotlib
 > * numpy-stl
+> * Python 3.5 (Suggested)
+
+##Declaration
+Just for my postgraduate research.
