@@ -19,12 +19,12 @@ class Fuselage():
         self.y_mid = []  # 机身在xy平面内投影，中线的y坐标
 
         # intrinsic description
-        self.L = 62.8  # 全长
-        self.D = 6.0  # 中部直径
-        self.Theta_fc = 30  # 擦地角
+        self.L = 57  # 全长
+        self.D = 5.97  # 中部直径
+        self.Theta_fc = 14  # 擦地角
 
-        self.r0 = 0.18  # 头部长度比例
-        self.r2 = 0.23  # 尾部长度比例
+        self.r0 = 0.15  # 头部长度比例
+        self.r2 = 0.26  # 尾部长度比例
         self.r1 = 1.0 - self.r0 - self.r2  # 中部长度比例
 
         # derived description
@@ -39,111 +39,6 @@ class Fuselage():
 
         self.HeadingDirCapacity = 0.125  # 航向机身容量参数
         self.PitchDirCapacity = 1.25  # 纵向机身容量参数
-
-        # widget
-        self.widget = QWidget()
-        self.label = QLabel('机身设计参数:')
-
-        self.L_label = QLabel('机身全长(m):')
-        self.L_lineedit = QLineEdit()
-        self.L_lineedit.setText(str(self.L))
-
-        self.D_label = QLabel('机身直径(m):')
-        self.D_lineedit = QLineEdit()
-        self.D_lineedit.setText(str(self.D))
-
-        self.Theta_fc_label = QLabel('擦地角(°):')
-        self.Theta_fc_lineedit = QLineEdit()
-        self.Theta_fc_lineedit.setText(str(self.Theta_fc))
-
-        self.r0_label = QLabel('机头占全长比例:')
-        self.r0_dsb = QDoubleSpinBox()
-        self.r0_dsb.setRange(0.0, 1.0)
-        self.r0_dsb.setSingleStep(0.01)
-        self.r0_dsb.setValue(self.r0)
-
-        self.r2_label = QLabel('机尾占全长比例:')
-        self.r2_dsb = QDoubleSpinBox()
-        self.r2_dsb.setRange(0.0, 1.0)
-        self.r2_dsb.setSingleStep(0.01)
-        self.r2_dsb.setValue(self.r2)
-
-        self.LvD_total_label = QLabel('机身长径比: %.2f' % self.lambda_total)
-        self.LvD_front_label = QLabel('头部长径比: %.2f' % self.lambda_front)
-        self.LvD_mid_label = QLabel('中部长径比: %.2f' % self.lambda_mid)
-        self.LvD_tail_label = QLabel('尾部长径比: %.2f' % self.lambda_tail)
-        self.HeadingDirCapacity_label = QLabel('航向机身容量: %.2f' % self.HeadingDirCapacity)
-        self.PitchDirCapacity_label = QLabel('纵向机身容量: %.2f' % self.PitchDirCapacity)
-
-        # layout
-        self.layout = QVBoxLayout()
-        self.param_layout = QHBoxLayout()
-        self.intrinsic_param_layout = QGridLayout()
-        self.derived_param_layout = QVBoxLayout()
-        self.intrinsic_param_cnt = 0
-
-    def init_widget(self):
-        self.widget.setLayout(self.layout)
-
-        self.layout.addWidget(self.label)
-        self.layout.addLayout(self.param_layout)
-
-        self.param_layout.addLayout(self.intrinsic_param_layout)
-        self.param_layout.addLayout(self.derived_param_layout)
-
-        self.intrinsic_param_layout.addWidget(self.L_label, self.intrinsic_param_cnt, 0)
-        self.intrinsic_param_layout.addWidget(self.L_lineedit, self.intrinsic_param_cnt, 1)
-        self.intrinsic_param_cnt += 1
-
-        self.intrinsic_param_layout.addWidget(self.D_label, self.intrinsic_param_cnt, 0)
-        self.intrinsic_param_layout.addWidget(self.D_lineedit, self.intrinsic_param_cnt, 1)
-        self.intrinsic_param_cnt += 1
-
-        self.intrinsic_param_layout.addWidget(self.Theta_fc_label, self.intrinsic_param_cnt, 0)
-        self.intrinsic_param_layout.addWidget(self.Theta_fc_lineedit, self.intrinsic_param_cnt, 1)
-        self.intrinsic_param_cnt += 1
-
-        self.intrinsic_param_layout.addWidget(self.r0_label, self.intrinsic_param_cnt, 0)
-        self.intrinsic_param_layout.addWidget(self.r0_dsb, self.intrinsic_param_cnt, 1)
-        self.intrinsic_param_cnt += 1
-
-        self.intrinsic_param_layout.addWidget(self.r2_label, self.intrinsic_param_cnt, 0)
-        self.intrinsic_param_layout.addWidget(self.r2_dsb, self.intrinsic_param_cnt, 1)
-        self.intrinsic_param_cnt += 1
-
-        self.derived_param_layout.addWidget(self.LvD_total_label)
-        self.derived_param_layout.addWidget(self.LvD_front_label)
-        self.derived_param_layout.addWidget(self.LvD_mid_label)
-        self.derived_param_layout.addWidget(self.LvD_tail_label)
-        self.derived_param_layout.addWidget(self.HeadingDirCapacity_label)
-        self.derived_param_layout.addWidget(self.PitchDirCapacity_label)
-
-    def update_derived_param(self):
-        # get new intrinsic param
-        self.L = float(self.L_lineedit.text())
-        self.D = float(self.D_lineedit.text())
-        self.Theta_fc = float(self.Theta_fc_lineedit.text())
-        self.r0 = self.r0_dsb.value()
-        self.r2 = self.r2_dsb.value()
-
-        # calc derived param
-        self.r1 = 1.0 - self.r0 - self.r2
-        self.L0 = self.L * self.r0
-        self.L1 = self.L * self.r1
-        self.L2 = self.L * self.r2
-
-        self.lambda_total = self.L / self.D
-        self.lambda_front = self.L0 / self.D
-        self.lambda_mid = self.L1 / self.D
-        self.lambda_tail = self.L2 / self.D
-
-        # show changed
-        self.LvD_total_label.setText('机身长径比: %.6f' % self.lambda_total)
-        self.LvD_front_label.setText('头部长径比: %.6f' % self.lambda_front)
-        self.LvD_mid_label.setText('中部长径比: %.6f' % self.lambda_mid)
-        self.LvD_tail_label.setText('尾部长径比: %.6f' % self.lambda_tail)
-        self.HeadingDirCapacity_label.setText('航向机身容量: %.6f' % self.HeadingDirCapacity)
-        self.PitchDirCapacity_label.setText('纵向机身容量: %.6f' % self.PitchDirCapacity)
 
     @abstractmethod
     def calc_y_up(self, x):
@@ -232,9 +127,10 @@ class Fuselage():
             fuselage.vectors[i] = fuselage_surf[i]
 
         fuselage.save(self.filename)
+        self.show_profile()
 
 
-# 剖面头尾为1/4椭圆组成
+# 剖面头尾为1/4椭圆组成，不带擦地角
 class SimpleFuselage(Fuselage):
     def __init__(self, _filename):
         Fuselage.__init__(self, _filename)
@@ -310,3 +206,82 @@ class SimpleFuselage(Fuselage):
             return self.dh - self.h3 * math.sqrt(1 - math.pow((x - (self.L0 + self.L1)) / self.L2, 2))
         else:
             return self.dh
+
+
+# 剖面头为两个1/4椭圆组成，带擦地角
+class TraditionalFuselage(Fuselage):
+    def __init__(self, _filename):
+        Fuselage.__init__(self, _filename)
+
+        # intrinsic description
+        self.Theta_fc = 14.0
+        self.hr0 = 0.84  # 机头上部高度与直径之比
+        self.de = 0.7  # 机尾圆圈直径
+
+        # derived description
+        self.h0 = self.D * self.hr0  # 机头上部高度
+        self.h1 = self.D - self.h0  # 机头下部高度
+
+        self.dh = math.tan(math.radians(self.Theta_fc)) * self.L2 + self.de - self.h1
+        self.h2 = self.D - self.h1 - self.dh
+
+        # widget
+        self.hr0_label = QLabel('机头上层占直径比例:')
+        self.hr0_dsb = QDoubleSpinBox()
+        self.hr0_dsb.setRange(0.0, 1.0)
+        self.hr0_dsb.setSingleStep(0.01)
+        self.hr0_dsb.setValue(self.hr0)
+
+        self.de_label = QLabel('机尾圆圈直径(m):')
+        self.de_dsb = QDoubleSpinBox()
+        self.de_dsb = QDoubleSpinBox()
+        self.de_dsb.setRange(0.0, 1.0)
+        self.de_dsb.setSingleStep(0.01)
+        self.de_dsb.setValue(self.de)
+
+    def init_widget(self):
+        Fuselage.init_widget(self)
+
+        self.intrinsic_param_layout.addWidget(self.hr0_label, self.intrinsic_param_cnt, 0)
+        self.intrinsic_param_layout.addWidget(self.hr0_dsb, self.intrinsic_param_cnt, 1)
+        self.intrinsic_param_cnt += 1
+
+        self.intrinsic_param_layout.addWidget(self.de_label, self.intrinsic_param_cnt, 0)
+        self.intrinsic_param_layout.addWidget(self.de_dsb, self.intrinsic_param_cnt, 1)
+        self.intrinsic_param_cnt += 1
+
+    def update_derived_param(self):
+        Fuselage.update_derived_param(self)
+
+        self.hr0 = self.hr0_dsb.value()
+        self.de = self.de_dsb.value()
+
+        self.h0 = self.D * self.hr0
+        self.h1 = self.D - self.h0
+
+        self.dh = math.tan(math.radians(self.Theta_fc)) * self.L2 + self.de - self.h1
+        self.h2 = self.D - self.h1 - self.dh
+
+    def calc_y_up(self, x):
+        if x <= 0:
+            return 0
+        elif x <= self.L0:
+            return self.h0 * math.sqrt(1 - math.pow((x - self.L0) / self.L0, 2))
+        elif x <= self.L0 + self.L1:
+            return self.h0
+        elif x <= self.L:
+            return self.dh + self.h2 * math.sqrt(1 - math.pow((x - (self.L0 + self.L1)) / self.L2, 2))
+        else:
+            return self.dh
+
+    def calc_y_down(self, x):
+        if x <= 0:
+            return 0
+        elif x <= self.L0:
+            return -self.h1 * math.sqrt(1 - math.pow((x - self.L0) / self.L0, 2))
+        elif x <= self.L0 + self.L1:
+            return -self.h1
+        elif x <= self.L:
+            return -self.h1 + math.tan(math.radians(self.Theta_fc)) * (x - (self.L0 + self.L1))
+        else:
+            return 0

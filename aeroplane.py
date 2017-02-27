@@ -90,7 +90,6 @@ class STL_Viewer(object):
 # 整机
 class Aircraft(object):
     def __init__(self):
-        Wing.update_airfoil_list()
 
         # component
         self.fuselage = SimpleFuselage('fuselage.stl')
@@ -103,42 +102,20 @@ class Aircraft(object):
         self.delta_VerticalStabilizer = [5300, 0, 0]
         self.delta_HorizontalStabilizer = [5000, 0, 0]
 
-        # widget
-        self.widget = QWidget()
-        self.comp_tab = QTabWidget()
-
-        # layout
-        self.layout = QVBoxLayout()
-
         # Viewer
         self.viewer = STL_Viewer()
-
-    def init_widget(self):
-        self.fuselage.init_widget()
-        self.wing.init_widget()
-        self.vertical_stabilizer.init_widget()
-        self.horizontal_stabilizer.init_widget()
-
-        self.widget.setLayout(self.layout)
-
-        self.layout.addWidget(self.comp_tab)
-
-        self.comp_tab.addTab(self.fuselage.widget, '机身')
-        self.comp_tab.addTab(self.wing.widget, '机翼')
-        self.comp_tab.addTab(self.vertical_stabilizer.widget, '垂尾')
-        self.comp_tab.addTab(self.horizontal_stabilizer.widget, '平尾')
 
     def set_pos(self, _wing_pos, _vs_pos, _hs_pos):
         self.delta_Wing = _wing_pos
         self.delta_VerticalStabilizer = _vs_pos
         self.delta_HorizontalStabilizer = _hs_pos
 
-    def update_derived_param(self):
+    def update_derived_param(self, _aircraft_ui):
         # first get all changed params
-        self.fuselage.update_derived_param()
-        self.wing.update_derived_param()
-        self.vertical_stabilizer.update_derived_param()
-        self.horizontal_stabilizer.update_derived_param()
+        self.fuselage.update_derived_param(_aircraft_ui.fuselageUI)
+        self.wing.update_derived_param(_aircraft_ui.wingUI)
+        self.vertical_stabilizer.update_derived_param(_aircraft_ui.vsUI)
+        self.horizontal_stabilizer.update_derived_param(_aircraft_ui.hsUI)
 
         # calculate related params
         self.fuselage.HeadingDirCapacity = math.pow(self.fuselage.D, 2) * self.fuselage.L / (
