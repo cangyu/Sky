@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math, os
 from stl import mesh
-from PyQt5.QtWidgets import *
 
 
 # 2维翼型描述, 弦长为单位1
@@ -158,35 +157,17 @@ class Wing(object):
         self.TaperRatio = 0  # 梯形比
         self.MAC = 0  # 平均气动弦长
 
-
-    def update_derived_param(self):
-        # get intrinsic param
-        self.Airfoil = Wing.airfoil_dir + self.airfoil_combobox.currentText()
-        self.Span = float(self.span_lineedit.text())
-        self.SectionNum = int(self.section_num_lineedit.text())
-        self.C_root = float(self.wing_root_len_lineedit.text())
-        self.C_tip = float(self.wing_tip_len_lineedit.text())
-        self.SweepBack = float(self.sweep_back_lineedit.text())
-        self.Dihedral = float(self.dihedral_lineedit.text())
-        self.Twist = float(self.twist_lineedit.text())
-
-        self.X_25 = float(self.x25_lineedit.text())
-        self.dY = float(self.dy_lineedit.text())
-        self.dZ = float(self.dz_lineedit.text())
-
-        # calc derived param
-        self.S = float(0.5 * self.Span * (self.C_root + self.C_tip))
-        self.AR = float(math.pow(self.Span, 2) / self.S)
-        self.TaperRatio = float(self.C_tip / self.C_root)
-        self.A_25 = math.degrees(math.atan(
-            math.tan(math.radians(self.SweepBack)) - (1 - self.TaperRatio) / (self.TaperRatio * (1 + self.TaperRatio))))
-        self.MAC = float(2 / 3 * self.C_root * (1 - math.pow(self.TaperRatio, 3)) / (1 - math.pow(self.TaperRatio, 2)))
-
-        self.ref_area.setText('参考面积: %.2f' % self.S)
-        self.aspect_ratio.setText('展弦比: %.2f' % self.AR)
-        self.sweep_back_25.setText('1/4弦线后掠角: %.2f' % self.A_25)
-        self.taper_ratio.setText('梯形比: %.2f' % self.TaperRatio)
-        self.mac.setText('平均气动弦长: %.2f' % self.MAC)
+    def set_param(self, _ui):
+        self.Airfoil = _ui.Airfoil
+        self.Span = _ui.Span
+        self.C_root = _ui.C_root
+        self.C_tip = _ui.C_tip
+        self.SweepBack = _ui.SweepBack
+        self.Dihedral = _ui.Dihedral
+        self.Twist = _ui.Twist
+        self.X_25 = _ui.X_25
+        self.dY = _ui.dY
+        self.dZ = _ui.dZ
 
     def set_real_description(self, _airfoil, _z, _x_front, _x_tail, _dy, _theta):
         self.SectionNum = len(_z)
@@ -288,11 +269,6 @@ class VerticalStabilizer(Wing):
         # derived description
         self.V_v = 0.079  # 垂尾容量
 
-    def update_derived_param(self):
-        Wing.update_derived_param(self)
-
-        self.capacity.setText('垂尾容量: %.4f' % self.V_v)
-
 
 # 平尾
 class HorizontalStabilizer(Wing):
@@ -317,14 +293,3 @@ class HorizontalStabilizer(Wing):
 
         # derived description
         self.V_h = 0
-
-        # widget
-        self.capacity_label = QLabel('平尾容量: %.4f' % self.V_h)
-
-        # layout
-        self.derived_param_layout.addWidget(self.capacity_label)
-
-    def update_derived_param(self):
-        Wing.update_derived_param(self)
-
-        self.capacity.setText('平尾容量: %.4f' % self.V_h)

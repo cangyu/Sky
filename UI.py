@@ -222,7 +222,7 @@ class VerticalStabilizerUI(WingUI):
         self.dpl_cnt += 1
 
     def updateUI(self):
-        WingUI.initUI(self)
+        WingUI.updateUI(self)
 
         self.capacity_label.setText('垂尾容量: %.4f' % self.V_v)
 
@@ -260,7 +260,7 @@ class HorizontalStabilizerUI(WingUI):
         self.dpl_cnt += 1
 
     def updateUI(self):
-        WingUI.initUI(self)
+        WingUI.updateUI(self)
 
         self.capacity_label.setText('平尾容量: %.4f' % self.V_h)
 
@@ -278,6 +278,9 @@ class FuselageUI(QWidget):
         self.r2 = 0.26  # 尾部长度比例
         self.r1 = 1.0 - self.r0 - self.r2  # 中部长度比例
 
+        self.hr0 = 0.8  # 机头上部高度与直径之比
+        self.hr2 = 0.18  # 机尾上部高度与直径之比
+
         # derived description
         self.L0 = self.L * self.r0  # 头部长度
         self.L1 = self.L * self.r1  # 中部长度
@@ -287,6 +290,12 @@ class FuselageUI(QWidget):
         self.lambda_front = self.L0 / self.D  # 头部长径比
         self.lambda_mid = self.L1 / self.D  # 中部长径比
         self.lambda_tail = self.L2 / self.D  # 尾部长径比
+
+        self.h0 = self.D * self.hr0  # 机头上部高度
+        self.h1 = self.D - self.h0  # 机头下部高度
+        self.h2 = self.D * self.hr2  # 机尾上部高度
+        self.h3 = self.D - self.h2  # 机尾下部高度
+        self.dh = self.h0 - self.h2  # 尾缘顶点与前缘顶点之间的高度差
 
         self.HeadingDirCapacity = 0.125  # 航向机身容量参数
         self.PitchDirCapacity = 1.25  # 纵向机身容量参数
@@ -315,6 +324,19 @@ class FuselageUI(QWidget):
         self.r2_dsb.setRange(0.0, 1.0)
         self.r2_dsb.setSingleStep(0.01)
         self.r2_dsb.setValue(self.r2)
+
+        self.hr0_label = QLabel('机头上层占直径比例:')
+        self.hr0_dsb = QDoubleSpinBox()
+        self.hr0_dsb.setRange(0.0, 1.0)
+        self.hr0_dsb.setSingleStep(0.01)
+        self.hr0_dsb.setValue(self.hr0)
+
+        self.hr2_label = QLabel('机尾上层占直径比例:')
+        self.hr2_dsb = QDoubleSpinBox()
+        self.hr2_dsb = QDoubleSpinBox()
+        self.hr2_dsb.setRange(0.0, 1.0)
+        self.hr2_dsb.setSingleStep(0.01)
+        self.hr2_dsb.setValue(self.hr2)
 
         self.LvD_total_label = QLabel('机身长径比: %.2f' % self.lambda_total)
         self.LvD_front_label = QLabel('头部长径比: %.2f' % self.lambda_front)
@@ -359,6 +381,14 @@ class FuselageUI(QWidget):
         self.intrinsic_param_layout.addWidget(self.r2_dsb, self.ipl_cnt, 1)
         self.ipl_cnt += 1
 
+        self.intrinsic_param_layout.addWidget(self.hr0_label, self.ipl_cnt, 0)
+        self.intrinsic_param_layout.addWidget(self.hr0_dsb, self.ipl_cnt, 1)
+        self.ipl_cnt += 1
+
+        self.intrinsic_param_layout.addWidget(self.hr2_label, self.ipl_cnt, 0)
+        self.intrinsic_param_layout.addWidget(self.hr2_dsb, self.ipl_cnt, 1)
+        self.ipl_cnt += 1
+
         # derived params part
         self.derived_param_layout.addWidget(self.LvD_total_label, self.dpl_cnt, 0)
         self.dpl_cnt += 1
@@ -386,6 +416,9 @@ class FuselageUI(QWidget):
         self.r0 = self.r0_dsb.value()
         self.r2 = self.r2_dsb.value()
 
+        self.hr0 = self.hr0_dsb.value()
+        self.hr2 = self.hr2_dsb.value()
+
         # calc derived param
         self.r1 = 1.0 - self.r0 - self.r2
         self.L0 = self.L * self.r0
@@ -396,6 +429,12 @@ class FuselageUI(QWidget):
         self.lambda_front = self.L0 / self.D
         self.lambda_mid = self.L1 / self.D
         self.lambda_tail = self.L2 / self.D
+
+        self.h0 = self.D * self.hr0
+        self.h1 = self.D - self.h0
+        self.h2 = self.D * self.hr2
+        self.h3 = self.D - self.h2
+        self.dh = self.h0 - self.h2
 
         # show changed
         self.LvD_total_label.setText('机身长径比: %.6f' % self.lambda_total)
@@ -410,8 +449,10 @@ class AircraftUI(QWidget):
     def __init__(self):
         QWidget.__init__(self)
 
-        # entity
-        self.aircraft = Aircraft()
+        # position of each part relevant to the nose of fuselage
+        self.offset_Wing = [2000, 0, 0]
+        self.offset_VS = [5300, 0, 0]
+        self.offset_HS = [5000, 0, 0]
 
         # components
         self.wingUI = WingUI()
@@ -425,7 +466,7 @@ class AircraftUI(QWidget):
         self.btn_calc = QPushButton()
         self.btn_calc.setText('计算')
         self.btn_calc.setToolTip('根据原始参数计算衍生参数')
-        self.btn_calc.clicked.connect(self.update_param)
+        self.btn_calc.clicked.connect(self.updateUI)
 
         self.btn_gen = QPushButton()
         self.btn_gen.setText('生成')
@@ -472,18 +513,65 @@ class AircraftUI(QWidget):
         self.hsUI.initUI()
         self.vsUI.initUI()
 
-    def update_param(self):
-        self.aircraft.update_derived_param(self)
+    def updateUI(self):
+        # get params first
+        self.wingUI.updateUI()
+        self.hsUI.updateUI()
+        self.vsUI.updateUI()
+        self.fuselageUI.updateUI()
+
+        # calculate composite params
+        self.fuselageUI.HeadingDirCapacity = math.pow(self.fuselageUI.D, 2) * self.fuselageUI.L / (
+            self.wingUI.S * 2 * self.wingUI.Span)
+
+        self.fuselageUI.PitchDirCapacity = math.pow(self.fuselageUI.D, 2) * self.fuselageUI.L / (
+            self.wingUI.S * self.wingUI.MAC)
+
+        self.hsUI.V_h = self.hsUI.S / self.wingUI.S * (
+            self.hsUI.X_25 - self.wingUI.X_25) / self.wingUI.MAC
+
+        self.vsUI.V_v = self.vsUI.S / self.wingUI.S * (
+            self.vsUI.X_25 - self.wingUI.X_25) / (2 * self.wingUI.Span)
+
+        # calculate position
+        self.offset_Wing[0] = self.wingUI.X_25 - 0.25 * self.wingUI.C_root
+        self.offset_Wing[1] = self.wingUI.dY
+        self.offset_Wing[2] = self.wingUI.dZ
+
+        self.offset_VS[0] = self.vsUI.X_25 - 0.25 * self.vsUI.C_root
+        self.offset_VS[1] = self.vsUI.dZ
+        self.offset_VS[2] = self.vsUI.dY
+
+        self.offset_HS[0] = self.hsUI.X_25 - 0.25 * self.hsUI.C_root
+        self.offset_HS[1] = self.hsUI.dY
+        self.offset_HS[2] = self.hsUI.dZ
+
+        # update composite params
+        self.wingUI.updateUI()
+        self.hsUI.updateUI()
+        self.vsUI.updateUI()
+        self.fuselageUI.updateUI()
 
     def gen_model(self):
-        self.aircraft.generate(self)
+        # create a new plane
+        plane = Aircraft()
+
+        # set params for all components
+        plane.set_param(self)
+        plane.wing.set_param(self.wingUI)
+        plane.vertical_stabilizer.set_param(self.vsUI)
+        plane.horizontal_stabilizer.set_param(self.hsUI)
+        plane.fuselage.set_param(self.fuselageUI)
+
+        # generate stl model
+        plane.generate()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    ythsj = AircraftUI()
-    ythsj.initUI()
-    ythsj.show()
+    pm = AircraftUI()
+    pm.initUI()
+    pm.show()
 
     sys.exit(app.exec_())

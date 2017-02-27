@@ -1,6 +1,5 @@
 from wing import *
 from fuselage import *
-from PyQt5.QtWidgets import *
 import os
 import time
 import vtk
@@ -92,60 +91,24 @@ class STL_Viewer(object):
 # 整机
 class Aircraft(object):
     def __init__(self):
-
         # component
         self.fuselage = SimpleFuselage('fuselage.stl')
         self.wing = Wing('wing.stl')
         self.vertical_stabilizer = VerticalStabilizer('vertical_stabilizer.stl')
         self.horizontal_stabilizer = HorizontalStabilizer('horizontal_stabilizer.stl')
 
-        # position of each part relevant to the nose of fuselage
+        # model viewer
+        self.viewer = STL_Viewer()
+
+        # position
         self.delta_Wing = [2000, 0, 0]
         self.delta_VerticalStabilizer = [5300, 0, 0]
         self.delta_HorizontalStabilizer = [5000, 0, 0]
 
-        # Viewer
-        self.viewer = STL_Viewer()
-
-    def set_pos(self, _wing_pos, _vs_pos, _hs_pos):
-        self.delta_Wing = _wing_pos
-        self.delta_VerticalStabilizer = _vs_pos
-        self.delta_HorizontalStabilizer = _hs_pos
-
-    def update_derived_param(self, _aircraft_ui):
-        # first get all changed params
-        self.fuselage.update_derived_param(_aircraft_ui.fuselageUI)
-        self.wing.update_derived_param(_aircraft_ui.wingUI)
-        self.vertical_stabilizer.update_derived_param(_aircraft_ui.vsUI)
-        self.horizontal_stabilizer.update_derived_param(_aircraft_ui.hsUI)
-
-        # calculate related params
-        self.fuselage.HeadingDirCapacity = math.pow(self.fuselage.D, 2) * self.fuselage.L / (
-        self.wing.S * 2 * self.wing.Span)
-        self.fuselage.PitchDirCapacity = math.pow(self.fuselage.D, 2) * self.fuselage.L / (self.wing.S * self.wing.MAC)
-        self.horizontal_stabilizer.V_h = self.horizontal_stabilizer.S / self.wing.S * (
-        self.horizontal_stabilizer.X_25 - self.wing.X_25) / self.wing.MAC
-        self.vertical_stabilizer.V_v = self.vertical_stabilizer.S / self.wing.S * (
-        self.vertical_stabilizer.X_25 - self.wing.X_25) / (2 * self.wing.Span)
-
-        # calculate position
-        self.delta_Wing[0] = self.wing.X_25 - 0.25 * self.wing.C_root
-        self.delta_Wing[1] = self.wing.dY
-        self.delta_Wing[2] = self.wing.dZ
-
-        self.delta_VerticalStabilizer[0] = self.vertical_stabilizer.X_25 - 0.25 * self.vertical_stabilizer.C_root
-        self.delta_VerticalStabilizer[1] = self.vertical_stabilizer.dZ
-        self.delta_VerticalStabilizer[2] = self.vertical_stabilizer.dY
-
-        self.delta_HorizontalStabilizer[0] = self.horizontal_stabilizer.X_25 - 0.25 * self.horizontal_stabilizer.C_root
-        self.delta_HorizontalStabilizer[1] = self.vertical_stabilizer.dY
-        self.delta_HorizontalStabilizer[2] = self.vertical_stabilizer.dZ
-
-        # update again
-        self.fuselage.update_derived_param()
-        self.wing.update_derived_param()
-        self.vertical_stabilizer.update_derived_param()
-        self.horizontal_stabilizer.update_derived_param()
+    def set_param(self, _ui):
+        self.delta_Wing = _ui.offset_Wing
+        self.delta_VerticalStabilizer = _ui.offset_VS
+        self.delta_HorizontalStabilizer = _ui.offset_HS
 
     def generate(self):
         # create a folder with current timestamp to store generated model

@@ -1,3 +1,4 @@
-.idea/
-pic/
-__pycache__/
+.idea
+pic
+__pycache__
+*.stl
