@@ -12,6 +12,16 @@ Once you get all these tiny components, assemble them all and you get the model
 
 ##Progression
 2016-10 ~ 2017-01: For the first step, I wrote a simple prototype that generate STL models to get familiar with this project.   
-2017-02 ~ Now: Next, I will turn into BWB modeling and using IGES instead of STL. 
+2017-02 ~ Now: Next, I will focus on BWB modeling and using IGES instead of STL.
 
 ##Examples
+![V1.0界面](./pic/UI_V1.0.jpg)
+![V1.0模型](./pic/VIEW_V1.0.jpg)
+
+##Dependencies
+If you want to run this program, following packages are needed:
+> * VTK
+> * PyQt5
+> * numpy
+> * matplotlib
+> * numpy-stl
