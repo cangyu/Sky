@@ -1,1 +1,1 @@
-存放生成的模型，请勿删除！
+Store generated models, DO NOT DELETE!

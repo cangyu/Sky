@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import *
 from aeroplane import Aircraft
-import sys, os, math
+import sys
+import os
+import math
 
 airfoil_dir = './airfoil/'
 airfoil_list = []  # 翼型列表

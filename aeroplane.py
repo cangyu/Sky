@@ -1,7 +1,9 @@
 from wing import *
 from fuselage import *
 from PyQt5.QtWidgets import *
-import os, time, vtk
+import os
+import time
+import vtk
 
 
 # 沿坐标轴平移
