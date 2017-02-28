@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import *
-from aeroplane import Aircraft
+from PyQt5.QtGui import QIcon
 import sys
 import os
 import math
+from aeroplane import Aircraft
 
 airfoil_dir = './airfoil/'
 airfoil_list = []  # 翼型列表
@@ -488,6 +489,7 @@ class AircraftUI(QWidget):
 
     def initUI(self):
         self.setWindowTitle('简单客机一体化设计')
+        self.setWindowIcon(QIcon('./pic/plane_icon.jpg'))
 
         # global layout
         self.setLayout(self.global_layout)
