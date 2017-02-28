@@ -222,6 +222,18 @@ class Wing(object):
         self.set_real_description(airfoil_dist, z_dist, x_front_dist, x_tail_dist, dy_dist, theta_dist)
         self.calc_sections()
 
+    def show_profile(self):
+        x_25=[]
+
+        for i in range(0, len(self.z_list)):
+            x_25.append(float(0.75*self.x_front_list[i]+0.25*self.x_tail_list[i]))
+
+        plt.plot(self.z_list, self.x_front_list, label="front")
+        plt.plot(self.z_list, x_25, label="mid")
+        plt.plot(self.z_list, self.x_tail_list, label="tail")
+        plt.gca().set_aspect(1)
+        plt.show()
+
     def generate(self):
         self.calc_real_desc()
         wing_surf = []
@@ -243,6 +255,7 @@ class Wing(object):
             wing.vectors[i] = wing_surf[i]
 
         wing.save(self.filename)
+        self.show_profile()
 
 
 # 垂尾
