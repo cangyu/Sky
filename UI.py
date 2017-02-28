@@ -180,7 +180,8 @@ class WingUI(QWidget):
         self.AR = float(math.pow(self.Span, 2) / self.S)
         self.TaperRatio = float(self.C_tip / self.C_root)
         self.A_25 = math.degrees(math.atan(
-            math.tan(math.radians(self.SweepBack)) - (1 - self.TaperRatio) / (self.TaperRatio * (1 + self.TaperRatio))))
+            (self.Span * math.tan(math.radians(self.SweepBack)) - 0.25 * (self.C_root - self.C_tip)) / self.Span))
+
         self.MAC = float(2 / 3 * self.C_root * (1 - math.pow(self.TaperRatio, 3)) / (1 - math.pow(self.TaperRatio, 2)))
 
         self.ref_area.setText('参考面积: %.2f' % self.S)
@@ -451,9 +452,9 @@ class AircraftUI(QWidget):
         QWidget.__init__(self)
 
         # position of each part relevant to the nose of fuselage
-        self.offset_Wing = [2000, 0, 0]
-        self.offset_VS = [5300, 0, 0]
-        self.offset_HS = [5000, 0, 0]
+        self.offset_Wing = [20, 0, 0]
+        self.offset_VS = [53, 0, 0]
+        self.offset_HS = [50, 0, 0]
 
         # components
         self.wingUI = WingUI()
