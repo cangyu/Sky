@@ -122,7 +122,6 @@ class Section(object):
 
 # 简单机翼, 由一个个剖面组成
 class Wing(object):
-
     def __init__(self, _filename):
 
         # real description
@@ -223,10 +222,10 @@ class Wing(object):
         self.calc_sections()
 
     def show_profile(self):
-        x_25=[]
+        x_25 = []
 
         for i in range(0, len(self.z_list)):
-            x_25.append(float(0.75*self.x_front_list[i]+0.25*self.x_tail_list[i]))
+            x_25.append(float(0.75 * self.x_front_list[i] + 0.25 * self.x_tail_list[i]))
 
         plt.plot(self.z_list, self.x_front_list, label="front")
         plt.plot(self.z_list, x_25, label="mid")
@@ -255,7 +254,7 @@ class Wing(object):
             wing.vectors[i] = wing_surf[i]
 
         wing.save(self.filename)
-        self.show_profile()
+        # self.show_profile()
 
 
 # 垂尾
