@@ -1,8 +1,10 @@
-from wing import *
-from fuselage import *
 import os
 import time
+
 import vtk
+from wing import *
+
+from src.fuselage import *
 
 
 # 沿坐标轴平移
