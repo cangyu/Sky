@@ -21,9 +21,10 @@ Once you get all these tiny components, assemble them all and you get the model
 If you want to run this program, following packages are needed:
 > * VTK
 > * PyQt5
-> * numpy
-> * matplotlib
-> * numpy-stl
+> * Numpy+MKL
+> * SciPy
+> * Matplotlib
+> * Numpy-STL
 > * Python 3.5 (Suggested)
 
 ## Declaration
