@@ -2,6 +2,20 @@ import sys
 import os
 import math
 import time
+import numpy as np
+import pylab as pl
+from scipy import interpolate
+from abc import ABCMeta, abstractmethod
+
+z = np.array([0., 0.624029, 1.38967, 2.43503, 3.73439, 5.25574, 6.96162,
+              8.81003, 10.7555, 12.75, 14.7445, 16.69, 18.5384, 20.2443, 21.7656,
+              23.065, 24.1103, 24.876, 25.343, 25.5])
+
+x_front = np.array([0., 0.05, 0.3, 1.7, 4.9, 6.85, 8.45, 9.65, 10.6, 11.1, 11.7, 12.1,
+                    12.4, 12.8, 13.2, 13.7, 14.1, 14.5, 15.2, 16.])
+
+x_tail = np.array([19.7, 19.6, 19.6, 19.5, 19.3, 19, 18.3, 17.3, 16.6, 16.5,
+                   16.8, 17, 17.45, 17.8, 18.1, 18.4, 18.55, 18.65, 18.3, 17.8])
 
 cur_time = time.strftime(r"%Y-%m-%d_%H-%M-%S", time.localtime())
 cur_folder_path = '../result/' + cur_time + '/'
@@ -44,7 +58,7 @@ File_Name = cur_file_name
 Native_System_ID = "Python"
 
 # 6. 前处理器版本
-Preprocessor_Version = "3.5.3"
+Preprocessor_Version = "3.5.2"
 
 # 7. 整数表示的二进制位数
 Number_Of_Binary_Bits_For_Integer_Representation = int(sys.int_info.bits_per_digit)
@@ -173,7 +187,7 @@ class IGES_Directory:
         # 9. 状态号，由4个两位数值组成，按次序串联排满在该域的8个数位中
         self.Status_Number = "00000000"
         # 10. 段代码和序号
-        self.Sequence_Number = IGES_Directory.SequenceCnt+1
+        self.Sequence_Number = IGES_Directory.SequenceCnt + 1
         # 11. 实体类型号，略
         # 12. 线宽
         self.Line_Weight_Number = int(0)
@@ -189,8 +203,9 @@ class IGES_Directory:
         self.Entity_Label = int(0)
         # 19. 实体下标
         self.Entity_Subscript_Number = int(0)
+        # 20. 段代码和序号，略
 
-        IGES_Directory.SequenceCnt+=2
+        IGES_Directory.SequenceCnt += 2
 
     def toAsciiEntry(self):
         entry = ""
@@ -217,13 +232,72 @@ class IGES_Directory:
 
         return entry
 
+
 model.write(IGES_Directory(100).toAsciiEntry())
 model.write(IGES_Directory(101).toAsciiEntry())
 model.write(IGES_Directory(122).toAsciiEntry())
 
+
 # parameter data
+class IGES_Entity:
+    IndexCnt = 0
+
+    def __int__(self, entity_type):
+        IGES_Entity.IndexCnt += 1
+
+        self.directory = IGES_Directory(entity_type)
+        self.index = IGES_Entity.IndexCnt
+
+    @abstractmethod
+    def toAsciiParam(self):
+        pass
+
+
+class IGES_Entity116(IGES_Entity):
+    '''
+    Point Entity
+    '''
+
+    def __init__(self, _x, _y, _z, _ptr=0):
+        super().__init__(116)
+
+        self.X = float(_x)
+        self.Y = float(_y)
+        self.Z = float(_z)
+        self.PTR = int(_ptr)
+
+    def toAsciiParam(self):
+        pass
+
+
+class IGES_Entity126(IGES_Entity):
+    '''
+    NURBS Curve Entity
+    '''
+
+    def __init__(self):
+        pass
+
 
 # terminal section
 model.write('{:72}T{:7d}\n'.format('S{:7}G{:7}D{:7}P{:7}'.format(sc, gc, IGES_Directory.SequenceCnt, 0), 1))
 
 model.close()
+
+pl.plot(z, x_front, 'ro')
+pl.plot(z, x_tail, 'bo')
+
+z_new = np.linspace(0, 25.5, 1000)
+
+xf = interpolate.interp1d(z, x_front, kind='cubic')
+xf_new = xf(z_new)
+pl.plot(z_new, xf_new, label='front')
+
+xt = interpolate.interp1d(z, x_tail, kind='cubic')
+xt_new = xt(z_new)
+pl.plot(z_new, xt_new, label='tail')
+
+interpolate.splrep
+
+pl.legend()
+pl.show()
