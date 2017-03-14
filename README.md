@@ -2,7 +2,7 @@
 Parametric Modeling Tool for Aircraft Design.
 
 ## Description
-The program is devoted to BWB design(a.k.a. Blended-Wing-Body), and aims at generating models ready for 
+The program is devoted to design aircraft with ___Blended Wing Body___ configuration, and aims at generating models ready for 
 CFD calculation and further optimization.
 
 ## Implementation
