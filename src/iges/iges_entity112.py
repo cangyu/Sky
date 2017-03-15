@@ -1,4 +1,5 @@
-import IGES_Entity
+import numpy as np
+from src.iges.iges_core import  IGES_Entity
 
 class IGES_Entity112(IGES_Entity):
     '''
@@ -48,7 +49,7 @@ class IGES_Entity112(IGES_Entity):
         self.TPZ2 = C[self.N][2][2]  # Z second derivative/2!
         self.TPZ3 = C[self.N][2][3]  # Z third derivative/3!
 
-    def toAsciiParam(self):
+    def BuildParam(self):
 
         # Generate raw ASCII record without sequence number
         param = ""
@@ -89,17 +90,17 @@ class IGES_Entity112(IGES_Entity):
             cc += 1
             cl = min(64, tl)
             ce = cs + cl
-            fp += "{:64} {:7}P{:7}\n".format(param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SequenceCnt + cc)
+            fp += "{:64} {:7}P{:7}\n".format(param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SeqCnt + cc)
             tl -= cl
             cs += cl
 
         # Update Entity param section sequence counter
-        IGES_Entity.SequenceCnt += cc
+        IGES_Entity.SeqCnt += cc
 
         return fp
 
-    def ConstructRecord(self):
-        self.directory_record = self.directory.toAsciiEntry()
-        self.param_record = self.toAsciiParam()
+    def BuildSection(self):
+        self.directory_record = self.directory.BuildEntry()
+        self.param_record = self.BuildParam()
 
         return self.directory_record, self.param_record

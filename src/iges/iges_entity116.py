@@ -1,4 +1,4 @@
-
+from src.iges.iges_core import  IGES_Entity
 
 class IGES_Entity116(IGES_Entity):
     '''

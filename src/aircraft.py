@@ -6,15 +6,9 @@ import numpy as np
 import pylab as pl
 from scipy import interpolate
 from abc import ABCMeta, abstractmethod
+from src.iges.iges_core import IGES_Model
+from src.iges.iges_entity112 import *
 
-cur_time = time.strftime(r"%Y-%m-%d_%H-%M-%S", time.localtime())
-cur_folder_path = '../result/' + cur_time + '/'
-cur_folder_name = cur_time
-
-os.mkdir(r'%s/../result/%s' % (os.getcwd(), cur_folder_name))
-
-cur_file_name = 'BWB.igs'
-model = open(cur_folder_path + cur_file_name, 'w')
 
 z = np.array([0., 0.624029, 1.38967, 2.43503, 3.73439, 5.25574, 6.96162,
               8.81003, 10.7555, 12.75, 14.7445, 16.69, 18.5384, 20.2443, 21.7656,
@@ -50,9 +44,6 @@ print(Coef)
 front_curve = IGES_Entity112(z, Coef)
 front_curve_record = front_curve.ConstructRecord()
 
-model.write(front_curve_record[0])
-model.write(front_curve_record[1])
-
 xfn_new = xf_natural(z_new)
 pl.plot(z_new, xfn_new, label="Front curve\n(Natural BC)")
 
@@ -61,7 +52,3 @@ pl.plot(z_new, xtn_new, label="Tail curve\n(Natural BC)")
 
 pl.legend(loc="lower right")
 pl.show()
-
-# terminal section
-model.write("{:72}T{:7d}\n".format('S{:7}G{:7}D{:7}P{:7}'.format(sc, gc, IGES_Directory.SequenceCnt, IGES_Entity.SequenceCnt), 1))
-model.close()

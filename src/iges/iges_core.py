@@ -1,13 +1,9 @@
-import sys
 import os
-import math
 import time
-import numpy as np
-import pylab as pl
-from scipy import interpolate
-from abc import ABCMeta, abstractmethod
+from abc import *
 
-class IGES_StartSection(object):
+
+class IGES_StartSection:
     '''
     Start Section of an IGS file
     '''
@@ -27,13 +23,13 @@ class IGES_StartSection(object):
             cc = min(72, tl)
             tl -= cc
             ce = ci + cc
-            ss += '{:72}S{:7d}\n'.format(self.start_section_str[ci:ce], IGES_StartSection.SeqCnt)
+            ss += "{:72}S{:7d}\n".format(self.start_section_str[ci:ce], IGES_StartSection.SeqCnt)
             ci = ce
 
         return ss
 
 
-class IGES_GlobalSection(object):
+class IGES_GlobalSection:
     '''
     Global section of an IGS file
     '''
@@ -275,16 +271,44 @@ class IGES_Entity:
     def BuildSection(self):
         pass
 
-class IGES_Model(object):
+
+class IGES_Model:
     '''
     IGES model in ASCII format with entities
     '''
 
-    def __init__(self, _filename):
+    def __init__(self, _filename="BWB.igs"):
         self.filename = _filename
         self.StartSection = IGES_StartSection("Simplified Blended-Wing-Body(BWB) Parametric Model")
         self.GlobalSection = IGES_GlobalSection(_filename)
         self.comp = []
 
     def generate(self):
-        pass
+
+        # Create new folder
+        folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+        folder_path = ("%s/../../result/" % os.getcwd()) + folder_name
+        os.mkdir(folder_path)
+
+        # Create igs file
+        model = open(folder_path + '/' + self.filename, 'w')
+
+        # Write Start Section
+        model.write(self.StartSection.BuildSection())
+
+        # Write Global Section
+        model.write(self.GlobalSection.BuildSection())
+
+        # Write Directory Entry Section
+        for i in range(0, len(self.comp)):
+            model.write(self.comp[i].directory_record)
+
+        # Write Parameter Data Section
+        for i in range(0, len(self.comp)):
+            model.write(self.comp[i].param_record)
+
+        # Write Terminate Section
+        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(IGES_StartSection.SeqCnt, IGES_GlobalSection.SeqCnt, IGES_Directory.SeqCnt, IGES_Entity.SeqCnt), 1))
+
+        # Done
+        model.close()
