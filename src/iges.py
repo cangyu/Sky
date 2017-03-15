@@ -61,7 +61,7 @@ Native_System_ID = "Python"
 Preprocessor_Version = "3.5.2"
 
 # 7. 整数表示的二进制位数
-Number_Of_Binary_Bits_For_Integer_Representation = int(sys.int_info.bits_per_digit)
+Number_Of_Binary_Bits_For_Integer_Representation = int(32)
 
 # 8. 发送系统单精度浮点数可表示的以10为底的最大幂指数
 Single_Precision_Magnitude = int(38)
@@ -85,7 +85,7 @@ Model_Space_Scale = float(1.0)
 Units_Flag = int(6)
 
 # 15. 单位名称
-Units_Name = "1HM"
+Units_Name = "M"
 
 # 16. 线宽等级的最大数
 Maximum_Number_Of_Line_Weight_Gradations = int(1)
@@ -97,10 +97,10 @@ Width_Of_Maximum_Line_Weight_In_Units = float(16)
 Date_And_Time_Of_Exchange_File_Generation = time.strftime("%Y%m%d.%H%M%S", time.localtime())
 
 # 19. 用户预期的最小分辨率或粒度
-Minimum_User_Intended_Resolution = float(0.0001)
+Minimum_User_Intended_Resolution = float(0.000001)
 
 # 20. 出现在模型中的近似的最大值
-Approximate_Maximum_Coordinate_Value = float(1000)
+Approximate_Maximum_Coordinate_Value = float(0.0)
 
 # 21. 作者姓名
 Name_Of_Author = "Yu Cang"
@@ -162,16 +162,14 @@ while tl:
     ci = ce
 
 
-# directory entry
-
 class IGES_Directory:
     SequenceCnt = 0
 
-    def __init__(self, type):
+    def __init__(self, _etn, _pd):
         # 1. 实体类型号
-        self.Entity_Type_Number = type
+        self.Entity_Type_Number = int(_etn)
         # 2. 参数数据，指向该实体参数数据记录第一行的指针
-        self.Parameter_Data = int(0)
+        self.Parameter_Data = int(_pd)
         # 3. 结构，指向规定该实体意义的定义实体的目录条目的负的指针或零
         self.Structure = int(0)
         # 4. 线型样式
@@ -233,24 +231,127 @@ class IGES_Directory:
         return entry
 
 
-model.write(IGES_Directory(100).toAsciiEntry())
-model.write(IGES_Directory(101).toAsciiEntry())
-model.write(IGES_Directory(122).toAsciiEntry())
-
-
-# parameter data
 class IGES_Entity:
-    IndexCnt = 0
+    SequenceCnt = 0
 
-    def __int__(self, entity_type):
-        IGES_Entity.IndexCnt += 1
+    def __init__(self, _etn, _pd):
+        self.directory = IGES_Directory(_etn, _pd)
 
-        self.directory = IGES_Directory(entity_type)
-        self.index = IGES_Entity.IndexCnt
+        self.directory_record = ""
+        self.param_record = ""
 
     @abstractmethod
     def toAsciiParam(self):
         pass
+
+    @abstractmethod
+    def ConstructRecord(self):
+        pass
+
+
+class IGES_Entity112(IGES_Entity):
+    '''
+    Parametric Spline Curve
+    '''
+
+    def __init__(self, T, C):
+        super(IGES_Entity112, self).__init__(112, IGES_Entity.SequenceCnt + 1)
+
+        # Spline Type
+        self.CTYPE = int(3)
+
+        # Degree of continuity with respect to arc length
+        self.H = int(2)
+
+        # Number of dimensions
+        self.NDIM = int(3)
+
+        # Number of segments
+        self.N = len(T) - 1
+
+        # Break points of piecewise polynomial
+        self.T = np.zeros(len(T))
+        for i in range(0, len(T)):
+            self.T[i] = T[i]
+
+        # Coordinate polynomial
+        self.C = np.zeros((self.N, 3, 4))
+        for i in range(0, self.N):
+            for j in range(0, 3):
+                for k in range(0, 4):
+                    self.C[i][j][k] = C[i][j][k]
+
+        # Terminal info
+        self.TPX0 = C[self.N][0][0]  # X value
+        self.TPX1 = C[self.N][0][1]  # X first derivative
+        self.TPX2 = C[self.N][0][2]  # X second derivative/2!
+        self.TPX3 = C[self.N][0][3]  # X third derivative/3!
+
+        self.TPY0 = C[self.N][1][0]  # Y value
+        self.TPY1 = C[self.N][1][1]  # Y first derivative
+        self.TPY2 = C[self.N][1][2]  # Y second derivative/2!
+        self.TPY3 = C[self.N][1][3]  # Y third derivative/3!
+
+        self.TPZ0 = C[self.N][2][0]  # Z value
+        self.TPZ1 = C[self.N][2][1]  # Z first derivative
+        self.TPZ2 = C[self.N][2][2]  # Z second derivative/2!
+        self.TPZ3 = C[self.N][2][3]  # Z third derivative/3!
+
+    def toAsciiParam(self):
+
+        # Generate raw ASCII record without sequence number
+        param = ""
+        param += "{},".format(self.directory.Entity_Type_Number)
+        param += "{},".format(self.CTYPE)
+        param += "{},".format(self.H)
+        param += "{},".format(self.NDIM)
+        param += "{},".format(self.N)
+
+        for i in range(0, len(self.T)):
+            param += "{},".format(self.T[i])
+
+        for i in range(0, self.N):
+            for j in range(0, 3):
+                for k in range(0, 4):
+                    param += "{},".format(self.C[i][j][k])
+
+        param += "{},".format(self.TPX0)
+        param += "{},".format(self.TPX1)
+        param += "{},".format(self.TPX2)
+        param += "{},".format(self.TPX3)
+        param += "{},".format(self.TPY0)
+        param += "{},".format(self.TPY1)
+        param += "{},".format(self.TPY2)
+        param += "{},".format(self.TPY3)
+        param += "{},".format(self.TPZ0)
+        param += "{},".format(self.TPZ1)
+        param += "{},".format(self.TPZ2)
+        param += "{};".format(self.TPZ3)
+
+        # Add sequence number and pointer back to directory
+        fp = ""
+        tl = len(param)
+        cs = 0
+        cc = 0
+
+        while (tl):
+            cc += 1
+            cl = min(64, tl)
+            ce = cs + cl
+            fp += "{:64} {:7}P{:7}\n".format(param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SequenceCnt + cc)
+            tl -= cl
+            cs += cl
+
+        # Update Entity param section sequence counter
+        IGES_Entity.SequenceCnt += cc
+
+        return fp
+
+    def ConstructRecord(self):
+        self.directory_record = self.directory.toAsciiEntry()
+        self.param_record = self.toAsciiParam()
+
+        return self.directory_record, self.param_record
 
 
 class IGES_Entity116(IGES_Entity):
@@ -279,25 +380,42 @@ class IGES_Entity126(IGES_Entity):
         pass
 
 
-# terminal section
-model.write('{:72}T{:7d}\n'.format('S{:7}G{:7}D{:7}P{:7}'.format(sc, gc, IGES_Directory.SequenceCnt, 0), 1))
-
-model.close()
-
 pl.plot(z, x_front, 'ro')
 pl.plot(z, x_tail, 'bo')
 
 z_new = np.linspace(0, 25.5, 1000)
 
-xf = interpolate.interp1d(z, x_front, kind='cubic')
-xf_new = xf(z_new)
-pl.plot(z_new, xf_new, label='front')
+xf_natural = interpolate.make_interp_spline(z, x_front, k=3, bc_type=([(2, 0)], [(2, 0)]))
+xt_natural = interpolate.make_interp_spline(z, x_tail, k=3, bc_type=([(2, 0)], [(2, 0)]))
 
-xt = interpolate.interp1d(z, x_tail, kind='cubic')
-xt_new = xt(z_new)
-pl.plot(z_new, xt_new, label='tail')
+Coef = np.zeros((len(z), 3, 4))
 
-interpolate.splrep
+for i in range(0, len(z)):
+    Coef[i][2][0] = z[i]
+    Coef[i][2][1] = float(1)
 
-pl.legend()
+    Coef[i][0][0] = float(xf_natural(z[i]))
+    Coef[i][0][1] = float(xf_natural(z[i], 1))
+    Coef[i][0][2] = float(xf_natural(z[i], 2) / 2)
+    Coef[i][0][3] = float(xf_natural(z[i], 3) / 6)
+
+print(Coef)
+
+front_curve = IGES_Entity112(z, Coef)
+front_curve_record = front_curve.ConstructRecord()
+
+model.write(front_curve_record[0])
+model.write(front_curve_record[1])
+
+xfn_new = xf_natural(z_new)
+pl.plot(z_new, xfn_new, label="Front curve\n(Natural BC)")
+
+xtn_new = xt_natural(z_new)
+pl.plot(z_new, xtn_new, label="Tail curve\n(Natural BC)")
+
+pl.legend(loc="lower right")
 pl.show()
+
+# terminal section
+model.write('{:72}T{:7d}\n'.format('S{:7}G{:7}D{:7}P{:7}'.format(sc, gc, IGES_Directory.SequenceCnt, IGES_Entity.SequenceCnt), 1))
+model.close()
