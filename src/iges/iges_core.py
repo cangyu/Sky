@@ -8,10 +8,9 @@ class IGES_StartSection:
     Start Section of an IGS file
     '''
 
-    SeqCnt = 0
-
     def __init__(self, _desc):
         self.start_section_str = _desc
+        self.SeqCnt = 0
 
     def BuildSection(self):
         ss = ""
@@ -19,11 +18,11 @@ class IGES_StartSection:
         tl = len(self.start_section_str)
         ci = 0
         while tl:
-            IGES_StartSection.SeqCnt += 1
+            self.SeqCnt += 1
             cc = min(72, tl)
             tl -= cc
             ce = ci + cc
-            ss += "{:72}S{:7d}\n".format(self.start_section_str[ci:ce], IGES_StartSection.SeqCnt)
+            ss += "{:72}S{:7d}\n".format(self.start_section_str[ci:ce], self.SeqCnt)
             ci = ce
 
         return ss
@@ -34,9 +33,9 @@ class IGES_GlobalSection:
     Global section of an IGS file
     '''
 
-    SeqCnt = 0
-
     def __init__(self, _cfn):
+        self.SeqCnt = 0
+
         # 1. 参数分界符字符
         self.Parameter_Delimiter_Character = ','
 
@@ -148,11 +147,11 @@ class IGES_GlobalSection:
         tl = len(gss)
         ci = 0
         while tl:
-            IGES_GlobalSection.SeqCnt += 1
+            self.SeqCnt += 1
             cc = min(72, tl)
             tl -= cc
             ce = ci + cc
-            gs += "{:72}G{:7d}\n".format(gss[ci:ce], IGES_GlobalSection.SeqCnt)
+            gs += "{:72}G{:7d}\n".format(gss[ci:ce], self.SeqCnt)
             ci = ce
 
         return gs
@@ -283,11 +282,11 @@ class IGES_Model:
         self.GlobalSection = IGES_GlobalSection(_filename)
         self.comp = []
 
-    def generate(self):
+    def Generate(self):
 
         # Create new folder
         folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-        folder_path = ("%s/../../result/" % os.getcwd()) + folder_name
+        folder_path = ("%s/../../result/") + folder_name
         os.mkdir(folder_path)
 
         # Create igs file
@@ -308,7 +307,10 @@ class IGES_Model:
             model.write(self.comp[i].param_record)
 
         # Write Terminate Section
-        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(IGES_StartSection.SeqCnt, IGES_GlobalSection.SeqCnt, IGES_Directory.SeqCnt, IGES_Entity.SeqCnt), 1))
+        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, IGES_Directory.SeqCnt, IGES_Entity.SeqCnt), 1))
 
         # Done
         model.close()
+
+    def AddPart(self, _part):
+        self.comp.append(_part)

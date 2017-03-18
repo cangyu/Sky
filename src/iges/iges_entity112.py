@@ -102,5 +102,3 @@ class IGES_Entity112(IGES_Entity):
     def BuildSection(self):
         self.directory_record = self.directory.BuildEntry()
         self.param_record = self.BuildParam()
-
-        return self.directory_record, self.param_record

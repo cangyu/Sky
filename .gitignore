@@ -1,4 +1,6 @@
 .idea
 __pycache__
 *.stl
+*.igs
 *.iges
+XFOIL6.99/
