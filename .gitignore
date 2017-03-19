@@ -4,3 +4,4 @@ __pycache__
 *.igs
 *.iges
 XFOIL6.99/
+tmp/
