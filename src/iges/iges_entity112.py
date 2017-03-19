@@ -1,5 +1,8 @@
 import numpy as np
-from src.iges.iges_core import  IGES_Entity
+from scipy import interpolate
+from scipy.special import factorial
+from src.iges.iges_core import *
+
 
 class IGES_Entity112(IGES_Entity):
     '''
@@ -102,3 +105,28 @@ class IGES_Entity112(IGES_Entity):
     def BuildSection(self):
         self.directory_record = self.directory.BuildEntry()
         self.param_record = self.BuildParam()
+
+
+class IGES_Entity112_Builder(IGES_Entity_Builder):
+    def __init__(self, _u, _x, _y, _z, _order=3):
+
+        # Coefficient Matrix
+        self.cm = np.zeros((len(_u), 3, 4))
+
+        # Interpolation Function
+        self.fx = interpolate.make_interp_spline(_u, _x, k=_order, bc_type=([(2, 0)], [(2, 0)]))
+        self.fy = interpolate.make_interp_spline(_u, _y, k=_order, bc_type=([(2, 0)], [(2, 0)]))
+        self.fz = interpolate.make_interp_spline(_u, _z, k=_order, bc_type=([(2, 0)], [(2, 0)]))
+
+        f = [self.fx, self.fy, self.fz]
+
+        for k in range(0, len(_u)):
+            for i in range(0, 3):
+                for j in range(0, 4):
+                    self.cm[k][i][j] = float(f[i](_u[k], j) / factorial(j))
+
+        self.entity = IGES_Entity112(_u, self.cm)
+        self.entity.BuildSection()
+
+    def GetEntity(self):
+        return self.entity
