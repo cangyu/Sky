@@ -8,6 +8,7 @@ from scipy import interpolate
 from abc import ABCMeta, abstractmethod
 from src.iges.iges_core import IGES_Model
 from src.iges.iges_entity112 import *
+from src.iges.iges_entity116 import *
 
 z = np.array([0., 0.624029, 1.38967, 2.43503, 3.73439, 5.25574, 6.96162,
               8.81003, 10.7555, 12.75, 14.7445, 16.69, 18.5384, 20.2443, 21.7656,
@@ -46,5 +47,9 @@ plane = IGES_Model()
 
 plane.AddPart(curve_builder(z, x_front).get_entity())
 plane.AddPart(curve_builder(z,x_tail).get_entity())
+
+for i in range(0, len(z)):
+    plane.AddPart(IGES_Entity116_Builder(x_front[i],float(0), z[i]).GetEntity())
+    plane.AddPart(IGES_Entity116_Builder(x_tail[i], float(0), z[i]).GetEntity())
 
 plane.Generate()
