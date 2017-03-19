@@ -277,10 +277,14 @@ class IGES_Model:
     '''
 
     def __init__(self, _filename="BWB.igs"):
+
         self.filename = _filename
         self.StartSection = IGES_StartSection("Simplified Blended-Wing-Body(BWB) Parametric Model")
         self.GlobalSection = IGES_GlobalSection(_filename)
         self.comp = []
+
+        IGES_Entity.SeqCnt = 0
+        IGES_Directory.SeqCnt = 0
 
     def Generate(self):
 
@@ -314,3 +318,12 @@ class IGES_Model:
 
     def AddPart(self, _part):
         self.comp.append(_part)
+
+class IGES_Entity_Builder:
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def GetEntity(self):
+        pass
+
