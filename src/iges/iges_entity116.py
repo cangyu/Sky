@@ -19,24 +19,7 @@ class IGES_Entity116(IGES_Entity):
         param+="{},".format(self.directory.Entity_Type_Number)
         param+="{},{},{},{};".format(self.X,self.Y,self.Z,self.PTR)
 
-        # Add sequence number and pointer back to directory
-        fp = ""
-        tl = len(param)
-        cs = 0
-        cc = 0
-
-        while (tl):
-            cc += 1
-            cl = min(64, tl)
-            ce = cs + cl
-            fp += "{:64} {:7}P{:7}\n".format(param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SeqCnt + cc)
-            tl -= cl
-            cs += cl
-
-        # Update Entity param section sequence counter
-        IGES_Entity.SeqCnt += cc
-
-        return fp
+        return self.ConvertRawToFormatted(param)
 
     def BuildSection(self):
         self.directory_record = self.directory.BuildEntry()

@@ -262,12 +262,42 @@ class IGES_Entity:
         self.directory_record = ""
         self.param_record = ""
 
+    def ConvertRawToFormatted(self, _param):
+
+        # Add sequence number and pointer back to directory
+        fp = ""
+        tl = len(_param)
+        cs = 0
+        cc = 0
+
+        while (tl):
+            cc += 1
+            cl = min(64, tl)
+            ce = cs + cl
+            fp += "{:64} {:7}P{:7}\n".format(_param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SeqCnt + cc)
+            tl -= cl
+            cs += cl
+
+        # Update Entity param section sequence counter
+        IGES_Entity.SeqCnt += cc
+
+        return fp
+
     @abstractmethod
     def BuildParam(self):
         pass
 
     @abstractmethod
     def BuildSection(self):
+        pass
+
+
+class IGES_Entity_Builder:
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def GetEntity(self):
         pass
 
 
@@ -318,12 +348,3 @@ class IGES_Model:
 
     def AddPart(self, _part):
         self.comp.append(_part)
-
-class IGES_Entity_Builder:
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def GetEntity(self):
-        pass
-
