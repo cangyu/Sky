@@ -10,7 +10,6 @@ from src.iges.iges_entity110 import *
 from src.iges.iges_entity112 import *
 from src.iges.iges_entity116 import *
 
-
 class Airfoil(object):
     '''
     2D Airfoil, with chord length equals 1
@@ -127,11 +126,11 @@ for i in range(0, len(z)):
 
 naca0012 = Airfoil("../airfoil/naca0012.dat")
 
+for i in range(0, len(z)):
+    epts = np.array([[x_front[i], y_front[i], z[i]],
+                     [x_tail[i], y_tail[i], z[i]]])
 
-wp0=Wing_Profile(naca0012, root_line)
-wp1=Wing_Profile(naca0012, tip_line)
-
-wp0.AttachTo(plane)
-wp1.AttachTo(plane)
+    wp = Wing_Profile(naca0012, epts)
+    wp.AttachTo(plane)
 
 plane.Generate()
