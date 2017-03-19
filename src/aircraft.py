@@ -1,5 +1,6 @@
 import numpy as np
 from src.iges.iges_entity110 import *
+from src.iges.iges_entity114 import *
 from src.iges.iges_entity116 import *
 from src.wing import *
 
@@ -47,10 +48,6 @@ for i in range(0, len(z)):
     profile.append(wp)
     wp.AttachTo(plane)
 
-plane.Generate()
-
-from scipy import interpolate
-
 u = np.zeros(len(z), dtype=float)
 for i in range(0, len(z)):
     u[i] = z[i]
@@ -69,29 +66,6 @@ for i in range(0, len(v)):
         yy[i][j] = profile[j].pts[0][1][i]
         zz[i][j] = profile[j].pts[0][2][i]
 
-fx = interpolate.interp2d(u, v, xx, kind='cubic')
-fy = interpolate.interp2d(u, v, yy, kind='cubic')
-fz = interpolate.interp2d(u, v, zz, kind='cubic')
+plane.AddPart(IGES_Entity114_Builder(u, v, xx, yy, zz).GetEntity())
 
-uu = np.arange(0, 25.5, 0.1)
-vv = np.arange(0, 1, 0.05)
-
-nx = fx(uu, vv)
-ny = fy(uu, vv)
-nz = fz(uu, vv)
-
-import matplotlib
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-from matplotlib import cm
-
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-
-uuu, vvv = np.meshgrid(uu, vv)
-
-# Plot the surface.
-surf = ax.plot_surface(uuu, vvv, ny, cmap=cm.coolwarm, linewidth=0, antialiased=True)
-# Add a color bar which maps values to colors.
-fig.colorbar(surf, shrink=0.5, aspect=5)
-plt.show()
+plane.Generate()
