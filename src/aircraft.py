@@ -4,9 +4,9 @@ import math
 import time
 import numpy as np
 import pylab as pl
-
 from abc import ABCMeta, abstractmethod
 from src.iges.iges_core import IGES_Model
+from src.iges.iges_entity110 import *
 from src.iges.iges_entity112 import *
 from src.iges.iges_entity116 import *
 
@@ -24,11 +24,20 @@ x_tail = np.array([19.7, 19.6, 19.6, 19.5, 19.3, 19, 18.3, 17.3, 16.6, 16.5,
 
 y_tail = np.linspace(0, 0, len(z))
 
+root_line = np.array([[x_front[0], y_front[0], z[0]],
+                      [x_tail[0], y_tail[0], z[0]]])
+
+tip_line = np.array([[x_front[len(z) - 1], y_front[len(z) - 1], z[len(z) - 1]],
+                     [x_tail[len(z) - 1], y_tail[len(z) - 1], z[len(z) - 1]]])
+
 
 plane = IGES_Model()
 
 plane.AddPart(IGES_Entity112_Builder(z, x_front, y_front, z).GetEntity())
 plane.AddPart(IGES_Entity112_Builder(z, x_tail, y_tail, z).GetEntity())
+
+plane.AddPart(IGES_Entity110_Builder(root_line).GetEntity())
+plane.AddPart(IGES_Entity110_Builder(tip_line).GetEntity())
 
 for i in range(0, len(z)):
     plane.AddPart(IGES_Entity116_Builder(x_front[i], y_front[i], z[i]).GetEntity())
