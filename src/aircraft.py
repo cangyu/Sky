@@ -56,15 +56,15 @@ v = np.zeros(len(naca0012.x))
 for i in range(0, len(naca0012.x)):
     v[i] = naca0012.x[i]
 
-xx = np.zeros((len(v), len(u)))
-yy = np.zeros((len(v), len(u)))
-zz = np.zeros((len(v), len(u)))
+xx = np.zeros((len(u), len(v)))
+yy = np.zeros((len(u), len(v)))
+zz = np.zeros((len(u), len(v)))
 
-for i in range(0, len(v)):
-    for j in range(0, len(u)):
-        xx[i][j] = profile[j].pts[0][0][i]
-        yy[i][j] = profile[j].pts[0][1][i]
-        zz[i][j] = profile[j].pts[0][2][i]
+for i in range(0, len(u)):
+    for j in range(0, len(v)):
+        xx[i][j] = profile[i].pts[0][0][j]
+        yy[i][j] = profile[i].pts[0][1][j]
+        zz[i][j] = profile[i].pts[0][2][j]
 
 plane.AddPart(IGES_Entity114_Builder(u, v, xx, yy, zz).GetEntity())
 
