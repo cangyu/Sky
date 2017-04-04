@@ -1,20 +1,32 @@
 import numpy as np
 import scipy
 import math
-from src.nurbs.point import Point2D
 
-class Curve2D(object):
+
+class Curve(object):
     def __init__(self, pts, p=5):
         """
         p阶，n+1个控制点，m+1个节点,全局插值
         """
-        self.pts = pts
+        cur_shape = pts[0].shape
+        for i in range(1, len(pts)):
+            if cur_shape != pts[i].shape:
+                raise Exception("Inconsistent shape!")
+
+        self.dim = cur_shape[0]
         self.p = p
-        self.n = len(self.pts) - 1
+        self.n = len(pts) - 1
         self.m = self.n + self.p + 1
+
+        self.pts = np.zeros((self.n + 1, self.dim), float)
+        for i in range(0, self.n + 1):
+            for j in range(0, self.dim):
+                self.pts[i][j] = pts[i][j]
+
         self.param = np.zeros(self.n + 1, float)
         self.knots = np.zeros(self.m + 1, float)
         self.coef = np.zeros((self.n + 1, self.n + 1), float)
+        self.ctrl_pts = np.zeros((self.n + 1, self.dim), float)
 
     def calc_param(self, method='centripetal'):
         self.param[0] = 0.0
@@ -30,7 +42,9 @@ class Curve2D(object):
         else:
             dist = np.zeros(self.n + 1, float)
             for i in range(1, self.n + 1):
-                dist[i] = Point2D.dist(self.pts[i], self.pts[i - 1])
+                for j in range(0, self.dim):
+                    dist[i] += math.pow(self.pts[i][j] - self.pts[i - 1][j], 2)
+                dist[i] = math.sqrt(dist[i])
 
             d = 0
             if method == 'chord':
@@ -67,3 +81,20 @@ class Curve2D(object):
         """
         pass
 
+    def calc_ctrl_pts(self):
+        """
+        解self.dim个线性方程组反求得控制点坐标，每个方程组中有self.n+1个方程
+        """
+        Q = np.zeros((self.dim, self.n + 1), float)
+        P = np.zeros((self.dim, self.n + 1), float)
+
+        for i in range(0, self.dim):
+            for j in range(0, self.n + 1):
+                Q[i][j] = self.pts[j][i]
+
+        for i in range(0, self.dim):
+            P[i] = scipy.linalg.solve(self.coef, Q[i])
+
+        for i in range(0, self.n + 1):
+            for j in range(0, self.dim):
+                self.ctrl_pts[i][j] = P[j][i]
