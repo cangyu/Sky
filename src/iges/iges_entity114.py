@@ -74,24 +74,7 @@ class IGES_Entity114_Builder(IGES_Entity_Builder):
     '''
 
     def __init__(self, _u, _v, _x, _y, _z):
-
-        self.cm = np.zeros((len(_u), len(_v), 3, 4, 4))
-
-        fx = interpolate.RectBivariateSpline(_u, _v, _x)
-        fy = interpolate.RectBivariateSpline(_u, _v, _y)
-        fz = interpolate.RectBivariateSpline(_u, _v, _z)
-
-        f = [fx, fy, fz]
-
-        for m in range(0, len(_u)):
-            for n in range(0, len(_v)):
-                for dim in range(0, 3):
-                    for i in range(0, 3):
-                        for j in range(0, 3):
-                            self.cm[m][n][dim][i][j] = float(f[dim](_u[m], _v[n], j, i) / (factorial(i) * factorial(j)))
-
-        self.entity = IGES_Entity114(_u, _v, self.cm)
-        self.entity.BuildSection()
+        pass
 
     def GetEntity(self):
         return self.entity

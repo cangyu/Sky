@@ -26,6 +26,7 @@ tip_line = np.array([[x_front[len(z) - 1], y_front[len(z) - 1], z[len(z) - 1]],
 
 plane = IGES_Model()
 
+'''
 plane.AddPart(IGES_Entity112_Builder(z, x_front, y_front, z).GetEntity())
 plane.AddPart(IGES_Entity112_Builder(z, x_tail, y_tail, z).GetEntity())
 
@@ -35,18 +36,22 @@ plane.AddPart(IGES_Entity110_Builder(tip_line).GetEntity())
 for i in range(0, len(z)):
     plane.AddPart(IGES_Entity116_Builder(x_front[i], y_front[i], z[i]).GetEntity())
     plane.AddPart(IGES_Entity116_Builder(x_tail[i], y_tail[i], z[i]).GetEntity())
+'''
 
 naca0012 = Airfoil("../airfoil/naca0012.dat")
 
 profile = []
 
-for i in range(0, len(z)):
+for i in range(0, 1):
     epts = np.array([[x_front[i], y_front[i], z[i]],
                      [x_tail[i], y_tail[i], z[i]]])
 
     wp = Wing_Profile(naca0012, epts)
     profile.append(wp)
     wp.AttachTo(plane)
+
+plane.Generate()
+
 
 u = np.zeros(len(z), dtype=float)
 for i in range(0, len(z)):
@@ -66,6 +71,10 @@ for i in range(0, len(u)):
         yy[i][j] = profile[i].pts[0][1][j]
         zz[i][j] = profile[i].pts[0][2][j]
 
-plane.AddPart(IGES_Entity114_Builder(u, v, xx, yy, zz).GetEntity())
+fx = interpolate.RectBivariateSpline(u, v, xx)
+fy = interpolate.RectBivariateSpline(u, v, yy)
+fz = interpolate.RectBivariateSpline(u, v, zz)
+f = [fx, fy, fz]
 
-plane.Generate()
+
+
