@@ -58,13 +58,13 @@ class IGES_GlobalSection:
         self.Number_Of_Binary_Bits_For_Integer_Representation = int(32)
 
         # 8. 发送系统单精度浮点数可表示的以10为底的最大幂指数
-        self.Single_Precision_Magnitude = int(38)
+        self.Single_Precision_Magnitude = int(75)
 
         # 9. 发送系统单精度浮点数的有效数字的个数
         self.Single_Precision_Significance = int(6)
 
         # 10. 发送系统双精度浮点数可表示的以10为底的最大幂指数
-        self.Double_Precision_Magnitude = int(308)
+        self.Double_Precision_Magnitude = int(75)
 
         # 11. 发送系统双精度浮点数的有效数字的个数
         self.Double_Precision_Significance = int(15)
@@ -75,17 +75,17 @@ class IGES_GlobalSection:
         # 13. 模型空间的比例
         self.Model_Space_Scale = float(1.0)
 
-        # 14. 单位标识，此处以‘米’为单位
+        # 14. 单位标识
         self.Units_Flag = int(6)
 
         # 15. 单位名称
         self.Units_Name = "M"
 
         # 16. 线宽等级的最大数
-        self.Maximum_Number_Of_Line_Weight_Gradations = int(1)
+        self.Maximum_Number_Of_Line_Weight_Gradations = int(1000)
 
         # 17. 按单位计的最大线宽权值
-        self.Width_Of_Maximum_Line_Weight_In_Units = float(16)
+        self.Width_Of_Maximum_Line_Weight_In_Units = float(1.0)
 
         # 18. 交换文件生成的日期和时间
         self.Date_And_Time_Of_Exchange_File_Generation = time.strftime("%Y%m%d.%H%M%S", time.localtime())
@@ -94,7 +94,7 @@ class IGES_GlobalSection:
         self.Minimum_User_Intended_Resolution = float(0.001)
 
         # 20. 出现在模型中的近似的最大值
-        self.Approximate_Maximum_Coordinate_Value = float(0.0)
+        self.Approximate_Maximum_Coordinate_Value = float(10000)
 
         # 21. 作者姓名
         self.Name_Of_Author = "Yu Cang"
@@ -141,7 +141,7 @@ class IGES_GlobalSection:
         gss += ("{},".format(str(self.Version_Flag)))
         gss += ("{},".format(str(self.Drafting_Standard_Flag)))
         gss += ("{}H{},".format(len(self.Date_And_Time_Model_Was_Created_Or_Modified), self.Date_And_Time_Model_Was_Created_Or_Modified))
-        gss += ("{}H{}".format(len(self.Application_Protocol), self.Application_Protocol))
+        gss += ("{}H{};".format(len(self.Application_Protocol), self.Application_Protocol))
 
         gs = ""
         tl = len(gss)
@@ -162,14 +162,12 @@ class IGES_Directory:
     Directory Entry for an Entity
     '''
 
-    SeqCnt = 0
-
-    def __init__(self, _etn, _pd):
+    def __init__(self, etn):
         # 1. 实体类型号
-        self.Entity_Type_Number = int(_etn)
+        self.Entity_Type_Number = int(etn)
 
         # 2. 参数数据，指向该实体参数数据记录第一行的指针
-        self.Parameter_Data = int(_pd)
+        self.Parameter_Data = int(-1)
 
         # 3. 结构，指向规定该实体意义的定义实体的目录条目的负的指针或零
         self.Structure = int(0)
@@ -193,7 +191,7 @@ class IGES_Directory:
         self.Status_Number = "00000000"
 
         # 10. 段代码和序号
-        self.Sequence_Number = IGES_Directory.SeqCnt + 1
+        self.Sequence_Number = int(-1)
 
         # 11. 实体类型号，略
 
@@ -221,7 +219,11 @@ class IGES_Directory:
 
         # 20. 段代码和序号，略
 
-        IGES_Directory.SeqCnt += 2
+    def SetParameterData(self, index):
+        self.Parameter_Data = int(index)
+
+    def SetSeqNum(self, n):
+        self.Sequence_Number = int(n)
 
     def BuildEntry(self):
         entry = ""
@@ -254,16 +256,15 @@ class IGES_Entity:
     General part for an Entity
     '''
 
-    SeqCnt = 0
-
-    def __init__(self, _etn, _pd):
-        self.directory = IGES_Directory(_etn, _pd)
+    def __init__(self, _etn):
+        self.directory = IGES_Directory(_etn)
 
         self.directory_record = ""
         self.param_record = ""
+        self.prev_pos = int(-1)
+        self.line_cnt = int(-1)
 
     def ConvertRawToFormatted(self, _param):
-
         # Add sequence number and pointer back to directory
         fp = ""
         tl = len(_param)
@@ -274,30 +275,19 @@ class IGES_Entity:
             cc += 1
             cl = min(64, tl)
             ce = cs + cl
-            fp += "{:64} {:7}P{:7}\n".format(_param[cs:ce], self.directory.Sequence_Number, IGES_Entity.SeqCnt + cc)
+            fp += "{:64} {:7}P{:7}\n".format(_param[cs:ce], self.directory.Sequence_Number, self.prev_pos + cc)
             tl -= cl
             cs += cl
 
-        # Update Entity param section sequence counter
-        IGES_Entity.SeqCnt += cc
+        self.line_cnt = cc
 
         return fp
 
+    def SetPrevPos(self, pos):
+        self.prev_pos = pos
+
     @abstractmethod
     def BuildParam(self):
-        pass
-
-    @abstractmethod
-    def BuildSection(self):
-        pass
-
-
-class IGES_Entity_Builder:
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def GetEntity(self):
         pass
 
 
@@ -306,24 +296,41 @@ class IGES_Model:
     IGES model in ASCII format with entities
     '''
 
-    def __init__(self, _filename="BWB.igs"):
+    def __init__(self, filename="BWB.igs", desc="Simplified Blended-Wing-Body(BWB) Parametric Model."):
 
-        self.filename = _filename
-        self.StartSection = IGES_StartSection("Simplified Blended-Wing-Body(BWB) Parametric Model")
-        self.GlobalSection = IGES_GlobalSection(_filename)
+        self.filename = filename
+        self.StartSection = IGES_StartSection(desc)
+        self.GlobalSection = IGES_GlobalSection(filename)
         self.comp = []
+        self.DirectorySeqCnt = 0
+        self.EntitySeqCnt = 0
 
-        IGES_Entity.SeqCnt = 0
-        IGES_Directory.SeqCnt = 0
+    def AddPart(self, part):
+        self.comp.append(part)
+
+    def AssembleAll(self):
+        self.DirectorySeqCnt = 0
+        self.EntitySeqCnt = 0
+
+        for i in range(0, len(self.comp)):
+            self.comp[i].directory.SetParameterData(self.EntitySeqCnt + 1)
+            self.comp[i].directory.SetSeqNum(self.DirectorySeqCnt + 1)
+            self.DirectorySeqCnt += 2
+            self.comp[i].directory_record = self.comp[i].directory.BuildEntry()
+
+            self.comp[i].SetPrevPos(self.EntitySeqCnt)
+            self.comp[i].param_record = self.comp[i].BuildParam()
+            self.EntitySeqCnt += self.comp[i].line_cnt
 
     def Generate(self):
 
-        # Create new folder
+        # Assemble all parts
+        self.AssembleAll()
+
+        # Create new folder and igs file
         folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
         folder_path = ("%s/../../result/") + folder_name
         os.mkdir(folder_path)
-
-        # Create igs file
         model = open(folder_path + '/' + self.filename, 'w')
 
         # Write Start Section
@@ -341,10 +348,7 @@ class IGES_Model:
             model.write(self.comp[i].param_record)
 
         # Write Terminate Section
-        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, IGES_Directory.SeqCnt, IGES_Entity.SeqCnt), 1))
+        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt), 1))
 
         # Done
         model.close()
-
-    def AddPart(self, _part):
-        self.comp.append(_part)
