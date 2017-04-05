@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 
 class Airfoil(object):
@@ -49,8 +50,7 @@ class Wing_Profile(object):
         # stretch
         for i in range(0, self.n):
             # x-dir
-            self.pts[0][0][i] = self.pts[1][0][i] = float(
-                chord_len * _airfoil.x[i])
+            self.pts[0][0][i] = self.pts[1][0][i] = float(chord_len * _airfoil.x[i])
 
             # y-dir
             self.pts[0][1][i] = float(chord_len * _airfoil.y_up[i])
@@ -78,3 +78,21 @@ class Wing_Profile(object):
             for i in range(0, self.n):
                 self.pts[k][0][i] += _ends[0][0]
                 self.pts[k][1][i] += _ends[0][1]
+
+    def getPointList(self):
+        ret = np.zeros((2 * self.n - 1, 3), float)
+        cpi = 0
+
+        for i in range(0, self.n):
+            ret[cpi][0] = self.pts[0][0][self.n - 1 - i]
+            ret[cpi][1] = self.pts[0][1][self.n - 1 - i]
+            ret[cpi][2] = self.pts[0][2][self.n - 1 - i]
+            cpi += 1
+
+        for i in range(1, self.n):
+            ret[cpi][0] = self.pts[1][0][i]
+            ret[cpi][1] = self.pts[1][1][i]
+            ret[cpi][2] = self.pts[1][2][i]
+            cpi += 1
+
+        return ret

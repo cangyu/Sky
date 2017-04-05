@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+import scipy.linalg
 import math
 
 
@@ -29,7 +29,7 @@ def BasisFuns(i, u, p, U):
 class Curve(object):
     def __init__(self, pts, p=5):
         """
-        p阶，n+1个控制点，m+1个节点,全局插值
+        p阶，n+1个控制点，m+1个节点,全局插值，非有理
         """
         cur_shape = pts[0].shape
         for i in range(1, len(pts)):
@@ -145,3 +145,13 @@ class Curve(object):
         for i in range(0, self.n + 1):
             for j in range(0, self.dim):
                 self.ctrl_pts[i][j] = P[j][i]
+
+    def generate(self):
+        self.calc_param()
+        self.calc_knots()
+        self.calc_coef()
+        self.calc_ctrl_pts()
+
+        w=np.ones(self.n+1, float)
+
+        return self.knots, w, self.ctrl_pts

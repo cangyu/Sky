@@ -1,9 +1,12 @@
-import numpy as np
 from src.iges.iges_entity110 import *
 from src.iges.iges_entity116 import *
+from src.iges.iges_entity126 import *
 from src.aircraft.wing import *
+from src.nurbs.curve import *
 
 plane = IGES_Model()
+
+naca0012 = Airfoil("../airfoil/naca0012.dat")
 
 z = np.array([0., 0.624029, 1.38967, 2.43503, 3.73439, 5.25574, 6.96162,
               8.81003, 10.7555, 12.75, 14.7445, 16.69, 18.5384, 20.2443, 21.7656,
@@ -26,44 +29,22 @@ for i in range(0, len(z)):
 plane.AddPart(IGES_Entity110([x_front[0], y_front[0], z[0]], [x_tail[0], y_tail[0], z[0]]))
 plane.AddPart(IGES_Entity110([x_front[len(z) - 1], y_front[len(z) - 1], z[len(z) - 1]], [x_tail[len(z) - 1], y_tail[len(z) - 1], z[len(z) - 1]]))
 
-plane.Generate()
+profile_pts=[]
+profile_crv=[]
 
-'''
-naca0012 = Airfoil("../airfoil/naca0012.dat")
-
-profile = []
-
-for i in range(0, 1):
-    epts = np.array([[x_front[i], y_front[i], z[i]],
-                     [x_tail[i], y_tail[i], z[i]]])
-
-    wp = Wing_Profile(naca0012, epts)
-    profile.append(wp)
-    wp.AttachTo(plane)
-
-
-
-
-u = np.zeros(len(z), dtype=float)
 for i in range(0, len(z)):
-    u[i] = z[i]
+    epts = np.array([[x_front[i], y_front[i], z[i]], [x_tail[i], y_tail[i], z[i]]])
+    wp = Wing_Profile(naca0012, epts)
+    pts = wp.getPointList()
+    profile_pts.append(pts)
+    '''
+    for k in range(0, len(pts)):
+        plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
+    '''
 
-v = np.zeros(len(naca0012.x))
-for i in range(0, len(naca0012.x)):
-    v[i] = naca0012.x[i]
+cc = Curve(profile_pts[0])
+a, b, c = cc.generate()
+ccc = IGES_Entity126(cc.p, cc.n, 1, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0,0,1.0]))
+plane.AddPart(ccc)
 
-xx = np.zeros((len(u), len(v)))
-yy = np.zeros((len(u), len(v)))
-zz = np.zeros((len(u), len(v)))
-
-for i in range(0, len(u)):
-    for j in range(0, len(v)):
-        xx[i][j] = profile[i].pts[0][0][j]
-        yy[i][j] = profile[i].pts[0][1][j]
-        zz[i][j] = profile[i].pts[0][2][j]
-
-fx = interpolate.RectBivariateSpline(u, v, xx)
-fy = interpolate.RectBivariateSpline(u, v, yy)
-fz = interpolate.RectBivariateSpline(u, v, zz)
-f = [fx, fy, fz]
-'''
+plane.Generate()
