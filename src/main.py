@@ -52,10 +52,8 @@ for i in range(0, len(z)):
     profile_pts.append(pts)
     profile_crv.append(cc)
 
-    '''
     for k in range(0, len(pts)):
         plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
-    '''
 
     a, b, c = cc.generate()
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 1, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 1.0], float)))
