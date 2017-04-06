@@ -26,6 +26,7 @@ def BasisFuns(i, u, p, U):
 
     return N
 
+
 class Curve(object):
     def __init__(self, pts, p=5):
         """
@@ -93,7 +94,7 @@ class Curve(object):
         for i in range(0, self.p):
             acc += self.param[i]
 
-        for j in range(1, self.n - self.p):
+        for j in range(1, self.n - self.p + 1):
             acc -= self.param[j - 1]
             acc += self.param[self.p - 1 + j]
             self.knots[self.p + j] = acc / self.p
@@ -152,6 +153,6 @@ class Curve(object):
         self.calc_coef()
         self.calc_ctrl_pts()
 
-        w=np.ones(self.n+1, float)
+        w = np.ones(self.n + 1, float)
 
         return self.knots, w, self.ctrl_pts
