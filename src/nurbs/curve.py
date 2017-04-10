@@ -51,6 +51,7 @@ class Curve(object):
         self.knots = np.zeros(self.m + 1, float)
         self.coef = np.zeros((self.n + 1, self.n + 1), float)
         self.ctrl_pts = np.zeros((self.n + 1, self.dim), float)
+        self.weights = np.ones(self.n + 1, float)
 
     def calc_param(self, method='centripetal'):
         self.param[0] = 0.0
@@ -147,12 +148,11 @@ class Curve(object):
             for j in range(0, self.dim):
                 self.ctrl_pts[i][j] = P[j][i]
 
-    def generate(self):
-        self.calc_param()
+    def generate(self, method='centripetal'):
+        self.calc_param(method)
         self.calc_knots()
         self.calc_coef()
         self.calc_ctrl_pts()
 
-        w = np.ones(self.n + 1, float)
-
-        return self.knots, w, self.ctrl_pts
+        # 节点矢量， 权系数， 控制点
+        return self.knots, self.weights, self.ctrl_pts
