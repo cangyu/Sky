@@ -255,6 +255,16 @@ def merge(lhs, rhs):
     return ret
 
 
+def GetDistance(dim, lhs, rhs):
+    assert len(lhs) == len(rhs) == dim
+
+    l = 0
+    for i in range(0, dim):
+        l += math.pow(lhs[i] - rhs[i], 2)
+
+    return math.sqrt(l)
+
+
 class Skining(object):
     def __init__(self, _crvs):
         self.crv = _crvs
@@ -287,15 +297,48 @@ class Skining(object):
         for i in range(1, len(self.crv)):
             ccu = merge(ccu, self.crv[i].knots)
 
-        return ccu
+        self.common_knots = ccu
 
-    def calc_v_knots(self):
-        pass
+    def calc_v_knots(self, q):
+        K = len(self.crv)
+        N = self.crv[0].n + 1
+        d = np.zeros(N, float)
+        seg_len = np.zeros((N, K - 1), float)
 
-    def generate(self, p=5):
+        for i in range(0, N):
+            for j in range(1, K):
+                seg_len[i][j - 1] = GetDistance(self.crv[i].ctrl_pts[j].shape[0], self.crv[i].ctrl_pts[j], self.crv[i].ctrl_pts[j - 1])
+                d[i] += seg_len[i][j - 1]
+
+        v = np.zeros(K, float)
+        v[K - 1] = 1.0
+        for k in range(1, K - 2):
+            tmp = 0.0
+            for i in range(0, N):
+                tmp += seg_len[i][k - 1] / d[i]
+            v[k] = v[k - 1] + tmp / N
+
+        m = K + q
+        knots = np.zeros(m + 1, float)
+        for i in range(0, q + 1):
+            knots[i] = 0.0
+            knots[m - i] = 1.0
+
+        tmp = 0.0
+        for i in range(0, q):
+            tmp += v[i]
+
+        for j in range(1, K - q):
+            tmp -= v[j - 1]
+            tmp += v[j + q - 1]
+            knots[j + q] = tmp / q
+
+        return v, knots
+
+    def generate(self, p=5, q=5):
         self.promote(p)
-        self.common_knots = self.merge_all()
-        self.calc_v_knots()
+        self.merge_all()
+        self.calc_v_knots(q)
 
 
 class Surface(object):
