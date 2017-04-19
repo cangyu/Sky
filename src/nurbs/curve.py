@@ -1,6 +1,9 @@
 import numpy as np
 import scipy.linalg
+from scipy import interpolate
+from scipy.special import factorial
 import math
+from src.iges.iges_entity112 import IGES_Entity112
 
 
 def BasisFuns(i, u, p, U):
@@ -156,3 +159,49 @@ class Curve(object):
 
         # 节点矢量， 权系数， 控制点
         return self.knots, self.weights, self.ctrl_pts
+
+
+class Spline(object):
+    def __init__(self, _u, _x, _y, _z, _order=3):
+
+        self.order = _order
+        self.u = np.zeros(len(_u), float)
+        self.x = np.zeros(len(_x), float)
+        self.y = np.zeros(len(_y), float)
+        self.z = np.zeros(len(_z), float)
+
+        for i in range(0, len(_u)):
+            self.u[i] = _u[i]
+
+        for i in range(0, len(_x)):
+            self.x[i] = _x[i]
+
+        for i in range(0, len(_y)):
+            self.y[i] = _y[i]
+
+        for i in range(0, len(_z)):
+            self.z[i] = _z[i]
+
+    def generate(self, bc_x=([(2, 0)], [(2, 0)]), bc_y=([(2, 0)], [(2, 0)]), bc_z=([(2, 0)], [(2, 0)])):
+        """
+        We take Natural BC for each direction by default.
+        :param bc_x: BC for X-direction
+        :param bc_y: BC for Y-direction
+        :param bc_z: BC for Z-direction
+        :return: An IGES entity representing parametric curve
+        """
+        # Coefficient Matrix
+        self.cm = np.zeros((len(self.u), 3, 4))
+
+        # Interpolation Function
+        fx = interpolate.make_interp_spline(self.u, self.x, k=self.order, bc_type=bc_x)
+        fy = interpolate.make_interp_spline(self.u, self.y, k=self.order, bc_type=bc_y)
+        fz = interpolate.make_interp_spline(self.u, self.z, k=self.order, bc_type=bc_z)
+
+        f = [fx, fy, fz]
+        for k in range(0, len(self.u)):
+            for i in range(0, 3):
+                for j in range(0, 4):
+                    self.cm[k][i][j] = float(f[i](self.u[k], j) / factorial(j))
+
+        return IGES_Entity112(self.u, self.cm)
