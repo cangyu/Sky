@@ -38,14 +38,8 @@ class IGES_Entity126(IGES_Entity):
 
         for i in range(0, n + 1):
             self.W[i] = weights[i]
-
-        for i in range(0, n + 1):
             self.X[i] = ctrl_pts[i][0]
-
-        for i in range(0, n + 1):
             self.Y[i] = ctrl_pts[i][1]
-
-        for i in range(0, n + 1):
             self.Z[i] = ctrl_pts[i][2]
 
     def BuildParam(self):
