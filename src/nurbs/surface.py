@@ -3,104 +3,30 @@ import numpy as np
 from scipy.misc import comb
 
 
-def FindSpan(n, p, u, U):
-    """
-    确定参数u所在的节点区间的下标
-    :param n: 控制点个数=n+1
-    :param p: NURBS曲线次数
-    :param u: 待考察参数
-    :param U: Knots
-    :return: u所在的区间下标
-    """
-    if u == U[n + 1]:  # Corner case: 对于u=u_m这一特殊情形，将其节点区间的下标设为n
-        return n
-
-    low = p
-    high = n + 1
-    mid = low + (high - low) / 2
-    while u < U[mid] or u >= U[mid + 1]:
-        if u < U[mid]:
-            high = mid
-        else:
-            low = mid
-        mid = (low + high) / 2
-
-    return mid
-
-
-def RefineKnotVectCurve(n, p, U, Pw, X, r, Ubar, Qw):
-    """
-    细化曲线的节点矢量
-    :param n: 控制点个数=n+1
-    :param p: NURBS曲线次数
-    :param U: Original Knots
-    :param Pw: Original Control Pts
-    :param X: Knots to be inserted
-    :param r: len(x)
-    :param Ubar: New Knots
-    :param Qw: New Control Pts
-    :return: None
-    """
-    m = n + p + 1
-    a = FindSpan(n, p, X[0], U)
-    b = FindSpan(n, p, X[r], U)
-    b += 1
-
-    for j in range(0, a - p + 1):
-        Qw[j] = Pw[j]
-
-    for j in range(b - 1, n + 1):
-        Qw[j + r + 1] = Pw[j]
-
-    for j in range(0, a + 1):
-        Ubar[j] = U[j]
-
-    for j in range(b + p, m + 1):
-        Ubar[j + r + 1] = U[j]
-
-    i = b + p - 1
-    k = b + p + r
-
-    for j in range(r, -1, -1):
-        while X[j] <= U[i] and i > a:
-            Qw[k - p - 1] = Pw[i - p - 1]
-            Ubar[k] = U[i]
-            k -= 1
-            i -= 1
-
-        Qw[k - p - 1] = Qw[k - p]
-
-        for l in range(1, p + 1):
-            ind = k - p + 1
-            alfa = Ubar[k + 1] - X[j]
-            if math.fabs(alfa) == 0.0:
-                Qw[ind - 1] = Qw[ind]
-            else:
-                alfa /= (Ubar[k + 1] - U[i - p + l])
-                Qw[ind - 1] = alfa * Qw[ind - 1] + (1.0 - alfa) * Qw[ind]
-
-        Ubar[k] = X[j]
-        k -= 1
-
-
-def DegreeElevateCurve(n, p, U, Pw, t):
+def DegreeElevateCurve(n, p, U, Pw, t, MAX_TMP=3000):
     """
     将曲线的次数升高t次
-    :param n: NURBS曲线控制点数量=n+1
-    :param p: NURBS曲线次数
+    :param n: Index of the last element in Pw
+    :param p: Order of original NURBS Curve
     :param U: Original Knots
     :param Pw: Original Control Pts
-    :param t:  level to be promoted
-    :return: nh, Uh, Qw
+    :param t: level to be promoted
+    :return: Description of elevated NURBS curve
     """
-
-    nh = 0
-    Uh = np.zeros(1000)
-    Qw = np.zeros(1000)
 
     m = n + p + 1
     ph = p + t
     ph2 = ph / 2
+    dim = Pw[0].shape()[0]
+
+    # 新控制点的最后一个下标
+    nh = 0
+
+    # 新的节点矢量
+    Uh = np.zeros(MAX_TMP, float)
+
+    # 新的控制点
+    Qw = np.zeros((MAX_TMP, dim), float)
 
     bezalfs = np.zeros((p + t + 1, p + 1), float)
     bpts = np.zeros(p + 1, float)
@@ -228,9 +154,18 @@ def DegreeElevateCurve(n, p, U, Pw, t):
                 Uh[kind + i] = ub
 
     nh = mh - ph - 1
+    knots = np.zeros(mh + 1, float)
+    ctrl_pts = np.zeros((nh + 1, dim), float)
+    for i in range(0, mh + 1):
+        knots[i] = Uh[i]
+    for i in range(0, nh + 1):
+        for j in range(0, dim):
+            ctrl_pts[i][j] = Qw[i][j]
+
+    return nh, knots, ctrl_pts
 
 
-def merge(lhs, rhs):
+def merge_knot(lhs, rhs):
     i = 0
     j = 0
     ret = []
@@ -255,8 +190,19 @@ def merge(lhs, rhs):
     return ret
 
 
-def GetDistance(dim, lhs, rhs):
-    assert len(lhs) == len(rhs) == dim
+def merge_all_knot(knot_list):
+    assert len(knot_list) != 0
+
+    ccu = knot_list[0]
+    for i in range(1, len(knot_list)):
+        ccu = merge_knot(ccu, knot_list[i])
+
+    return ccu
+
+
+def GetDistance(lhs, rhs):
+    dim = len(lhs)
+    assert dim == len(rhs)
 
     l = 0
     for i in range(0, dim):
@@ -265,58 +211,184 @@ def GetDistance(dim, lhs, rhs):
     return math.sqrt(l)
 
 
+def FindSpan(n, p, u, U):
+    """
+    确定参数u所在的节点区间的下标
+    :param n: 控制点个数=n+1
+    :param p: NURBS曲线次数
+    :param u: 待考察参数
+    :param U: Knots
+    :return: u所在的区间下标
+    """
+    if u == U[n + 1]:  # Corner case: 对于$u=u_m$这一特殊情形，将其节点区间的下标设为n
+        return n
+
+    low = p
+    high = n + 1
+    mid = low + (high - low) / 2
+    while u < U[mid] or u >= U[mid + 1]:
+        if u < U[mid]:
+            high = mid
+        else:
+            low = mid
+        mid = (low + high) / 2
+
+    return mid
+
+
+def RefineKnotVectCurve(n, p, U, Pw, X, r, Ubar, Qw):
+    """
+    细化曲线的节点矢量
+    :param n: Index of the last element in Pw
+    :param p: Order of original NURBS Curve
+    :param U: Original Knots:${U_0, U_1, ... , U_m}$
+    :param Pw: Original Control Pts:${P_0, P_1, ... , P_n}$
+    :param X: Knots to be inserted:${X_0, X_1, ... , X_r}$
+    :param r: Index of the last element in X
+    :param Ubar: New Knots
+    :param Qw: New Control Pts
+    :return: None
+    """
+
+    m = n + p + 1
+    a = FindSpan(n, p, X[0], U)
+    b = FindSpan(n, p, X[r], U)
+    b += 1
+
+    for j in range(0, a - p + 1):
+        Qw[j] = Pw[j]
+
+    for j in range(b - 1, n + 1):
+        Qw[j + r + 1] = Pw[j]
+
+    for j in range(0, a + 1):
+        Ubar[j] = U[j]
+
+    for j in range(b + p, m + 1):
+        Ubar[j + r + 1] = U[j]
+
+    i = b + p - 1
+    k = b + p + r
+
+    j = r
+    while j >= 0:
+        while X[j] <= U[i] and i > a:
+            Qw[k - p - 1] = Pw[i - p - 1]
+            Ubar[k] = U[i]
+            k -= 1
+            i -= 1
+
+        Qw[k - p - 1] = Qw[k - p]
+
+        for l in range(1, p + 1):
+            ind = k - p + 1
+            alfa = Ubar[k + 1] - X[j]
+            if math.fabs(alfa) == 0.0:
+                Qw[ind - 1] = Qw[ind]
+            else:
+                alfa /= (Ubar[k + 1] - U[i - p + l])
+                Qw[ind - 1] = alfa * Qw[ind - 1] + (1.0 - alfa) * Qw[ind]
+
+        Ubar[k] = X[j]
+        k -= 1
+        j -= 1
+
+
+def get_diff_knots(lhs, rhs):
+    """
+    类似集合的差运算
+    :param lhs: 装有节点向量的列表，要已经有序！
+    :param rhs: 装有节点向量的列表，要已经有序！
+    :return: 装有节点向量的列表，其中节点在lhs中，但不在rhs中
+    """
+    ans = []
+    i = 0
+    j = 0
+    n = len(lhs)
+    m = len(rhs)
+
+    while i < n and j < m:
+        if lhs[i] == rhs[j]:
+            i += 1
+            j += 1
+        else:
+            ans.append(lhs[i])
+            i += 1
+
+    while i < n:
+        ans.append(lhs[i])
+        i += 1
+
+    return ans
+
+
 class Skining(object):
+    """
+    蒙面
+    """
+
     def __init__(self, _crvs):
+        self.num = len(_crvs)
         self.crv = _crvs
-        self.common_knots = []
+        self.new_crv_list = []
+        self.unified_crv_list = []
+        self.u = []
+        self.v = []
 
     def promote(self, p):
         p_list = []
         for crv in self.crv:
             p_list.append(crv.p)
+
         cpm = np.amax(p_list)
+        assert cpm <= p
 
-        if cpm > p:
-            raise ValueError("Target order is less than existing max order!")
-
-        crv_param_list = []
+        self.new_crv_list = []
         for crv in self.crv:
             if p != crv.p:
-                crv_param_list.append(DegreeElevateCurve(crv.n, crv.p, crv.knots, crv.ctrl_pts, p - crv.p))
+                self.new_crv_list.append(DegreeElevateCurve(crv.n, crv.p, crv.knots, crv.ctrl_pts, p - crv.p))
             else:
-                crv_param_list.append([crv.n, crv.knots, crv.ctrl_pts])
+                self.new_crv_list.append([crv.n, crv.knots, crv.ctrl_pts])
 
-        return crv_param_list
+    def calc_u_knots(self):
+        kl = []
+        for i in range(0, self.num):
+            kl.append(self.new_crv_list[i][1])
 
-    def merge_all(self):
-        if len(self.crv) == 0:
-            raise Exception("Empty Curve container!")
+        self.u = merge_all_knot(kl)
 
-        ccu = self.crv[0].knots
+    def unify_all_crv(self):
+        m = len(self.u) - 1
+        self.unified_crv_list = []
 
-        for i in range(1, len(self.crv)):
-            ccu = merge(ccu, self.crv[i].knots)
-
-        self.common_knots = ccu
+        for i in range(0, self.num):
+            n, knots, ctrl_pts = self.new_crv_list[i]
+            diff_knots = get_diff_knots(self.u, knots)
+            dfkc = len(diff_knots) - 1
+            p = m - n - 1
+            new_knots = np.zeros(m + 1, float)
+            new_ctrl_pts = np.zeros(n + 1, float)
+            RefineKnotVectCurve(len(ctrl_pts) - 1, p, knots, ctrl_pts, diff_knots, dfkc, new_knots, new_ctrl_pts)
+            self.unified_crv_list.append((new_knots, new_ctrl_pts))
 
     def calc_v_knots(self, q):
-        K = len(self.crv)
-        N = self.crv[0].n + 1
+        K = self.num
+        N = len(self.unified_crv_list[0][1])
         d = np.zeros(N, float)
         seg_len = np.zeros((N, K - 1), float)
 
         for i in range(0, N):
             for j in range(1, K):
-                seg_len[i][j - 1] = GetDistance(self.crv[i].ctrl_pts[j].shape[0], self.crv[i].ctrl_pts[j], self.crv[i].ctrl_pts[j - 1])
+                seg_len[i][j - 1] = GetDistance(self.unified_crv_list[j][1][i], self.unified_crv_list[j - 1][1][i])
                 d[i] += seg_len[i][j - 1]
 
         v = np.zeros(K, float)
         v[K - 1] = 1.0
-        for k in range(1, K - 2):
+        for k in range(0, K - 2):
             tmp = 0.0
             for i in range(0, N):
-                tmp += seg_len[i][k - 1] / d[i]
-            v[k] = v[k - 1] + tmp / N
+                tmp += seg_len[i][k] / d[i]
+            v[k + 1] = v[k] + tmp / N
 
         m = K + q
         knots = np.zeros(m + 1, float)
@@ -333,12 +405,17 @@ class Skining(object):
             tmp += v[j + q - 1]
             knots[j + q] = tmp / q
 
-        return v, knots
+        self.v = knots
 
-    def generate(self, p=5, q=5):
+    def write_igs_entity(self):
+        pass
+
+    def generate(self, p=3, q=3):
         self.promote(p)
-        self.merge_all()
+        self.calc_u_knots()
+        self.unify_all_crv()
         self.calc_v_knots(q)
+        self.write_igs_entity()
 
 
 class Surface(object):
