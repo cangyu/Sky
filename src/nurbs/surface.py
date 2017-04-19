@@ -435,6 +435,9 @@ class Skining(object):
 
         return IGES_Entity128(self.u, self.v, p, q, n1, n2, cpts, ws)
 
+class GordonSurface(object):
+    def __init__(self, crv_u_list, crv_v_list):
+        pass
 
 class Surface(object):
     def __init__(self):
