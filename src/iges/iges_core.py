@@ -329,7 +329,7 @@ class IGES_Model:
 
         # Create new folder and igs file
         folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-        folder_path = ("%s/../../result/") + folder_name
+        folder_path = ("../../result/") + folder_name
         os.mkdir(folder_path)
         model = open(folder_path + '/' + self.filename, 'w')
 

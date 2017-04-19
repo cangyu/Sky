@@ -14,7 +14,7 @@ y_tail = np.linspace(0, 0, len(z))
 thickness = np.ones(len(z))
 airfoil = []
 for i in range(0, len(z)):
-    airfoil.append(Airfoil("../airfoil/naca0012.dat"))
+    airfoil.append(Airfoil("../../airfoil/naca0012.dat"))
 
 front_pts = np.zeros((len(z), 3), float)
 tail_pts = np.zeros((len(z), 3), float)
