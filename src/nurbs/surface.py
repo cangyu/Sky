@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from scipy.misc import comb
+from src.iges.iges_entity128 import IGES_Entity128
 
 
 def DegreeElevateCurve(n, p, U, Pw, t, MAX_TMP=3000):
@@ -17,7 +18,7 @@ def DegreeElevateCurve(n, p, U, Pw, t, MAX_TMP=3000):
     m = n + p + 1
     ph = p + t
     ph2 = ph / 2
-    dim = Pw[0].shape()[0]
+    dim = Pw[0].shape[0]
 
     # 新控制点的最后一个下标
     nh = 0
@@ -170,7 +171,7 @@ def merge_knot(lhs, rhs):
     j = 0
     ret = []
     while i != len(lhs) and j != len(rhs):
-        if lhs[i] != rhs[j]:
+        if math.fabs(lhs[i] - rhs[j]) > 1e-7:
             ret.append(lhs[i])
             ret.append(rhs[j])
         else:
@@ -225,7 +226,7 @@ def FindSpan(n, p, u, U):
 
     low = p
     high = n + 1
-    mid = low + (high - low) / 2
+    mid = (high + low) / 2
     while u < U[mid] or u >= U[mid + 1]:
         if u < U[mid]:
             high = mid
@@ -249,6 +250,13 @@ def RefineKnotVectCurve(n, p, U, Pw, X, r, Ubar, Qw):
     :param Qw: New Control Pts
     :return: None
     """
+    if r < 0:
+        for i in range(0, len(U)):
+            Ubar[i] = U[i]
+        for i in range(0, len(Pw)):
+            for j in range(0, 3):
+                Qw[i][j] = Pw[i][j]
+        return
 
     m = n + p + 1
     a = FindSpan(n, p, X[0], U)
@@ -308,7 +316,7 @@ def get_diff_knots(lhs, rhs):
     m = len(rhs)
 
     while i < n and j < m:
-        if lhs[i] == rhs[j]:
+        if math.fabs(lhs[i] - rhs[j]) < 1e-7:
             i += 1
             j += 1
         else:
@@ -363,11 +371,12 @@ class Skining(object):
 
         for i in range(0, self.num):
             n, knots, ctrl_pts = self.new_crv_list[i]
+            dim = ctrl_pts[0].shape[0]
             diff_knots = get_diff_knots(self.u, knots)
             dfkc = len(diff_knots) - 1
             p = m - n - 1
             new_knots = np.zeros(m + 1, float)
-            new_ctrl_pts = np.zeros(n + 1, float)
+            new_ctrl_pts = np.zeros((n + 1, dim), float)
             RefineKnotVectCurve(len(ctrl_pts) - 1, p, knots, ctrl_pts, diff_knots, dfkc, new_knots, new_ctrl_pts)
             self.unified_crv_list.append((new_knots, new_ctrl_pts))
 
@@ -407,15 +416,24 @@ class Skining(object):
 
         self.v = knots
 
-    def write_igs_entity(self):
-        pass
-
     def generate(self, p=3, q=3):
         self.promote(p)
         self.calc_u_knots()
         self.unify_all_crv()
         self.calc_v_knots(q)
-        self.write_igs_entity()
+
+        n1 = len(self.u) - 2 - p
+        n2 = len(self.v) - 2 - q
+
+        cpts = np.zeros((n1 + 1, n2 + 1, 3), float)
+        ws = np.ones((n1 + 1, n2 + 1), float)
+
+        for j in range(0, n2 + 1):
+            for i in range(0, n1 + 1):
+                for k in range(0, 3):
+                    cpts[i][j][k] = self.unified_crv_list[j][1][i][k]
+
+        return IGES_Entity128(self.u, self.v, p, q, n1, n2, cpts, ws)
 
 
 class Surface(object):

@@ -27,10 +27,10 @@ for i in range(0, len(z)):
     tail_pts[i][1] = y_tail[i]
     tail_pts[i][2] = z[i]
 
+"""
 front_crv = Curve(front_pts)
 tail_crv = Curve(tail_pts)
 
-"""
 # 前缘线
 a, b, c = front_crv.generate()
 plane.AddPart(IGES_Entity126(front_crv.p, front_crv.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
@@ -58,7 +58,6 @@ for i in range(0, len(z)):
     pts = wp.getPointList()
     cc = Curve(pts)
     profile_pts.append(pts)
-    profile_crv.append(cc)
 
     """
     # 翼型离散点
@@ -66,9 +65,13 @@ for i in range(0, len(z)):
         plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
     """
 
-    # 翼型NURBS曲线，默认5阶
+    # 翼型NURBS曲线，默认3阶
     a, b, c = cc.generate()
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 1, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 1.0], float)))
+    profile_crv.append(cc)
+
+surf = Skining(profile_crv)
+plane.AddPart(surf.generate())
 
 n = len(profile_pts[0])
 m = len(z)
@@ -79,7 +82,7 @@ for i in range(0, n):
         pts[j] = profile_pts[j][i]
 
     cc = Curve(pts)
-    a, b, c = cc.generate()
+    a, b, c = cc.generate('chord')
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
 
 plane.Generate()

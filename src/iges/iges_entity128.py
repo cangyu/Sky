@@ -11,9 +11,8 @@ class IGES_Entity128(IGES_Entity):
         super(IGES_Entity128, self).__init__(128)
         self.directory.Form_Number = form
 
-        assert u.shape() == (2 + p1 + n1)
-        assert v.shape() == (2 + p2 + n2)
-        assert ctrl_pts.shape() == weights.shape() == (1 + n1, 1 + n2)
+        if len(u) != 2 + p1 + n1 or len(v) != 2 + p2 + n2 or ctrl_pts.shape != (1 + n1, 1 + n2, 3) or weights.shape != (1 + n1, 1 + n2):
+            raise Exception("Invalid Parameter!")
 
         self.K1 = int(n1)  # U方向控制点最后一个下标
         self.K2 = int(n2)  # V方向控制点最后一个下标
@@ -54,10 +53,10 @@ class IGES_Entity128(IGES_Entity):
         param += "{},{},{},{},".format(self.K1, self.K2, self.M1, self.M2)
         param += "{},{},{},{},{},".format(self.PROP1, self.PROP2, self.PROP3, self.PROP4, self.PROP5)
 
-        for u in self.U:
+        for u in self.S:
             param += "{},".format(u)
 
-        for v in self.V:
+        for v in self.T:
             param += "{},".format(v)
 
         for j in range(0, self.K2 + 1):

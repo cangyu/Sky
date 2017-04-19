@@ -31,7 +31,7 @@ def BasisFuns(i, u, p, U):
 
 
 class Curve(object):
-    def __init__(self, pts, p=5):
+    def __init__(self, pts, p=3):
         """
         p阶，n+1个控制点，m+1个节点,全局插值，非有理
         """

@@ -1,6 +1,6 @@
 import math
 import numpy as np
-
+from src.nurbs.surface import Skining
 
 class Airfoil(object):
     '''
