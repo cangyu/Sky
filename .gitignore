@@ -5,3 +5,4 @@ __pycache__
 *.iges
 XFOIL6.99/
 tmp/
+.vs/
