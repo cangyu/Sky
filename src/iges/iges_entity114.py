@@ -54,9 +54,9 @@ class IGES_Entity114(IGES_Entity):
                 for dim in range(0, 3):
                     for i in range(0, 4):
                         for j in range(0, 4):
-                            param += "{},".format(self.Coef[m][n][dim][i][j])
+                            if m == self.M and n == self.N and dim == 2 and i == 3 and j == 3:
+                                param += "{};".format(self.Coef[m][n][dim][i][j])
+                            else:
+                                param += "{},".format(self.Coef[m][n][dim][i][j])
 
-        cl = len(param)
-        nparam = param[:cl - 1] + ';'
-
-        return self.ConvertRawToFormatted(nparam)
+        return self.ConvertRawToFormatted(param)
