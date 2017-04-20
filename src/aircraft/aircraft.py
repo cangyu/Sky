@@ -52,6 +52,7 @@ plane.AddPart(IGES_Entity110([x_front[len(z) - 1], y_front[len(z) - 1], z[len(z)
 profile_pts = []
 profile_crv = []
 
+ttps = "{"
 for i in range(0, len(z)):
     epts = np.array([[x_front[i], y_front[i], z[i]], [x_tail[i], y_tail[i], z[i]]])
     wp = Wing_Profile(airfoil[i], epts)
@@ -59,16 +60,27 @@ for i in range(0, len(z)):
     cc = Curve(pts)
     profile_pts.append(pts)
 
-    """
     # 翼型离散点
+    ccrv = "{"
     for k in range(0, len(pts)):
-        plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
-    """
+        # plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
+        cstr = "{},{},{}".format(pts[k][0], pts[k][1], pts[k][2])
+        if k != len(pts) - 1:
+            ccrv += "{" + cstr + "},"
+        else:
+            ccrv += "{" + cstr + "}}"
+
+    if i != len(z) - 1:
+        ttps += ccrv + ","
+    else:
+        ttps += ccrv + "}"
 
     # 翼型NURBS曲线，默认3阶
     a, b, c = cc.generate()
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 1, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 1.0], float)))
     profile_crv.append(cc)
+
+print(ttps)
 
 surf = Skining(profile_crv)
 plane.AddPart(surf.generate())
@@ -76,6 +88,7 @@ plane.AddPart(surf.generate())
 n = len(profile_pts[0])
 m = len(z)
 
+"""
 for i in range(0, n):
     pts = np.zeros((m, 3), float)
     for j in range(0, m):
@@ -84,5 +97,6 @@ for i in range(0, n):
     cc = Curve(pts)
     a, b, c = cc.generate('chord')
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
+"""
 
 plane.Generate()
