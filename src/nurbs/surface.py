@@ -435,10 +435,68 @@ class Skining(object):
 
         return IGES_Entity128(self.u, self.v, p, q, n1, n2, cpts, ws)
 
+
+def LocalSurfInterp(n: int, m: int, Q):
+    """
+    双三次局部曲面插值
+    :param n: u方向最后一个数据点下标
+    :param m: v方向最后一个数据点下标
+    :param Q: 数据点
+    :return: NURBS representation of interpolated surface
+    """
+    td = np.zeros((n + 1, m + 1, 3), float)
+    ub = np.zeros(n + 1, float)
+    vb = np.zeros(m + 1, float)
+    r = np.zeros(m + 1, float)
+    s = np.zeros(n + 1, float)
+    U = np.zeros(2 * n + 6, float)
+    V = np.zeros(2 * m + 6, float)
+    P = np.zeros((2 * n + 2, 2 * m + 2, 3), float)
+
+    total = 0.0
+    for l in range(0, m + 1):
+        for k in range(1, n + 1):
+            d = GetDistance(Q[k][l], Q[k - 1][l])
+            ub[k] += d
+            r[l] += d
+        total += r[l]
+
+    for k in range(1, n):
+        ub[k] = ub[k - 1] + ub[k] / total
+
+    ub[n] = 1.0
+
+    total = 0.0
+    for k in range(0, n + 1):
+        for l in range(1, m + 1):
+            d = GetDistance(Q[k][l], Q[k][l - 1])
+            vb[l] += d
+            s[k] += d
+        total += s[k]
+
+    for l in range(1, m):
+        vb[l] = vb[l - 1] + vb[l] / total
+
+    vb[m] = 1.0
+
+    # 载入节点矢量U,V
+    for i in range(0, 4):
+        U[-1 - i] = 1.0
+        V[-1 - i] = 1.0
+
+    ci = 4
+    for i in range(1, n):
+        U[ci + 1] = U[ci] = ub[i]
+        ci += 2
+
+    cj = 4
+    for j in range(1, m):
+        V[cj + 1] = V[ci] = vb[j]
+        cj += 2
+
+    return U, V, P  # u方向节点矢量, v方向节点矢量, 控制点
+
+
 class GordonSurface(object):
     def __init__(self, crv_u_list, crv_v_list):
-        pass
-
-class Surface(object):
-    def __init__(self):
         pass
