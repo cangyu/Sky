@@ -2,18 +2,6 @@ import os
 import sys
 import win32com.client
 
-"""
-documents1 = app.Documents
-partDocument1 = documents1.Add("Part")
-part1 = partDocument1.Part
-bodies1 = part1.Bodies
-body1 = bodies1.Item("PartBody")
-sketches1 = body1.Sketches
-originElements1 = part1.OriginElements
-reference1 = originElements1.PlaneXY
-sketch1 = sketches1.Add(reference1)
-"""
-
 
 def view(file):
     try:
