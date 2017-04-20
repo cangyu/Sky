@@ -1,6 +1,9 @@
 import os
+import sys
 import time
 from abc import *
+
+RESULT_FOLDER = "../../result/"
 
 
 class IGES_StartSection:
@@ -329,9 +332,10 @@ class IGES_Model:
 
         # Create new folder and igs file
         folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-        folder_path = ("../../result/") + folder_name
+        folder_path = RESULT_FOLDER + folder_name
         os.mkdir(folder_path)
-        model = open(folder_path + '/' + self.filename, 'w')
+        fileout = folder_path + '/' + self.filename
+        model = open(fileout, 'w')
 
         # Write Start Section
         model.write(self.StartSection.BuildSection())
@@ -352,3 +356,5 @@ class IGES_Model:
 
         # Done
         model.close()
+
+        return fileout
