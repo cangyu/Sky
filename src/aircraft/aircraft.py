@@ -3,6 +3,7 @@ from src.iges.iges_entity116 import *
 from src.iges.iges_entity126 import *
 from src.aircraft.wing import *
 from src.nurbs.curve import *
+from src.com.catia import *
 
 plane = IGES_Model()
 
@@ -99,4 +100,5 @@ for i in range(0, n):
     plane.AddPart(IGES_Entity126(cc.p, cc.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
 """
 
-plane.Generate()
+igs_file = plane.Generate()
+view(igs_file)
