@@ -1,16 +1,15 @@
-import os
-import sys
-import math
 import numpy as np
-import vtk
 
 
 class Plot3D(object):
-    """
-    单块结构网格
-    """
-
     def __init__(self, I, J, K, pts):
+        """
+        单块结构网格
+        :param I: X方向节点数量:[0, I)
+        :param J: Y方向节点数量:[0, J)
+        :param K: Z方向节点数量:[0, K)
+        :param pts: 网格点坐标，下标从左到右依次循环Z，Y，X
+        """
         self.I, self.J, self.K = I, J, K
         self.X = np.zeros((K, J, I), float)
         self.Y = np.zeros((K, J, I), float)
@@ -80,59 +79,3 @@ class Plot3D(object):
 
         fout.write("\n")
         fout.close()
-
-    @classmethod
-    def view(cls, filename):
-        reader = vtk.vtkMultiBlockPLOT3DReader()
-        reader.BinaryFileOff()
-        reader.MultiGridOn()
-        reader.SetXYZFileName(filename)
-        reader.Update()
-        output = reader.GetOutput().GetBlock(0)
-
-        filter = vtk.vtkStructuredGridGeometryFilter()
-        filter.SetInputData(output)
-        filter.SetExtent(0, 100, 0, 100, 0, 100)
-
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(filter.GetOutputPort())
-        # mapper.SetScalarRange(output.GetPointData().GetRange())
-
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-
-        ren = vtk.vtkRenderer()
-        ren.AddActor(actor)  # Assign actor to the renderer
-
-        renWin = vtk.vtkRenderWindow()
-        renWin.AddRenderer(ren)  # Create a rendering window and renderer
-
-        iren = vtk.vtkRenderWindowInteractor()
-        iren.SetRenderWindow(renWin)  # Create a render window interactor
-        iren.Initialize()  # Enable user interface interactor
-
-        renWin.Render()
-        iren.Start()
-
-
-R_MIN = 10
-R_MAX = 100
-U = 61
-V = 16
-W = 20
-fn = "../../result/cylinder.xyz"
-
-if __name__ == "__main__":
-
-    pts = np.zeros((W, V, U, 3), float)
-    for w in range(0, W):
-        for v in range(0, V):
-            for u in range(0, U):
-                pts[w][v][u][0] = u
-                pts[w][v][u][1] = v
-                pts[w][v][u][2] = w
-
-    msh = Plot3D(U, V, W, pts)
-    msh.output(fn)
-
-    Plot3D.view(fn)
