@@ -1,6 +1,16 @@
 import math
+import os
 import numpy as np
-from src.nurbs.surface import Skining
+
+AIRFOIL_DIR = '../../airfoil/'
+AIRFOIL_LIST = []
+
+
+def update_airfoil_list():
+    for f in os.listdir(AIRFOIL_DIR):
+        base, ext = os.path.splitext(f)
+        AIRFOIL_LIST.append(base)
+
 
 class Airfoil(object):
     '''
@@ -12,13 +22,15 @@ class Airfoil(object):
         self.y_up = []
         self.y_down = []
 
-        airfoil = open(_filename)
+        airfoil = open(AIRFOIL_DIR + _filename + ".dat")
         for line in airfoil:
             (_x, _y_up, _y_down) = line.split()
             self.x.append(float(_x))
             self.y_up.append(float(_y_up))
             self.y_down.append(float(_y_down))
         airfoil.close()
+
+        self.n = len(self.x)
 
 
 class Wing_Profile(object):
@@ -28,10 +40,10 @@ class Wing_Profile(object):
 
     def __init__(self, _airfoil, _ends, _thickness_factor=1.0):
 
-        self.airfoil = _airfoil
+        self.airfoil = Airfoil(_airfoil)
         self.ends = _ends
         self.thickness = _thickness_factor
-        self.n = len(_airfoil.x)
+        self.n = self.airfoil.n
 
         assert _ends[0][2] == _ends[1][2]
 
@@ -50,11 +62,11 @@ class Wing_Profile(object):
         # stretch
         for i in range(0, self.n):
             # x-dir
-            self.pts[0][0][i] = self.pts[1][0][i] = float(chord_len * _airfoil.x[i])
+            self.pts[0][0][i] = self.pts[1][0][i] = float(chord_len * self.airfoil.x[i])
 
             # y-dir
-            self.pts[0][1][i] = float(chord_len * _airfoil.y_up[i])
-            self.pts[1][1][i] = float(chord_len * _airfoil.y_down[i])
+            self.pts[0][1][i] = float(chord_len * self.airfoil.y_up[i])
+            self.pts[1][1][i] = float(chord_len * self.airfoil.y_down[i])
 
             # z-dir
             self.pts[0][2][i] = self.pts[1][2][i] = _ends[0][2]

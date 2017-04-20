@@ -226,7 +226,7 @@ def FindSpan(n, p, u, U):
 
     low = p
     high = n + 1
-    mid = (high + low) / 2
+    mid = int((high + low) / 2)
     while u < U[mid] or u >= U[mid + 1]:
         if u < U[mid]:
             high = mid
