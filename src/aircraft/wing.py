@@ -1,6 +1,11 @@
 import math
 import os
 import numpy as np
+from src.nurbs.curve import *
+from src.iges.iges_entity126 import *
+from src.iges.iges_entity110 import *
+from src.iges.iges_entity116 import *
+from src.iges.iges_core import *
 
 AIRFOIL_DIR = '../../airfoil/'
 AIRFOIL_LIST = []
@@ -9,7 +14,8 @@ AIRFOIL_LIST = []
 def update_airfoil_list():
     for f in os.listdir(AIRFOIL_DIR):
         base, ext = os.path.splitext(f)
-        AIRFOIL_LIST.append(base)
+        if ext == 'dat':
+            AIRFOIL_LIST.append(base)
 
 
 class Airfoil(object):
@@ -18,11 +24,13 @@ class Airfoil(object):
     '''
 
     def __init__(self, _filename):
+        self.name = _filename
         self.x = []
         self.y_up = []
         self.y_down = []
 
-        airfoil = open(AIRFOIL_DIR + _filename + ".dat")
+        # Read input data
+        airfoil = open(AIRFOIL_DIR + self.name + ".dat")
         for line in airfoil:
             (_x, _y_up, _y_down) = line.split()
             self.x.append(float(_x))
@@ -31,6 +39,38 @@ class Airfoil(object):
         airfoil.close()
 
         self.n = len(self.x)
+        self.pts_num = 2 * self.n - 1
+        self.pts = np.zeros((self.pts_num, 3), float)
+
+        # Arrange in XFoil's format
+        cnt = 0
+        for i in range(0, self.n):
+            self.pts[cnt][0] = self.x[- 1 - i]
+            self.pts[cnt][1] = self.y_up[- 1 - i]
+            cnt += 1
+
+        for i in range(1, self.n):
+            self.pts[cnt][0] = self.x[i]
+            self.pts[cnt][1] = self.y_down[i]
+            cnt += 1
+
+    def iges(self):
+        foil = IGES_Model(self.name + '.igs')
+
+        # Points
+        for i in range(0, 2 * self.n - 1):
+            foil.AddPart(IGES_Entity116(self.pts[i][0], self.pts[i][1], self.pts[i][2]))
+
+        # Closed Curve
+        closed_pts = np.zeros((self.pts_num + 1, 3), float)
+        for j in range(0, 3):
+            closed_pts[self.pts_num][j] = self.pts[0][j]
+        for i in range(0, self.pts_num):
+            for j in range(0, 3):
+                closed_pts[i][j] = self.pts[i][j]
+        foil.AddPart(Spline(closed_pts).iges())
+
+        foil.Generate()
 
 
 class Wing_Profile(object):
