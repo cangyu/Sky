@@ -2,7 +2,9 @@
 __pycache__
 *.stl
 *.igs
+*.xyz
 *.iges
+*.nb
 XFOIL6.99/
 tmp/
 .vs/
