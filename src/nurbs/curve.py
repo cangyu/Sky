@@ -30,8 +30,15 @@ def BasisFuns(i, u, p, U):
     return N
 
 
+def GetDistance(lhs, rhs):
+    tmp = 0.0
+    for j in range(0, 3):
+        tmp += math.pow(lhs[j] - rhs[j], 2)
+    return math.sqrt(tmp)
+
+
 class Curve(object):
-    def __init__(self, pts, p=3):
+    def __init__(self, pts, p=5):
         """
         p阶，n+1个控制点，m+1个节点,全局插值，非有理
         """
@@ -162,46 +169,51 @@ class Curve(object):
 
 
 class Spline(object):
-    def __init__(self, _u, _x, _y, _z, _order=3):
+    def __init__(self, pts, p=3, smooth=1):
+        # Number of pts and Order
+        self.n = pts.shape[0]
+        self.order = p
 
-        self.order = _order
-        self.u = np.zeros(len(_u), float)
-        self.x = np.zeros(len(_x), float)
-        self.y = np.zeros(len(_y), float)
-        self.z = np.zeros(len(_z), float)
+        # Copy parameters and coordinates
+        self.u = np.zeros(self.n, float)
+        self.x = np.zeros(self.n, float)
+        self.y = np.zeros(self.n, float)
+        self.z = np.zeros(self.n, float)
+        for i in range(0, self.n):
+            self.x[i] = pts[i][0]
+            self.y[i] = pts[i][1]
+            self.z[i] = pts[i][2]
 
-        for i in range(0, len(_u)):
-            self.u[i] = _u[i]
+        # 用自然坐标参数化
+        for i in range(1, self.n):
+            self.u[i] = GetDistance(pts[i], pts[i - 1]) + self.u[i - 1]
 
-        for i in range(0, len(_x)):
-            self.x[i] = _x[i]
+        # 边界条件
+        bc_x = ([(2, 0)], [(2, 0)])
+        bc_y = ([(2, 0)], [(2, 0)])
+        bc_z = ([(2, 0)], [(2, 0)])
 
-        for i in range(0, len(_y)):
-            self.y[i] = _y[i]
-
-        for i in range(0, len(_z)):
-            self.z[i] = _z[i]
-
-    def generate(self, bc_x=([(2, 0)], [(2, 0)]), bc_y=([(2, 0)], [(2, 0)]), bc_z=([(2, 0)], [(2, 0)])):
-        """
-        We take Natural BC for each direction by default.
-        :param bc_x: BC for X-direction
-        :param bc_y: BC for Y-direction
-        :param bc_z: BC for Z-direction
-        :return: An IGES entity representing parametric curve
-        """
-        # Coefficient Matrix
-        self.cm = np.zeros((len(self.u), 3, 4))
+        if smooth:
+            pder_x = (self.x[1] - self.x[0]) / self.u[1]
+            pder_y = (self.y[1] - self.y[0]) / self.u[1]
+            pder_z = (self.z[1] - self.z[0]) / self.u[1]
+            bc_x = ([(1, pder_x)], [(1, pder_x)])
+            bc_y = ([(1, pder_y)], [(1, pder_y)])
+            bc_z = ([(1, pder_z)], [(1, pder_z)])
 
         # Interpolation Function
         fx = interpolate.make_interp_spline(self.u, self.x, k=self.order, bc_type=bc_x)
         fy = interpolate.make_interp_spline(self.u, self.y, k=self.order, bc_type=bc_y)
         fz = interpolate.make_interp_spline(self.u, self.z, k=self.order, bc_type=bc_z)
-
         f = [fx, fy, fz]
-        for k in range(0, len(self.u)):
+
+        # Calculate coefficient matrix
+        self.cm = np.zeros((self.n, 3, self.order + 1))
+        for k in range(0, self.n):
             for i in range(0, 3):
-                for j in range(0, 4):
+                for j in range(0, self.order + 1):
                     self.cm[k][i][j] = float(f[i](self.u[k], j) / factorial(j))
 
+    def iges(self):
+        assert self.order <= 3
         return IGES_Entity112(self.u, self.cm)

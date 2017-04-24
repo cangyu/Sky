@@ -140,7 +140,7 @@ class BWB_UI(QDialog):
     def gen_model(self):
         self.get_content()
         model = Aircraft(self.airfoil_list, self.thickness_list, self.z_list, self.xf_list, self.yf_list, self.xt_list, self.yt_list)
-        fileout = model.generate(True, True, False, False)
+        fileout = model.generate()
         view(fileout)
 
     def gen_mesh(self):
