@@ -17,7 +17,7 @@ class Aircraft(object):
         self.xt = xt_list
         self.yt = yt_list
 
-    def generate(self, show_airfoil=True, show_surf=True, show_airfoil_cross_lines=False, show_airfoil_pts=False):
+    def generate(self, show_airfoil=True, show_surf=False, show_airfoil_cross_lines=True, show_airfoil_pts=False):
         plane = IGES_Model()
 
         # 前后缘采样点
@@ -64,7 +64,7 @@ class Aircraft(object):
                 for k in range(0, len(pts)):
                     plane.AddPart(IGES_Entity116(pts[k][0], pts[k][1], pts[k][2]))
 
-            # 翼型NURBS曲线，默认3阶
+            # 翼型NURBS曲线，默认5阶
             cc = Curve(pts)
             a, b, c = cc.generate()
             if show_airfoil:
