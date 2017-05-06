@@ -6,29 +6,6 @@ import math
 from src.iges.iges_entity112 import IGES_Entity112
 
 
-def BasisFuns(i, u, p, U):
-    """
-    计算在给定点u，所有p次非零B样条基函数的值(p+1个):$N_{i,p}(u)$
-    （只有 $N_{i-p,p}(u) -- N_{i,p}(u)$ 不为0）
-    """
-    left = np.zeros(p + 1, float)
-    right = np.zeros(p + 1, float)
-    N = np.zeros(p + 1, float)
-
-    N[0] = 1.0
-    for j in range(1, p + 1):
-        left[j] = u - U[i + 1 - j]
-        right[j] = U[i + j] - u
-        saved = 0.0
-        for r in range(0, j):
-            tmp = N[r] / (right[r + 1] + left[j - r])
-            N[r] = saved + right[r + 1] * tmp
-            saved = left[j - r] * tmp
-
-        N[j] = saved
-
-    return N
-
 
 def GetDistance(lhs, rhs):
     tmp = 0.0
@@ -215,5 +192,5 @@ class Spline(object):
                     self.cm[k][i][j] = float(f[i](self.u[k], j) / factorial(j))
 
     def iges(self):
-        assert self.order <= 3
+        assert self.order == 3
         return IGES_Entity112(self.u, self.cm)

@@ -212,29 +212,7 @@ def GetDistance(lhs, rhs):
     return math.sqrt(l)
 
 
-def FindSpan(n, p, u, U):
-    """
-    确定参数u所在的节点区间的下标
-    :param n: 控制点个数=n+1
-    :param p: NURBS曲线次数
-    :param u: 待考察参数
-    :param U: Knots
-    :return: u所在的区间下标
-    """
-    if u == U[n + 1]:  # Corner case: 对于$u=u_m$这一特殊情形，将其节点区间的下标设为n
-        return n
 
-    low = p
-    high = n + 1
-    mid = int((high + low) / 2)
-    while u < U[mid] or u >= U[mid + 1]:
-        if u < U[mid]:
-            high = mid
-        else:
-            low = mid
-        mid = (low + high) / 2
-
-    return mid
 
 
 def RefineKnotVectCurve(n, p, U, Pw, X, r, Ubar, Qw):
@@ -495,8 +473,3 @@ def LocalSurfInterp(n: int, m: int, Q):
         cj += 2
 
     return U, V, P  # u方向节点矢量, v方向节点矢量, 控制点
-
-
-class GordonSurface(object):
-    def __init__(self, crv_u_list, crv_v_list):
-        pass
