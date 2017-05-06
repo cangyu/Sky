@@ -97,5 +97,4 @@ def calc_msh_pts(airfoil: Airfoil):
 if __name__ == '__main__':
     foil = 'NACA0012'
     naca0012 = Airfoil(foil)
-    # calc_msh_pts(naca0012).output(foil)
     naca0012.iges()
