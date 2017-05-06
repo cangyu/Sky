@@ -14,7 +14,7 @@ AIRFOIL_LIST = []
 def update_airfoil_list():
     for f in os.listdir(AIRFOIL_DIR):
         base, ext = os.path.splitext(f)
-        if ext == 'dat':
+        if ext == '.dat':
             AIRFOIL_LIST.append(base)
 
 
