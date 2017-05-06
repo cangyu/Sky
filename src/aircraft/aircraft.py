@@ -17,7 +17,7 @@ class Aircraft(object):
         self.xt = xt_list
         self.yt = yt_list
 
-    def generate(self, show_airfoil=True, show_surf=False, show_airfoil_cross_lines=True, show_airfoil_pts=False):
+    def generate(self, show_airfoil=True, show_surf=False, show_airfoil_cross_lines=False, show_airfoil_pts=False):
         plane = IGES_Model()
 
         # 前后缘采样点
@@ -69,6 +69,8 @@ class Aircraft(object):
             a, b, c = cc.generate()
             if show_airfoil:
                 plane.AddPart(IGES_Entity126(cc.p, cc.n, 1, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 1.0], float)))
+                plane.AddPart(IGES_Entity110([pts[0][0], pts[0][1], pts[0][2]],
+                                             [pts[-1][0], pts[-1][1], pts[-1][2]]))
             profile_crv.append(cc)
 
         if show_surf:
@@ -87,5 +89,49 @@ class Aircraft(object):
                 a, b, c = cc.generate('chord')
                 plane.AddPart(IGES_Entity126(cc.p, cc.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
 
+        # 尾缘
+        tail_up_pts = []
+        tail_down_pts = []
+        for i in range(0, len(profile_pts)):
+            tail_up_pts.append(profile_pts[i][0])
+            tail_down_pts.append(profile_pts[i][-1])
+
+        tail_up_crv = Curve(tail_up_pts)
+        tail_down_crv = Curve(tail_down_pts)
+
+        a, b, c = tail_up_crv.generate()
+        plane.AddPart(
+            IGES_Entity126(tail_up_crv.p, tail_up_crv.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
+
+        a, b, c = tail_down_crv.generate()
+        plane.AddPart(
+            IGES_Entity126(tail_down_crv.p, tail_down_crv.n, 0, 0, 1, 0, a, b, c, 0.0, 1.0, np.array([0, 0, 0], float)))
+
+        H = 80
+        L = 600
+        W = 250
+        # 远场边框
+        farfield_pts = np.array([[-L / 2, -H / 2, 0],
+                                 [-L / 2, H / 2, 0],
+                                 [L / 2, H / 2, 0],
+                                 [L / 2, -H / 2, 0],
+                                 [-L / 2, -H / 2, W],
+                                 [-L / 2, H / 2, W],
+                                 [L / 2, H / 2, W],
+                                 [L / 2, -H / 2, W]])
+
+        for k in range(0, 8):
+            plane.AddPart(IGES_Entity116(farfield_pts[k][0], farfield_pts[k][1], farfield_pts[k][2]))
+
+        for k in range(0, 4):
+            addLine(plane, farfield_pts, k, (k + 1) % 4)
+            addLine(plane, farfield_pts, k + 4, (k + 5) % 4 + 4)
+            addLine(plane, farfield_pts, k, k + 4)
+
         fileout = plane.Generate()
         return fileout
+
+
+def addLine(container: IGES_Model, pts, i: int, j: int):
+    container.AddPart(IGES_Entity110([pts[i][0], pts[i][1], pts[i][2]],
+                                     [pts[j][0], pts[j][1], pts[j][2]]))
