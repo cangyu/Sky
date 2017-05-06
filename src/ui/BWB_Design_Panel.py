@@ -64,10 +64,10 @@ class BWB_UI(QDialog):
         super(BWB_UI, self).__init__()
 
         # Contents
-        self.z_list = np.array([0., 0.624029, 1.38967, 2.43503, 3.73439, 5.25574, 6.96162, 8.81003, 10.7555, 12.75, 14.7445, 16.69, 18.5384, 20.2443, 21.7656, 23.065, 24.1103, 24.876, 25.343, 25.5])
-        self.xf_list = np.array([0., 0.05, 0.3, 1.7, 4.9, 6.85, 8.45, 9.65, 10.6, 11.1, 11.7, 12.1, 12.4, 12.8, 13.2, 13.7, 14.1, 14.5, 15.2, 16.])
+        self.z_list = np.array([0., 1.38967 * 2, 3.73439 * 2, 6.96162 * 2, 10.7555 * 2, 14.7445 * 2])
+        self.xf_list = np.array([0., 0.3, 4.9, 8.45, 10.6, 11.7])
         self.yf_list = np.zeros(len(self.z_list), float)
-        self.xt_list = np.array([19.7, 19.6, 19.6, 19.5, 19.3, 19, 18.3, 17.3, 16.6, 16.5, 16.8, 17, 17.45, 17.8, 18.1, 18.4, 18.55, 18.65, 18.3, 17.8])
+        self.xt_list = np.array([19.7, 19.6, 19.3, 18.3, 16.6, 14.9])
         self.yt_list = np.zeros(len(self.z_list), float)
         self.thickness_list = np.ones(len(self.z_list), float)
         self.row_cnt = len(self.z_list)
