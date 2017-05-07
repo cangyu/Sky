@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Plot3D(object):
     def __init__(self, I, J, K, pts):
         """

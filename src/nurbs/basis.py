@@ -33,12 +33,12 @@ def FindSpan(n: int, p: int, u: float, U):
 
 def BasisFuns(i: int, u: float, p: int, U, N):
     """
-    计算在给定点u，所有p次非零B样条基函数的值(p+1个):$N_{i,p}(u)$
+    计算在给定点u，所有p次非零B样条基函数的值:N(i, p, u)
     :param i: 参数u所在的节点区间，s.t. u∈[U[i],U[i+1])
     :param u: Target parameter
     :param p: NURBS曲线次数
     :param U: 节点序列
-    :param N: p+1个元素，因为只有 $N_{i-p,p}(u) ~ N_{i,p}(u)$ 不为0
+    :param N: p+1个元素，因为只有N(i-p,p,u) ~ N(i,p,u)不为0
     :return: None
     """
 
