@@ -1,5 +1,5 @@
 import numpy as np
-from src.iges.iges_core import *
+from iges_core import *
 
 
 class IGES_Entity112(IGES_Entity):

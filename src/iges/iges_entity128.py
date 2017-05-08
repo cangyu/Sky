@@ -1,6 +1,5 @@
-from src.iges.iges_core import IGES_Entity
 import numpy as np
-
+from iges_core import IGES_Entity
 
 class IGES_Entity128(IGES_Entity):
     '''

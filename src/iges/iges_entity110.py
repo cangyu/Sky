@@ -1,4 +1,4 @@
-from src.iges.iges_core import *
+from iges_core import *
 
 
 class IGES_Entity110(IGES_Entity):
