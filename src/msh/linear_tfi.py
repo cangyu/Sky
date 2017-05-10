@@ -58,21 +58,6 @@ class Linear_TFI_2D(object):
         pylab.axis('scaled')
         pylab.show()
 
-    def reset_crv(self, c1, c2, c3, c4):
-        self.c1 = c1
-        self.c2 = c2
-        self.c3 = c3
-        self.c4 = c4
-
-        self.P12 = c1(0)
-        self.P14 = c1(1)
-        self.P23 = c3(0)
-        self.P34 = c3(1)
-
-        self.U = lambda u, v: (1 - u) * self.c2(v) + u * self.c4(v)
-        self.V = lambda u, v: (1 - v) * self.c1(u) + v * self.c3(u)
-        self.UV = lambda u, v: (1 - u) * (1 - v) * self.P12 + u * v * self.P34 + (1 - u) * v * self.P23 + (1 - v) * u * self.P14
-
 
 class Linear_TFI_3D(object):
     def __init__(self, s1, s2, s3, s4, s5, s6):
@@ -106,14 +91,14 @@ class Linear_TFI_3D(object):
         self.c24 = lambda w: s4(w, 1)  # intersection of s2, s4
         self.c14 = lambda w: s1(1, w)  # intersection of s4, s1
 
-        self.p135 = self.c35(0)  # intersection of s1, s3, s5
-        self.p235 = self.c25(0)  # intersection of s2, s3, s5
-        self.p245 = self.c45(1)  # intersection of s2, s4, s5
-        self.p145 = self.c15(1)  # intersection of s1, s4, s5
-        self.p126 = self.c36(0)  # intersection of s1, s2, s6
-        self.p236 = self.c26(0)  # intersection of s2, s3, s6
-        self.p246 = self.c46(1)  # intersection of s2, s4, s6
-        self.p146 = self.c16(1)  # intersection of s1, s4, s6
+        self.p135 = self.c13(0)  # intersection of s1, s3, s5
+        self.p235 = self.c23(0)  # intersection of s2, s3, s5
+        self.p245 = self.c24(0)  # intersection of s2, s4, s5
+        self.p145 = self.c14(0)  # intersection of s1, s4, s5
+        self.p136 = self.c13(1)  # intersection of s1, s3, s6
+        self.p236 = self.c23(1)  # intersection of s2, s3, s6
+        self.p246 = self.c24(1)  # intersection of s2, s4, s6
+        self.p146 = self.c14(1)  # intersection of s1, s4, s6
 
         self.U = lambda u, v, w: (1 - u) * self.s1(v, w) + \
                                  u * self.s2(v, w)
@@ -151,3 +136,33 @@ class Linear_TFI_3D(object):
 
     def eval(self, u, v, w):
         return self.__call__(u, v, w)
+
+    def calc_msh(self, pu, pv, pw):
+        grid = np.zeros((len(pu), len(pv), len(pw), 3))
+
+        for i in range(0, len(pu)):
+            for j in range(0, len(pv)):
+                for k in range(0, len(pw)):
+                    grid[i][j][k] = self.eval(pu[i], pv[j], pw[k])
+
+        return grid
+
+    @classmethod
+    def show_msh(cls, grid):
+        U, V, W, D = grid.shape
+
+        x = np.zeros((W, V, U))
+        y = np.zeros((W, V, U))
+        z = np.zeros((W, V, U))
+
+        for k in range(0, W):
+            for j in range(0, V):
+                for i in range(0, U):
+                    x[k][j][i] = grid[i][j][k][0]
+                    y[k][j][i] = grid[i][j][k][1]
+                    z[k][j][i] = grid[i][j][k][2]
+
+        pylab.plot(x, y, z)
+        # pylab.plot(np.vstack((x[:, 0], x[:, -1])), np.vstack((y[:, 0], y[:, -1])))
+        pylab.axis('scaled')
+        pylab.show()

@@ -34,7 +34,11 @@ def circle(R1, R2, U, V):
     show(tmsh, u_list, v_list)
 
 
-class TFI_Test(unittest.TestCase):
+class T2L_Test(unittest.TestCase):
+    """
+    2D Linear Transfinite interpolation Test
+    """
+
     def test_rectangular(self):
         rectangular(5, 4, 10, 8)
 
