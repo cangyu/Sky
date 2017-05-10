@@ -35,7 +35,7 @@ def rect(X_MIN, X_MAX, Y_MIN, Y_MAX, Z_MIN, Z_MAX, U, V, W, fout=""):
 
     for k in range(0, W + 1):
         for j in range(0, V + 1):
-            for u in range(0, U + 1):
+            for i in range(0, U + 1):
                 pts[k][j][i] = np.array([u_list[i], v_list[j], w_list[k]])
 
     msh = Plot3D(U + 1, V + 1, W + 1, pts)
@@ -64,6 +64,13 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
     v_list = np.linspace(THETA_MIN, THETA_MAX, V + 1)
     w_list = np.linspace(H_MIN, H_MAX, W + 1)
 
+    if fout == "":
+        fout += "sect"
+        fout += "_{}_{}".format(R_MIN, R_MAX)
+        fout += "_{}_{}".format(THETA_MIN, THETA_MAX)
+        fout += "_{}_{}".format(H_MIN, H_MAX)
+        fout += "_{}_{}_{}.xyz".format(U, V, W)
+
     for k in range(0, W + 1):
         for j in range(0, V + 1):
             for i in range(0, U + 1):
@@ -72,6 +79,7 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
 
     msh = Plot3D(U + 1, V + 1, W + 1, pts)
     msh.output(fout)
+
 
 def airfoil():
     pass
@@ -82,7 +90,7 @@ class Plot3D_Test(unittest.TestCase):
         rect(0, 100, 0, 60, 0, 40, 60, 15, 20)
 
     def test_cylinder(self):
-        sect(50, 100, 60, 120, 60, 15, 20)
+        sect(50, 100, 60, 320, 0, 30, 60, 15, 20)
 
     def test_airfoil(self):
         airfoil()
