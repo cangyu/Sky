@@ -61,6 +61,27 @@ def BasisFuns(i: int, u: float, p: int, U, N):
         N[j] = saved
 
 
+def AllBasisFuns(i, u, p, U, N):
+    """
+    计算所有0到p次非0基函数的值
+    :param i: 参数u所在的节点区间，s.t. u∈[U[i],U[i+1])
+    :param u: 目标参数
+    :param p: 最大B样条基函数次数
+    :param U: 节点序列
+    :param N: 所有0到p次非0基函数的值,(p+1)*(p+1)个元素，N[jj][ii]存储ii次基函数第jj个非0值，ii<=p, jj<=ii
+    :return: None
+    """
+
+    for pp in range(0, p + 1):
+        '''计算次数为pp时所有非零B样条基函数的值'''
+        data = np.zeros(pp + 1)
+        BasisFuns(i, u, pp, U, data)
+
+        '''Copy result'''
+        for k in range(0, pp + 1):
+            N[k][pp] = data[k]
+
+
 def DersBasisFuns(i: int, u: float, p: int, n: int, U, ders):
     """
     计算非零B样条基函数及其导数
