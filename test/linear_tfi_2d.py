@@ -34,9 +34,22 @@ def circle(R1, R2, U, V):
     show(tmsh, u_list, v_list)
 
 
+def eccentric_circle(delta, R1, R2, U, V):
+    c1 = lambda u: np.array([(delta + R1) * (1 - u) + R2 * u, 0])
+    c3 = lambda u: np.array([(delta - R1) * (1 - u) - R2 * u, 0])
+    c2 = lambda v: np.array([R1 * math.cos(math.pi * v) + delta, R1 * math.sin(math.pi * v)])
+    c4 = lambda v: np.array([R2 * math.cos(math.pi * v), R2 * math.sin(math.pi * v)])
+
+    u_list = np.linspace(0, 1.0, U + 1)
+    v_list = np.linspace(0, 1.0, V + 1)
+    tmsh = Linear_TFI_2D(c1, c2, c3, c4)
+
+    show(tmsh, u_list, v_list)
+
+
 class T2L_Test(unittest.TestCase):
     """
-    2D Linear Transfinite interpolation Test
+    2D Linear Transfinite Interpolation Test
     """
 
     def test_rectangular(self):
@@ -44,3 +57,6 @@ class T2L_Test(unittest.TestCase):
 
     def test_circle(self):
         circle(1, 2, 5, 10)
+
+    def test_eccentic(self):
+        eccentric_circle(-10, 4, 25, 15, 40)
