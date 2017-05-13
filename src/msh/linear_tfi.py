@@ -1,5 +1,5 @@
 import numpy as np
-import pylab
+from src.msh.plot3d import Plot3D
 
 
 class Linear_TFI_2D(object):
@@ -29,34 +29,28 @@ class Linear_TFI_2D(object):
     def __call__(self, u, v):
         return self.U(u, v) + self.V(u, v) - self.UV(u, v)
 
-    def eval(self, u, v):
-        return self.__call__(u, v)
-
     def calc_msh(self, pu, pv):
         grid = np.zeros((len(pu), len(pv), 2))
 
         for i in range(0, len(pu)):
             for j in range(0, len(pv)):
-                grid[i][j] = self.eval(pu[i], pv[j])
+                grid[i][j] = self.__call__(pu[i], pv[j])
 
         return grid
 
-    @classmethod
-    def show_msh(cls, grid):
-        U, V, D = grid.shape
+    def write_plot3d(self, pu, pv, filename="msh.xyz"):
+        grid = self.calc_msh(pu, pv)
+        K, J, I = 1, len(pv), len(pu)
+        pts = np.zeros((K, J, I, 3))
 
-        x = np.zeros((V, U))
-        y = np.zeros((V, U))
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    pts[k][j][i][0] = grid[i][j][0]
+                    pts[k][j][i][1] = grid[i][j][1]
 
-        for i in range(0, V):
-            for j in range(0, U):
-                x[i][j] = grid[j][i][0]
-                y[i][j] = grid[j][i][1]
-
-        pylab.plot(x, y)
-        pylab.plot(np.vstack((x[:, 0], x[:, -1])), np.vstack((y[:, 0], y[:, -1])))
-        pylab.axis('scaled')
-        pylab.show()
+        p3d = Plot3D(I, J, K, pts)
+        p3d.output(filename)
 
 
 class Linear_TFI_3D(object):
@@ -146,23 +140,3 @@ class Linear_TFI_3D(object):
                     grid[i][j][k] = self.eval(pu[i], pv[j], pw[k])
 
         return grid
-
-    @classmethod
-    def show_msh(cls, grid):
-        U, V, W, D = grid.shape
-
-        x = np.zeros((W, V, U))
-        y = np.zeros((W, V, U))
-        z = np.zeros((W, V, U))
-
-        for k in range(0, W):
-            for j in range(0, V):
-                for i in range(0, U):
-                    x[k][j][i] = grid[i][j][k][0]
-                    y[k][j][i] = grid[i][j][k][1]
-                    z[k][j][i] = grid[i][j][k][2]
-
-        pylab.plot(x, y, z)
-        # pylab.plot(np.vstack((x[:, 0], x[:, -1])), np.vstack((y[:, 0], y[:, -1])))
-        pylab.axis('scaled')
-        pylab.show()

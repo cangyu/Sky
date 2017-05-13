@@ -9,6 +9,26 @@ def show(msh, pu, pv, pw):
     # Linear_TFI_3D.show_msh(grid)
     print(grid)
 
+def show_msh(grid):
+    U, V, W, D = grid.shape
+
+    x = np.zeros((W, V, U))
+    y = np.zeros((W, V, U))
+    z = np.zeros((W, V, U))
+
+    for k in range(0, W):
+        for j in range(0, V):
+            for i in range(0, U):
+                x[k][j][i] = grid[i][j][k][0]
+                y[k][j][i] = grid[i][j][k][1]
+                z[k][j][i] = grid[i][j][k][2]
+
+    pylab.plot(x, y, z)
+    # pylab.plot(np.vstack((x[:, 0], x[:, -1])), np.vstack((y[:, 0], y[:, -1])))
+    pylab.axis('scaled')
+    pylab.show()
+
+
 
 def cuboid(L, W, H, I, J, K):
     """
