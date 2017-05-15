@@ -7,7 +7,7 @@ from src.iges.iges_entity110 import *
 from src.iges.iges_entity116 import *
 from src.iges.iges_core import *
 
-AIRFOIL_DIR = '../../airfoil/'
+AIRFOIL_DIR = '../airfoil/'
 AIRFOIL_LIST = []
 
 
@@ -53,6 +53,9 @@ class Airfoil(object):
             self.pts[cnt][0] = self.x[i]
             self.pts[cnt][1] = self.y_down[i]
             cnt += 1
+
+    def get_pts(self):
+        return self.pts
 
     def iges(self):
         foil = IGES_Model(self.name + '.igs')

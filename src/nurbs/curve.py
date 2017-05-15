@@ -6,7 +6,6 @@ import math
 from src.iges.iges_entity112 import IGES_Entity112
 
 
-
 def GetDistance(lhs, rhs):
     tmp = 0.0
     for j in range(0, 3):
@@ -146,10 +145,11 @@ class Curve(object):
 
 
 class Spline(object):
-    def __init__(self, pts, p=3, smooth=1):
+    def __init__(self, pts, p=3, smooth=False):
         # Number of pts and Order
         self.n = pts.shape[0]
         self.order = p
+        self.f = []
 
         # Copy parameters and coordinates
         self.u = np.zeros(self.n, float)
@@ -182,15 +182,24 @@ class Spline(object):
         fx = interpolate.make_interp_spline(self.u, self.x, k=self.order, bc_type=bc_x)
         fy = interpolate.make_interp_spline(self.u, self.y, k=self.order, bc_type=bc_y)
         fz = interpolate.make_interp_spline(self.u, self.z, k=self.order, bc_type=bc_z)
-        f = [fx, fy, fz]
+        self.f = [fx, fy, fz]
 
         # Calculate coefficient matrix
         self.cm = np.zeros((self.n, 3, self.order + 1))
         for k in range(0, self.n):
             for i in range(0, 3):
                 for j in range(0, self.order + 1):
-                    self.cm[k][i][j] = float(f[i](self.u[k], j) / factorial(j))
+                    self.cm[k][i][j] = float(self.f[i](self.u[k], j) / factorial(j))
 
     def iges(self):
         assert self.order == 3
         return IGES_Entity112(self.u, self.cm)
+
+    def x_rep(self):
+        return lambda u: self.f[0](u * self.u[-1])
+
+    def y_rep(self):
+        return lambda u: self.f[1](u * self.u[-1])
+
+    def z_rep(self):
+        return lambda u: self.f[2](u * self.u[-1])

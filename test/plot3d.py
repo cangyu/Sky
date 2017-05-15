@@ -81,16 +81,9 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
     msh.output(fout)
 
 
-def airfoil():
-    pass
-
-
 class Plot3D_Test(unittest.TestCase):
     def test_rect(self):
         rect(0, 100, 0, 60, 0, 40, 60, 15, 20)
 
     def test_cylinder(self):
         sect(50, 100, 60, 320, 0, 30, 60, 15, 20)
-
-    def test_airfoil(self):
-        airfoil()

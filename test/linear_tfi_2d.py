@@ -3,6 +3,9 @@ import numpy as np
 import math
 import pylab
 from src.msh.linear_tfi import Linear_TFI_2D
+from src.aircraft.wing import Airfoil
+from src.nurbs.curve import Spline
+import matplotlib.pyplot as plt
 
 
 def show(msh: Linear_TFI_2D, pu, pv):
@@ -66,6 +69,54 @@ def curve_rect(L: float, H1: float, H2: float, H3: float):
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
+def airfoil(foil, L, R):
+    af = Airfoil(foil)
+    pts = af.get_pts()
+    for p in pts:
+        p *= L
+
+    crv = Spline(pts)
+    cx = crv.x_rep()
+    cy = crv.y_rep()
+    c1 = lambda u: np.array([cx(u), cy(u)])
+
+    calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
+    calc_len = lambda dir: math.pow(math.pow(dir[0], 2) + math.pow(dir[1], 2), 0.5)
+    inner_product = lambda d1, d2: d1[0] * d2[0] + d1[1] * d2[1]
+
+    dir1 = calc_dir(pts[1], pts[0])
+    len1 = calc_len(dir1)
+    dir2 = calc_dir(pts[-2], pts[-1])
+    len2 = calc_len(dir2)
+
+    dir3 = (dir1[1] / len1, dir1[0] / len1)
+    dir4 = (dir2[1] / len2, -dir2[0] / len2)
+
+    c2 = lambda v: np.array([pts[0][0] + v * R * dir3[0], pts[0][1] + v * R * dir3[1]])
+    e2 = c2(1.0)
+    r = calc_len(e2)
+
+    dir5 = (pts[-1][0], pts[-1][1])
+    l4 = calc_len(dir5)
+    theta = math.pi - math.acos(inner_product(dir4, dir5) / l4)
+    alpha = math.asin(l4 / r * math.sin(theta))
+    beta = math.pi - theta - alpha
+    b = r / math.sin(theta) * math.sin(beta)
+
+    c4 = lambda v: np.array([pts[-1][0] + v * b * dir4[0], pts[-1][1] + v * b * dir4[1]])
+
+    sp = c2(1.0)
+    ep = c4(1.0)
+    sa = math.atan2(sp[1], sp[0])
+    ea = math.atan2(ep[1], ep[0])
+    if ea < 0:
+        ea += math.pi * 2
+
+    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
+
+    return Linear_TFI_2D(c1, c2, c3, c4)
+
+
 class T2L_Test(unittest.TestCase):
     """
     2D Linear Transfinite Interpolation Test
@@ -94,3 +145,9 @@ class T2L_Test(unittest.TestCase):
         U, V = 50, 25
         show_uniform(msh, U, V)
         write_uniform_p3d(msh, U, V, "crv_rect.xyz")
+
+    def test_airfoil(self):
+        msh = airfoil("NACA0012", 10, 50)
+        U, V = 60, 15
+        show_uniform(msh, U, V)
+        write_uniform_p3d(msh, U, V, "NACA0012.xyz")
