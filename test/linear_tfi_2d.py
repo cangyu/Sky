@@ -70,16 +70,29 @@ def curve_rect(L: float, H1: float, H2: float, H3: float):
 
 
 def airfoil(foil, L, R):
+    """
+    翼型单块网格
+    :param foil: 翼型名称 
+    :param L: 拉伸长度
+    :param R: 远场半径
+    :return: TFI_2D mesh
+    """
+
+    '''Read airfoil data'''
     af = Airfoil(foil)
     pts = af.get_pts()
+
+    '''Extend'''
     for p in pts:
         p *= L
 
+    '''Parametric representation of airfoil'''
     crv = Spline(pts)
     cx = crv.x_rep()
     cy = crv.y_rep()
     c1 = lambda u: np.array([cx(u), cy(u)])
 
+    '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
     calc_len = lambda dir: math.pow(math.pow(dir[0], 2) + math.pow(dir[1], 2), 0.5)
     inner_product = lambda d1, d2: d1[0] * d2[0] + d1[1] * d2[1]
@@ -97,8 +110,7 @@ def airfoil(foil, L, R):
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
     c2 = lambda v: np.array([pts[0][0] + v * R * dir3[0], pts[0][1] + v * R * dir3[1]])
-    e2 = c2(1.0)
-    r = calc_len(e2)
+    r = calc_len(c2(1.0))
 
     dir5 = (pts[-1][0], pts[-1][1])
     l4 = calc_len(dir5)
@@ -109,6 +121,7 @@ def airfoil(foil, L, R):
 
     c4 = lambda v: np.array([pts[-1][0] + v * b * dir4[0], pts[-1][1] + v * b * dir4[1]])
 
+    '''Farfiled boundary'''
     sp = c2(1.0)
     ep = c4(1.0)
     sa = math.atan2(sp[1], sp[0])
@@ -121,37 +134,63 @@ def airfoil(foil, L, R):
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
-class T2L_Test(unittest.TestCase):
+class T2L_Show_Test(unittest.TestCase):
     """
-    2D Linear Transfinite Interpolation Test
+    Test Python representation.
     """
 
     def test_rectangular(self):
         msh = rectangular(5, 4)
         U, V = 10, 8
         show_uniform(msh, U, V)
-        write_uniform_p3d(msh, U, V, "rect.xyz")
 
     def test_circle(self):
         msh = circle(1, 2)
         U, V = 5, 10
         show_uniform(msh, U, V)
-        write_uniform_p3d(msh, U, V, "circle.xyz")
 
     def test_eccentic(self):
         msh = eccentric_circle(-10, 4, 25)
         U, V = 15, 40
         show_uniform(msh, U, V)
-        write_uniform_p3d(msh, U, V, "eccentric.xyz")
 
     def test_crv_rect(self):
         msh = curve_rect(100, 40, 60, 10)
         U, V = 50, 25
         show_uniform(msh, U, V)
-        write_uniform_p3d(msh, U, V, "crv_rect.xyz")
 
     def test_airfoil(self):
         msh = airfoil("NACA0012", 10, 50)
         U, V = 60, 15
         show_uniform(msh, U, V)
+
+
+class T2L_WritePlot3D_Test(unittest.TestCase):
+    """
+    Test Plot3D file generation.
+    """
+
+    def test_rectangular(self):
+        msh = rectangular(5, 4)
+        U, V = 10, 8
+        write_uniform_p3d(msh, U, V, "rect.xyz")
+
+    def test_circle(self):
+        msh = circle(1, 2)
+        U, V = 5, 10
+        write_uniform_p3d(msh, U, V, "circle.xyz")
+
+    def test_eccentic(self):
+        msh = eccentric_circle(-10, 4, 25)
+        U, V = 15, 40
+        write_uniform_p3d(msh, U, V, "eccentric.xyz")
+
+    def test_crv_rect(self):
+        msh = curve_rect(100, 40, 60, 10)
+        U, V = 50, 25
+        write_uniform_p3d(msh, U, V, "crv_rect.xyz")
+
+    def test_airfoil(self):
+        msh = airfoil("NACA0012", 10, 50)
+        U, V = 60, 15
         write_uniform_p3d(msh, U, V, "NACA0012.xyz")
