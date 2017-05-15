@@ -89,8 +89,12 @@ def airfoil(foil, L, R):
     dir2 = calc_dir(pts[-2], pts[-1])
     len2 = calc_len(dir2)
 
-    dir3 = (dir1[1] / len1, dir1[0] / len1)
-    dir4 = (dir2[1] / len2, -dir2[0] / len2)
+    rotate = lambda dir, theta: (dir[0] * math.cos(math.radians(theta)) - dir[1] * math.sin(math.radians(theta)),
+                                 dir[0] * math.sin(math.radians(theta)) + dir[1] * math.cos(math.radians(theta)))
+    dir1 = rotate(dir1, 90)
+    dir2 = rotate(dir2, 270)
+    dir3 = (dir1[0] / len1, dir1[1] / len1)
+    dir4 = (dir2[0] / len2, dir2[1] / len2)
 
     c2 = lambda v: np.array([pts[0][0] + v * R * dir3[0], pts[0][1] + v * R * dir3[1]])
     e2 = c2(1.0)
