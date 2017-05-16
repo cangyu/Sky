@@ -12,6 +12,8 @@ class Linear_TFI_2D(object):
         :param c4: 平行于y轴方向的第2条曲线
         """
 
+        self.grid = None
+
         self.c1 = c1
         self.c2 = c2
         self.c3 = c3
@@ -24,33 +26,36 @@ class Linear_TFI_2D(object):
 
         self.U = lambda u, v: (1 - u) * self.c2(v) + u * self.c4(v)
         self.V = lambda u, v: (1 - v) * self.c1(u) + v * self.c3(u)
-        self.UV = lambda u, v: (1 - u) * (1 - v) * self.P12 + u * v * self.P34 + (1 - u) * v * self.P23 + (1 - v) * u * self.P14
+        self.UV = lambda u, v: (1 - u) * (1 - v) * self.P12 + \
+                               u * v * self.P34 + \
+                               (1 - u) * v * self.P23 + \
+                               (1 - v) * u * self.P14
 
     def __call__(self, u, v):
         return self.U(u, v) + self.V(u, v) - self.UV(u, v)
 
     def calc_msh(self, pu, pv):
-        grid = np.zeros((len(pu), len(pv), 2))
+        self.grid = np.zeros((len(pu), len(pv), 2))
 
         for i in range(0, len(pu)):
             for j in range(0, len(pv)):
-                grid[i][j] = self.__call__(pu[i], pv[j])
+                self.grid[i][j] = self.__call__(pu[i], pv[j])
 
-        return grid
+    def write_plot3d(self, fn="msh.xyz"):
+        if self.grid == None:
+            raise Exception("Empty Grid!")
 
-    def write_plot3d(self, pu, pv, filename="msh.xyz"):
-        grid = self.calc_msh(pu, pv)
-        K, J, I = 1, len(pv), len(pu)
+        K, J, I = 1, self.grid.shape[1], self.grid.shape[0]
         pts = np.zeros((K, J, I, 3))
 
         for k in range(0, K):
             for j in range(0, J):
                 for i in range(0, I):
-                    pts[k][j][i][0] = grid[i][j][0]
-                    pts[k][j][i][1] = grid[i][j][1]
+                    pts[k][j][i][0] = self.grid[i][j][0]
+                    pts[k][j][i][1] = self.grid[i][j][1]
 
         p3d = Plot3D(I, J, K, pts)
-        p3d.output(filename)
+        p3d.output(fn)
 
 
 class Linear_TFI_3D(object):
@@ -64,6 +69,8 @@ class Linear_TFI_3D(object):
         :param s5: 垂直于z轴的第1个曲面(Bottom)
         :param s6: 垂直于z轴的第2个曲面(Top)
         """
+
+        self.grid = None
 
         self.s1 = s1
         self.s2 = s2
@@ -128,15 +135,27 @@ class Linear_TFI_3D(object):
                (self.UV(u, v, w) + self.VW(u, v, w) + self.WU(u, v, w)) + \
                self.UVW(u, v, w)
 
-    def eval(self, u, v, w):
-        return self.__call__(u, v, w)
-
     def calc_msh(self, pu, pv, pw):
-        grid = np.zeros((len(pu), len(pv), len(pw), 3))
+        self.grid = np.zeros((len(pu), len(pv), len(pw), 3))
 
         for i in range(0, len(pu)):
             for j in range(0, len(pv)):
                 for k in range(0, len(pw)):
-                    grid[i][j][k] = self.eval(pu[i], pv[j], pw[k])
+                    self.grid[i][j][k] = self.__call__(pu[i], pv[j], pw[k])
 
-        return grid
+    def write_plot3d(self, fn="msh.xyz"):
+        if self.grid == None:
+            raise Exception("Empty Grid!")
+
+        K, J, I = self.grid.shape[2], self.grid.shape[1], self.grid.shape[0]
+        pts = np.zeros((K, J, I, 3))
+
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    pts[k][j][i][0] = self.grid[i][j][k][0]
+                    pts[k][j][i][1] = self.grid[i][j][k][1]
+                    pts[k][j][i][2] = self.grid[i][j][k][2]
+
+        p3d = Plot3D(I, J, K, pts)
+        p3d.output(fn)
