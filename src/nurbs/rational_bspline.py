@@ -46,3 +46,64 @@ def RatCurveDerive(Aders, wders, d, CK):
         CK[k] = v / wders[0]
 
 
+def SurfacePoint(n, p, U, m, q, V, Pw, u, v, S):
+    """
+    计算有理B样条曲面上的点
+    :param n: u方向最后一个控制点下标
+    :param p: u方向B样条基函数次数
+    :param U: u方向节点矢量
+    :param m: v方向最后一个控制点下标
+    :param q: v方向B样条基函数次数
+    :param V: v方向节点矢量
+    :param Pw: 带权控制点，(n+1)*(m+1)个元素
+    :param u: u方向参数
+    :param v: v方向参数
+    :param S: 曲面在(u,v)处的值
+    :return: None
+    """
+
+    uspan = FindSpan(n, p, u, U)
+    Nu = np.zeros(p + 1)
+    BasisFuns(uspan, u, p, U, Nu)
+
+    vspan = FindSpan(m, q, v, V)
+    Nv = np.zeros(q + 1)
+    BasisFuns(vspan, v, q, V, Nv)
+
+    temp = np.zeros(q + 1, 4)
+    for l in range(0, q + 1):
+        for k in range(0, p + 1):
+            temp[l] += Nu[k] * Pw[uspan - p + k][vspan - q + 1]
+
+    Sw = np.zeros(4)
+    for l in range(0, q + 1):
+        Sw += Nv[l] * temp[l]
+
+    S = np.zeros(3)
+    for i in range(0, 3):
+        S[i] = Sw[i] / Sw[3]
+
+
+def RatSurfaceDerivs(Aders, wders, d, SKL):
+    """
+    计算曲面上S上(u,v)处的点及其直到d阶偏导矢
+    :param Aders: 
+    :param wders: 
+    :param d: 
+    :param SKL: 
+    :return: 
+    """
+
+    for k in range(0, d + 1):
+        for l in range(0, d + 1 - k):
+            v = Aders[k][l]
+            for j in range(1, l + 1):
+                v -= comb(l, j) * wders[0][j] * SKL[k][l - j]
+            for i in range(1, k + 1):
+                v -= comb(k, i) * wders[i][0] * SKL[k - i][l]
+                v2 = 0.0
+                for j in range(1, l + 1):
+                    v2 += comb(i, j) * wders[i][j] * SKL[k - i][l - j]
+                v -= comb(k, i) * v2
+
+            SKL[k][l] = v / wders[0][0]

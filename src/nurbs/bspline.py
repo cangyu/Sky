@@ -186,21 +186,21 @@ def SurfaveDerivsAlg1(n, p, U, m, q, V, P, u, v, d, SKL):
 
 def SurfaceDerivCpts(n, p, U, m, q, V, P, d, r1, r2, s1, s2, PKL):
     """
-    计算导曲面的控制点
-    :param n: 
-    :param p: 
-    :param U: 
-    :param m: 
-    :param q: 
-    :param V: 
-    :param P: 
-    :param d: 
+    计算曲面一部分直到d阶导曲面的控制点
+    :param n: u方向最后一个控制点下标
+    :param p: u方向B样条基函数次数
+    :param U: u方向节点序列
+    :param m: v方向最后一个控制点下标
+    :param q: v方向B样条基函数次数
+    :param V: v方向节点序列
+    :param P: 控制点序列，(n+1)*(m+1)个元素
+    :param d: 最大求导次数
     :param r1: 
     :param r2: 
     :param s1: 
     :param s2: 
-    :param PKL: 
-    :return: 
+    :param PKL: PKL[k][l][i][j] 用于存储曲面关于u，v分别求导k和l次所得导曲面的第(i,j)个控制点
+    :return: None
     """
 
     du = min(d, p)
@@ -210,15 +210,26 @@ def SurfaceDerivCpts(n, p, U, m, q, V, P, d, r1, r2, s1, s2, PKL):
     s = s2 - s1
 
     for j in range(s1, s2 + 1):
-        CurveDerivCpts(n, p, U, & P[][j], du, r1, r2, temp)
+        temp = np.zeros((du + 1, r2 - r1 + 1, 3))
+        pts = np.zeros([m + 1, 3])
+
+        for k in range(0, m + 1):
+            pts[k] = P[k][j]
+
+        CurveDerivCpts(n, p, U, pts, du, r1, r2, temp)
+
         for k in range(0, du + 1):
             for i in range(0, r - k + 1):
-                PKL[k][0][i][j - s1] = temp[k][l]
+                PKL[k][0][i][j - s1] = temp[k][i]
 
     for k in range(0, du):
         for i in range(0, r - k + 1):
             dd = min(d - k, dv)
-            CurveDerivCpts(m, q, & V[s1], PKL[k][0][i], dd, 0, s, temp)
+            knots = np.zeros((len(V) - s1))
+            for t in range(0, len(V) - s1):
+                knots[t] = V[t]
+            temp = np.zeros((dd + 1, s + 1, 3))
+            CurveDerivCpts(m, q, knots, PKL[k][0][i], dd, 0, s, temp)
             for l in range(1, dd + 1):
                 for j in range(0, s - l + 1):
                     PKL[k][k][i][j] = temp[l][j]
@@ -227,18 +238,18 @@ def SurfaceDerivCpts(n, p, U, m, q, V, P, d, r1, r2, s1, s2, PKL):
 def SurfaceDerivsAlg2(n, p, U, m, q, V, P, u, v, d, SKL):
     """
     计算B样条曲面上的点及所有直到d阶的偏导矢
-    :param n: 
-    :param p: 
-    :param U: 
-    :param m: 
-    :param q: 
-    :param V: 
-    :param P: 
-    :param u: 
-    :param v: 
-    :param d: 
-    :param SKL: 
-    :return: 
+    :param n: u方向最后一个控制点下标
+    :param p: u方向B样条基函数次数
+    :param U: u方向节点序列
+    :param m: v方向最后一个控制点下标
+    :param q: v方向B样条基函数次数
+    :param V: v方向节点序列
+    :param P: 控制点序列，(n+1)*(m+1)个元素
+    :param u: u方向参数
+    :param v: v方向参数
+    :param d: 最大求导次数
+    :param SKL: 所有直到d阶的偏导矢，(d+1)*(d+1)个元素
+    :return: None
     """
 
     du = min(d, p)
@@ -252,9 +263,14 @@ def SurfaceDerivsAlg2(n, p, U, m, q, V, P, u, v, d, SKL):
             SKL[k][l] = 0.0
 
     uspan = FindSpan(n, p, u, U)
-    AllBernstein(uspan, u, p, U, Nu)
+    Nu = np.zeros((p + 1, p + 1))
+    AllBasisFuns(uspan, u, p, U, Nu)
+
     vspan = FindSpan(m, q, v, V)
-    AllBernstein(vspan, v, q, v, Nv)
+    Nv = np.zeros((q + 1, q + 1))
+    AllBasisFuns(vspan, v, q, v, Nv)
+
+    PKL = np.zeros((d + 1, d + 1, p + 1, q + 1))
     SurfaceDerivCpts(n, p, U, m, q, V, P, d, uspan - p, uspan, vspan - q, vspan, PKL)
     for k in range(0, du + 1):
         dd = min(d - k, dv)
