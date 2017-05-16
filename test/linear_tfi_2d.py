@@ -1,40 +1,16 @@
 import unittest
 import numpy as np
 import math
-import pylab
 from src.msh.linear_tfi import Linear_TFI_2D
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import Spline
-import matplotlib.pyplot as plt
-
-
-def show(msh: Linear_TFI_2D, pu, pv):
-    grid = msh.calc_msh(pu, pv)
-    U, V, D = grid.shape
-    x = np.zeros((V, U))
-    y = np.zeros((V, U))
-
-    for i in range(0, V):
-        for j in range(0, U):
-            x[i][j] = grid[j][i][0]
-            y[i][j] = grid[j][i][1]
-
-    pylab.plot(x, y)
-    pylab.plot(np.vstack((x[:, 0], x[:, -1])), np.vstack((y[:, 0], y[:, -1])))
-    pylab.axis('scaled')
-    pylab.show()
-
-
-def show_uniform(msh: Linear_TFI_2D, U: int, V: int):
-    u_list = np.linspace(0, 1.0, U + 1)
-    v_list = np.linspace(0, 1.0, V + 1)
-    show(msh, u_list, v_list)
 
 
 def write_uniform_p3d(msh: Linear_TFI_2D, U: int, V: int, fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    msh.write_plot3d(u_list, v_list, fn)
+    msh.calc_msh(u_list, v_list)
+    msh.write_plot3d(fn)
 
 
 def rectangular(L: float, W: float):
@@ -132,37 +108,6 @@ def airfoil(foil, L, R):
     c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
 
     return Linear_TFI_2D(c1, c2, c3, c4)
-
-
-class T2L_Show_Test(unittest.TestCase):
-    """
-    Test Python representation.
-    """
-
-    def test_rectangular(self):
-        msh = rectangular(5, 4)
-        U, V = 10, 8
-        show_uniform(msh, U, V)
-
-    def test_circle(self):
-        msh = circle(1, 2)
-        U, V = 5, 10
-        show_uniform(msh, U, V)
-
-    def test_eccentic(self):
-        msh = eccentric_circle(-10, 4, 25)
-        U, V = 15, 40
-        show_uniform(msh, U, V)
-
-    def test_crv_rect(self):
-        msh = curve_rect(100, 40, 60, 10)
-        U, V = 50, 25
-        show_uniform(msh, U, V)
-
-    def test_airfoil(self):
-        msh = airfoil("NACA0012", 10, 50)
-        U, V = 60, 15
-        show_uniform(msh, U, V)
 
 
 class T2L_WritePlot3D_Test(unittest.TestCase):
