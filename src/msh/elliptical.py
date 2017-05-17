@@ -3,7 +3,7 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
 from src.msh.linear_tfi import Linear_TFI_2D
-from src.msh.plot3d import Plot3D
+from src.msh.plot3d import Plot3D, Plot3D_SingleBlock
 
 
 class Laplace_2D(object):
@@ -117,9 +117,10 @@ class Laplace_2D(object):
                 ck += 1
 
         A = sparse.coo_matrix((val, (rows, cols)), shape=(unknown_num, unknown_num), dtype=float)
+        AA = A.tocsr()
         u = np.zeros((2, unknown_num))
-        u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
-        u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+        u[0] = dsolve.spsolve(AA, b[0], use_umfpack=True)
+        u[1] = dsolve.spsolve(AA, b[1], use_umfpack=True)
 
         return u
 
@@ -135,3 +136,15 @@ class Laplace_2D(object):
 
         p3d = Plot3D(I, J, K, pts)
         p3d.output(filename)
+
+    def plot3d_blk(self):
+        K, J, I = 1, self.N + 1, self.M + 1
+        pts = np.zeros((K, J, I, 3))
+
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    pts[k][j][i][0] = self.r[j][i][0]
+                    pts[k][j][i][1] = self.r[j][i][1]
+
+        return Plot3D_SingleBlock(I, J, K, pts)

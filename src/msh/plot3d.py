@@ -1,4 +1,6 @@
 import numpy as np
+from copy import deepcopy
+
 
 class Plot3D(object):
     def __init__(self, I, J, K, pts):
@@ -77,4 +79,59 @@ class Plot3D(object):
         self.write_iblank(fout)
 
         fout.write("\n")
+        fout.close()
+
+
+class Plot3D_SingleBlock(object):
+    def __init__(self, I: int, J: int, K: int, pts):
+        """
+        单块结构网格，无IBLANK
+        :param I: X方向节点数量:[0, I)
+        :param J: Y方向节点数量:[0, J)
+        :param K: Z方向节点数量:[0, K)
+        :param pts: 网格点坐标，下标从左到右依次循环Z，Y，X
+        """
+        self.I, self.J, self.K = I, J, K
+        self.X = np.zeros((K, J, I))
+        self.Y = np.zeros((K, J, I))
+        self.Z = np.zeros((K, J, I))
+
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    self.X[k][j][i] = pts[k][j][i][0]
+                    self.Y[k][j][i] = pts[k][j][i][1]
+                    self.Z[k][j][i] = pts[k][j][i][2]
+
+    def write_cord(self, cord, fout):
+        for k in range(0, self.K):
+            for j in range(0, self.J):
+                for i in range(0, self.I):
+                    if i == 0:
+                        fout.write("\n{}".format(cord[k][j][i]))
+                    else:
+                        fout.write(" {}".format(cord[k][j][i]))
+
+    def write_all_coordinate(self, fout):
+        self.write_cord(self.X, fout)
+        self.write_cord(self.Y, fout)
+        self.write_cord(self.Z, fout)
+
+
+class Plot3D_MultiBlock(object):
+    def __init__(self, blk):
+        """
+        多块结构网格
+        :param blk: 块列表 
+        """
+
+        self.blk = deepcopy(blk)
+
+    def output(self, fn):
+        fout = open(fn, 'w')
+        fout.write("{}".format(len(self.blk)))
+        for blk in self.blk:
+            fout.write("\n{} {} {}".format(blk.I, blk.J, blk.K))
+        for blk in self.blk:
+            blk.write_all_coordinate(fout)
         fout.close()

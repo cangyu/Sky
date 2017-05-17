@@ -41,6 +41,8 @@ class Linear_TFI_2D(object):
             for j in range(0, len(pv)):
                 self.grid[i][j] = self.__call__(pu[i], pv[j])
 
+        return self.grid
+
     def write_plot3d(self, fn="msh.xyz"):
         if self.grid is None:
             raise Exception("Empty Grid!")
