@@ -148,3 +148,8 @@ class Laplace_2D(object):
                     pts[k][j][i][1] = self.r[j][i][1]
 
         return Plot3D_SingleBlock(I, J, K, pts)
+
+
+class Possion_2D(object):
+    def __init__(self):
+        pass
