@@ -5,7 +5,7 @@ from src.nurbs.basis import *
 from src.iges.iges_entity126 import IGES_Entity126
 
 
-class Curve(object):
+class NURBS_Curve(object):
     def __init__(self, U, Pw):
         """
         NURBS曲线
@@ -19,6 +19,17 @@ class Curve(object):
 
         self.U = np.copy(U)
         self.Pw = np.copy(Pw)
+
+        self.weight = np.zeros(self.n + 1)
+        self.cpt = np.zeros((self.n + 1, 3))
+        self.isPoly = True
+
+        for i in range(0, self.n + 1):
+            self.weight[i] = self.Pw[i][3]
+            if self.isPoly and (not equal(self.weight[i], 1.0)):
+                self.isPoly = False
+            for j in range(0, 3):
+                self.cpt[i][j] = Pw[i][j] / self.weight[i]
 
         self.N = Basis(self.U, self.p)
 
@@ -49,6 +60,7 @@ class Curve(object):
         i = 1
         while i <= d:
             ccw += comb(d, i, exact=True) * self.w(u, i) * self.__call__(u, d - i)
+            i += 1
 
         wu = self.w(u)
         if equal(wu, 0.0):
@@ -56,14 +68,9 @@ class Curve(object):
 
         return (Ad - ccw) / wu
 
-    def to_iges(self, planar, closed, polynomial, periodic, sp, ep, norm, form=0):
+    def to_iges(self, planar, closed, periodic, norm, form=0):
+        return IGES_Entity126(self.p, self.n, planar, closed,
+                              (1 if self.isPoly else 0), periodic,
+                              self.U, self.weight, self.cpt,
+                              self.U[0], self.U[-1], norm, form)
 
-        w = np.zeros(self.n + 1)
-        cpt = np.zeros((self.n + 1, 3))
-
-        for i in range(0, self.n + 1):
-            w[i] = self.Pw[i][3]
-            for j in range(0, 3):
-                cpt[i][j] = Pw[i][j] / w[i]
-
-        return IGES_Entity126(self.p, self.n, planar, closed, polynomial, periodic, self.U, w, cpt, sp, ep, norm, form)
