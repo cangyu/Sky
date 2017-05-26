@@ -205,7 +205,7 @@ def calc_knot_vector(param, p):
     :return: 目标曲线节点矢量([0,1])
     """
 
-    n = len(param)
+    n = len(param) - 1
     m = n + p + 1
     knots = np.zeros(m + 1)
 
