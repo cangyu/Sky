@@ -2,6 +2,7 @@ import numpy as np
 from scipy import interpolate
 from scipy.special import factorial
 import math
+from src.nurbs.basis import PntDist
 from src.iges.iges_entity112 import IGES_Entity112
 
 
@@ -32,9 +33,9 @@ class Spline(object):
             yc[i] = pts[i][1]
             zc[i] = pts[i][2]
 
-        '''用自然坐标参数化'''
+        '''Natural coordinates'''
         for i in range(1, n):
-            self.u[i] = Spline.PntDist(pts[i], pts[i - 1]) + self.u[i - 1]
+            self.u[i] = PntDist(pts[i], pts[i - 1]) + self.u[i - 1]
 
         '''Interpolation Function'''
         order = 3
@@ -57,7 +58,3 @@ class Spline(object):
 
     def to_iges(self):
         return IGES_Entity112(self.u, self.cm)
-
-    @classmethod
-    def PntDist(cls, lhs, rhs):
-        return math.sqrt(math.pow(lhs[0] - rhs[0], 2) + math.pow(lhs[1] - rhs[1], 2) + math.pow(lhs[2] - rhs[2], 2))

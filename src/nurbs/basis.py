@@ -3,7 +3,69 @@ import math
 
 
 def equal(a: float, b: float):
-    return True if math.fabs(a - b) < 1e-8 else False
+    """
+    判断两个浮点数是否相等
+    """
+    return (True if math.fabs(a - b) < 1e-8 else False)
+
+
+def PntDist(lhs, rhs):
+    """
+    计算两点之间距离
+    """
+
+    dim = min(len(lhs), len(rhs))
+    ans = 0.0
+    for i in range(0, dim):
+        ans += math.pow(lhs[i] - rhs[i], 2)
+
+    ans = math.sqrt(ans)
+    return ans
+
+
+def to_homogeneous(pnt, w=1.0):
+    """
+    转换为齐次坐标
+    :param pnt: 原始坐标
+    :param w: 权系数
+    :return: 带权齐次坐标
+    """
+
+    pw = np.ones(len(pnt) + 1) * w
+    for i in range(0, len(pnt)):
+        pw[i] = pnt[i] if equal(w, 0.0) else pnt[i] * w
+
+    return pw
+
+
+def find_span(U, u):
+    mi = U[0]
+    ma = U[-1]
+    left = 0
+    right = len(U) - 1
+    while U[left + 1] == mi:
+        left += 1
+    while U[right - 1] == ma:
+        right -= 1
+
+    for i in range(left, right):
+        if U[i] <= u < U[i + 1]:
+            return i
+
+    return right - 1  # Corner case when u=U[-1]
+
+
+def to_cartesian(pnt):
+    """
+    转换为笛卡尔坐标
+    :param pnt: 原始齐次坐标
+    :return: 投影后得到的笛卡尔坐标
+    """
+    p = np.zeros(len(pnt) - 1)
+    for i in range(0, len(p)):
+        p[i] = pnt[i] if equal(pnt[-1], 0.0) else pnt[i] / pnt[-1]
+
+    return p
 
 
 class Basis(object):
@@ -15,7 +77,6 @@ class Basis(object):
         """
 
         self.U = np.copy(U)
-
         self.p = p
         self.m = len(self.U)
         self.n = self.m - self.p - 1
