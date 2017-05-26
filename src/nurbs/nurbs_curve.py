@@ -25,6 +25,7 @@ class NURBS_Curve(object):
         self.weight = np.zeros(self.n + 1)
         self.cpt = np.zeros((self.n + 1, 3))
         self.isPoly = True
+        self.isClosed = (self.__call__(self.U[0]) == self.__call__(self.U[-1])).all()
 
         for i in range(0, self.n + 1):
             self.weight[i] = self.Pw[i][3]
@@ -36,7 +37,7 @@ class NURBS_Curve(object):
     def w(self, u, d=0):
         ans = 0.0
         for i in range(0, self.n + 1):
-            ans += self.N(i, self.p, u, d) * self.Pw[3]
+            ans += self.N(i, self.p, u, d) * self.Pw[i][3]
 
         return ans
 
@@ -54,7 +55,7 @@ class NURBS_Curve(object):
             nipd[i] = self.N(i, self.p, u, d)
         for i in range(0, self.n + 1):
             for j in range(0, 3):
-                Ad[j] += nipd[i] * self.Pw[j]
+                Ad[j] += nipd[i] * self.Pw[i][j]
 
         ccw = np.zeros(3)
         i = 1
@@ -68,8 +69,8 @@ class NURBS_Curve(object):
 
         return (Ad - ccw) / wu
 
-    def to_iges(self, planar, closed, periodic, norm, form=0):
-        return IGES_Entity126(self.p, self.n, planar, closed,
+    def to_iges(self, planar, periodic, norm, form=0):
+        return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0),
                               (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt,
                               self.U[0], self.U[-1], norm, form)

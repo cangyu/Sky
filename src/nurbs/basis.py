@@ -78,7 +78,7 @@ class Basis(object):
 
         self.U = np.copy(U)
         self.p = p
-        self.m = len(self.U)
+        self.m = len(self.U) - 1
         self.n = self.m - self.p - 1
 
     def __call__(self, i, p, u, d=0):
@@ -95,6 +95,9 @@ class Basis(object):
             raise ValueError("Order of Derivative shold be non-negative!")
 
         if d == 0:
+            if equal(u, self.U[-1]):
+                return 1.0 if i == self.n else 0.0
+
             if p == 0:
                 return 1.0 if self.U[i] <= u < self.U[i + 1] else 0.0
             else:

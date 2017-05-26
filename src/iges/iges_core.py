@@ -2,8 +2,6 @@ import os
 import time
 from abc import *
 
-RESULT_FOLDER = "../../result/"
-
 
 class IGES_StartSection:
     '''
@@ -293,24 +291,25 @@ class IGES_Entity:
         pass
 
 
-class IGES_Model:
-    '''
-    IGES model in ASCII format with entities
-    '''
+class IGES_Model(object):
+    def __init__(self, fn="", desc="Simplified Blended-Wing-Body(BWB) Parametric Model."):
+        """
+        IGES model in ASCII format with entities
+        :param fn: Filename of this model.
+        :param desc: Description of this model.
+        """
 
-    def __init__(self, filename="BWB.igs", desc="Simplified Blended-Wing-Body(BWB) Parametric Model."):
-
-        self.filename = filename
+        self.filename = fn
         self.StartSection = IGES_StartSection(desc)
-        self.GlobalSection = IGES_GlobalSection(filename)
+        self.GlobalSection = IGES_GlobalSection(fn)
         self.comp = []
         self.DirectorySeqCnt = 0
         self.EntitySeqCnt = 0
 
-    def AddPart(self, part):
+    def add_entity(self, part):
         self.comp.append(part)
 
-    def AssembleAll(self):
+    def assemble_all(self):
         self.DirectorySeqCnt = 0
         self.EntitySeqCnt = 0
 
@@ -324,36 +323,35 @@ class IGES_Model:
             self.comp[i].param_record = self.comp[i].BuildParam()
             self.EntitySeqCnt += self.comp[i].line_cnt
 
-    def Generate(self):
+    def write(self):
+        """
+        输出IGS文件
+        :return: None
+        """
 
-        # Assemble all parts
-        self.AssembleAll()
+        model = open(self.filename, 'w')
 
-        # Create new folder and igs file
-        folder_name = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-        folder_path = RESULT_FOLDER + folder_name
-        os.mkdir(folder_path)
-        fileout = folder_path + '/' + self.filename
-        model = open(fileout, 'w')
+        '''Assemble all parts'''
+        self.assemble_all()
 
-        # Write Start Section
+        '''Write Start Section'''
         model.write(self.StartSection.BuildSection())
 
-        # Write Global Section
+        '''Write Global Section'''
         model.write(self.GlobalSection.BuildSection())
 
-        # Write Directory Entry Section
+        '''Write Directory Entry Section'''
         for i in range(0, len(self.comp)):
             model.write(self.comp[i].directory_record)
 
-        # Write Parameter Data Section
+        '''Write Parameter Data Section'''
         for i in range(0, len(self.comp)):
             model.write(self.comp[i].param_record)
 
-        # Write Terminate Section
-        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt), 1))
+        '''Write Terminate Section'''
+        model.write(
+            "{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt),
+                                   1))
 
-        # Done
+        '''Done'''
         model.close()
-
-        return fileout

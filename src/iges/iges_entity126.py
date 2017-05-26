@@ -1,6 +1,7 @@
 import numpy as np
 from src.iges.iges_core import IGES_Entity
 
+
 class IGES_Entity126(IGES_Entity):
     '''
     NURBS Curve Entity
@@ -11,8 +12,14 @@ class IGES_Entity126(IGES_Entity):
         self.directory.Form_Number = form
 
         m = n + p + 1
-        if knots.shape[0] != m + 1 or weights.shape[0] != n + 1 or ctrl_pts.shape != (n + 1, 3) or norm.shape[0] != 3:
-            raise Exception("Invalid description!")
+        if len(knots) != m + 1:
+            raise ValueError("Invalid Knot Vector!")
+        if len(weights) != n + 1:
+            raise ValueError("Invalid Weights!")
+        if ctrl_pts.shape != (n + 1, 3):
+            raise ValueError("Invalid Control Points!")
+        if len(norm) != 3:
+            raise ValueError("Invalid Norm!")
 
         self.K = int(n)
         self.M = int(p)
