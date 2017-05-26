@@ -1,26 +1,9 @@
 import unittest
 import numpy as np
-from src.nurbs.basis import Basis
-from src.nurbs.nurbs_curve import *
+import math
+from src.nurbs.basis import to_homogeneous
+from src.nurbs.nurbs_curve import NURBS_Curve
 from src.iges.iges_core import IGES_Model
-
-
-class nurbs_basis_test(unittest.TestCase):
-    def test(self):
-        U = np.array([0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5])
-        N = Basis(U, 2)
-        self.assertEquals(N(0, 0, 1.5), 0)
-        self.assertEquals(N(1, 0, 1.5), 0)
-        self.assertEquals(N(3, 0, 1.5), 1)
-        self.assertEquals(N(7, 0, 4), 1)
-        self.assertEquals(N(7, 0, 5), 1)
-        self.assertEquals(N(1, 1, 0.1), 0.9)
-        self.assertEquals(N(7, 2, 4.5), 0.25)
-        self.assertEquals(N(7, 2, 5), 1)
-        self.assertEquals(N(4, 2, 2.5), 0.125)
-        self.assertEquals(N(4, 2, 2.5, 1), 0.5)
-        self.assertEquals(N(4, 2, 2.5, 2), 1)
-        self.assertEquals(N(3, 2, 2.5), 0.75)
 
 
 def build_nurbs_crv_2D(U, w, P, z=0):
@@ -30,29 +13,6 @@ def build_nurbs_crv_2D(U, w, P, z=0):
         Pw[i] = to_homogeneous(temp, w[i])
 
     return NURBS_Curve(U, Pw)
-
-
-def build_airfoil(fn, p=3):
-    fn = '../airfoil/' + fn + '.dat'
-    fin = open(fn)
-    pnt_list = []
-    for pnt in fin:
-        x, y, z = pnt.split()
-        pnt_list.append([float(x), float(y), 0])
-
-    pts = np.zeros((len(pnt_list), 3))
-    for i in range(0, len(pnt_list)):
-        for j in range(0, 3):
-            pts[i][j] = pnt_list[i][j]
-
-    return GlobalInterpolatedCrv(pts, p)
-
-
-def write_airfoil(airfoil, p):
-    foil = build_airfoil(airfoil, p)
-    model_file = IGES_Model(airfoil + '_' + str(p) + '.igs')
-    model_file.add_entity(foil.to_iges(1, 0, [0, 0, 1]))
-    model_file.write()
 
 
 class nurbs_curve_test(unittest.TestCase):
@@ -106,9 +66,3 @@ class nurbs_curve_test(unittest.TestCase):
         iges_file = IGES_Model('line.igs')
         iges_file.add_entity(line.to_iges(1, 0, [0, 0, 1]))
         iges_file.write()
-
-    def test_airfoil(self):
-        write_airfoil('M6', 3)
-        write_airfoil('M6', 5)
-        write_airfoil('NACA0012', 3)
-        write_airfoil('NACA0012', 5)
