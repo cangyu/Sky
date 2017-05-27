@@ -6,11 +6,12 @@ from src.iges.iges_core import IGES_Model
 
 def build_airfoil(fn, p=3):
     fn = '../airfoil/' + fn + '.dat'
-    fin = open(fn)
     pnt_list = []
+    fin = open(fn)
     for pnt in fin:
         x, y, z = pnt.split()
         pnt_list.append([float(x), float(y), 0])
+    fin.close()
 
     pts = np.zeros((len(pnt_list), 3))
     for i in range(0, len(pnt_list)):

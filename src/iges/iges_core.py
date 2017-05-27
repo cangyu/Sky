@@ -292,7 +292,7 @@ class IGES_Entity:
 
 
 class IGES_Model(object):
-    def __init__(self, fn="", desc="Simplified Blended-Wing-Body(BWB) Parametric Model."):
+    def __init__(self, fn="model.igs", desc="Parameters starting from here."):
         """
         IGES model in ASCII format with entities
         :param fn: Filename of this model.
