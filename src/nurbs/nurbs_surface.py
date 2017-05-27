@@ -166,12 +166,12 @@ class GlobalInterpolatedSurf(NURBS_Surface):
 
 
 class Skinning(NURBS_Surface):
-    def __int__(self, crv, p, q, vmethod='chord'):
+    def __init__(self, crv, p, q, vmethod='chord'):
         """
         蒙皮曲面，非有理
         :param crv: 非有理曲线集合
-        :param p: 目标曲面u方向次数
-        :param q: 目标曲面v方向次数
+        :param p: 目标曲面u方向次数(曲线方向)
+        :param q: 目标曲面v方向次数(展向)
         :param vmethod: v方向插值方法
         :return: None
         """
