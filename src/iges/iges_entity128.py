@@ -1,17 +1,25 @@
 import numpy as np
 from src.iges.iges_core import IGES_Entity
 
+
 class IGES_Entity128(IGES_Entity):
     '''
     NURBS Surface Entity
     '''
 
-    def __init__(self, u, v, p1, p2, n1, n2, ctrl_pts, weights, closed_u=0, closed_v=0, poly=1, periodic_u=0, periodic_v=0, us=0.0, ue=1.0, vs=0.0, ve=1.0, form=0):
+    def __init__(self, u, v, p1, p2, n1, n2, ctrl_pts, weights, closed_u=0, closed_v=0, poly=1, periodic_u=0, periodic_v=0, us=0.0, ue=1.0, vs=0.0, ve=1.0,
+                 form=0):
         super(IGES_Entity128, self).__init__(128)
         self.directory.Form_Number = form
 
-        if len(u) != 2 + p1 + n1 or len(v) != 2 + p2 + n2 or ctrl_pts.shape != (1 + n1, 1 + n2, 3) or weights.shape != (1 + n1, 1 + n2):
-            raise Exception("Invalid Parameter!")
+        if len(u) != 2 + p1 + n1:
+            raise ValueError("Invalid U Knot!")
+        if len(v) != 2 + p2 + n2:
+            raise ValueError("Invalid U Knot!")
+        if ctrl_pts.shape != (1 + n1, 1 + n2, 3):
+            raise ValueError("Invalid Control Points!")
+        if weights.shape != (1 + n1, 1 + n2):
+            raise ValueError("Invalid Weights!")
 
         self.K1 = int(n1)  # U方向控制点最后一个下标
         self.K2 = int(n2)  # V方向控制点最后一个下标

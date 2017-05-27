@@ -20,8 +20,8 @@ class NURBS_Surface(object):
         self.Pw = np.copy(Pw)
 
         self.n, self.m, dim = Pw.shape
-        self.n = self.n - 1
-        self.m = self.m - 1
+        self.n -= 1
+        self.m -= 1
 
         self.p = len(U) - 1 - self.n - 1
         self.q = len(V) - 1 - self.m - 1
@@ -99,7 +99,7 @@ class NURBS_Surface(object):
         return (Akl - ccw1 - ccw2 - ccw3) / wuv
 
     def to_iges(self, closed_u, closed_v, periodic_u, periodic_v, form=0):
-        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.weight, self.cpt,
+        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
                               closed_u, closed_v, (1 if self.isPoly else 0), periodic_u, periodic_v,
                               self.U[0], self.U[-1], self.V[0], self.V[-1], form)
 
@@ -301,7 +301,7 @@ def different_knot(lhs, rhs):
     return ans
 
 
-class GordonSurface(NURBS_Surface):
+class GordonSurf(NURBS_Surface):
     def __init__(self, ucrv, vcrv, p, q, pts):
         uskin = Skinning(ucrv, p, q)
         vskin = Skinning(vcrv, q, p)
@@ -310,6 +310,6 @@ class GordonSurface(NURBS_Surface):
         # TODO
 
 
-class CoonsSurface(NURBS_Surface):
+class CoonsSurf(NURBS_Surface):
     def __init__(self, c1, c2, c3, c4):
         pass
