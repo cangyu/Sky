@@ -217,11 +217,11 @@ class Skinning(NURBS_Surface):
         Qw = np.zeros((n + 1, m + 1, 4))
 
         for i in range(0, n + 1):
-            Q[i] = calc_ctrl_pts(vknot, q, pnt[i], vk[i])
+            Q[i] = calc_ctrl_pts(vknot, q, pnt[i], vparam[i])
 
         for i in range(0, n + 1):
             for j in range(0, m + 1):
-                Qw[i] = to_homogeneous(Q[i][j])
+                Qw[i][j] = to_homogeneous(Q[i][j])
 
         super(Skinning, self).__init__(uknot, vknot, Qw)
 
@@ -233,6 +233,7 @@ def merge_knot(lhs, rhs):
     :param rhs: 第2个节点矢量
     :return: 合并后的节点矢量, lhs union rhs
     """
+
     lval, lcnt = np.unique(lhs, return_counts=True)
     rval, rcnt = np.unique(rhs, return_counts=True)
 
@@ -242,18 +243,18 @@ def merge_knot(lhs, rhs):
 
     for v in val:
         if v in lval and v in rval:
-            li = lval.index(v)
-            ri = rval.index(v)
+            li = np.searchsorted(lval, v)
+            ri = np.searchsorted(rval, v)
             cc = max(lcnt[li], rcnt[ri])
             for i in range(0, cc):
                 ans.append(v)
         else:
             if v in lval:
-                li = lval.index(v)
+                li = np.searchsorted(lval, v)
                 for i in range(0, lcnt[li]):
                     ans.append(v)
             else:
-                ri = rval.index(v)
+                ri = np.searchsorted(rval, v)
                 for i in range(0, rcnt[ri]):
                     ans.append(v)
 
@@ -280,7 +281,7 @@ def different_knot(lhs, rhs):
     cnt = []
     for i in range(0, len(lval)):
         if lval[i] in rval:
-            k = rval.index(lval[i])
+            k = np.searchsorted(rval, lval[i])
             lvc = lcnt[i]
             rvc = rcnt[k]
             if lvc > rvc:
@@ -291,7 +292,7 @@ def different_knot(lhs, rhs):
             cnt.append(lcnt[i])
 
     '''Assemble'''
-    ans = np.zeros(np.sum(cnt))
+    ans = np.zeros(int(np.sum(cnt)))
     k = 0
     for i in range(0, len(val)):
         for j in range(0, cnt[i]):
