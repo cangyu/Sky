@@ -49,8 +49,9 @@ def write_wing(fn, N, L, p, q, with_foil=True):
     wsf = Skinning(crv_list, p, q)
     model_file = IGES_Model("{}_{}_{}_{}_Skinning.igs".format(fn, p, q, (N - 1) * L))
     model_file.add_entity(wsf.to_iges(0, 0, 0, 0))
-    for crv in crv_list:
-        model_file.add_entity(crv.to_iges(1, 0, [0, 0, 1]))
+    if with_foil:
+        for crv in crv_list:
+            model_file.add_entity(crv.to_iges(1, 0, [0, 0, 1]))
     model_file.write()
 
 
