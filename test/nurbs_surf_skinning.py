@@ -22,7 +22,7 @@ def read_airfoil_pts(fn):
     return pts
 
 
-def write_wing(fn, N, L, p, q):
+def write_wing(fn, N, L, p, q, with_foil=True):
     """
     构造机翼
     :param fn:翼型名称 
@@ -49,6 +49,8 @@ def write_wing(fn, N, L, p, q):
     wsf = Skinning(crv_list, p, q)
     model_file = IGES_Model("{}_{}_{}_{}_Skinning.igs".format(fn, p, q, (N - 1) * L))
     model_file.add_entity(wsf.to_iges(0, 0, 0, 0))
+    for crv in crv_list:
+        model_file.add_entity(crv.to_iges(1, 0, [0, 0, 1]))
     model_file.write()
 
 
