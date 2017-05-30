@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import interpolate
 from scipy.special import factorial
-import math
 from src.nurbs.basis import PntDist
 from src.iges.iges_entity112 import IGES_Entity112
 

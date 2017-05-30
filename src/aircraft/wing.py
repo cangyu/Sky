@@ -1,11 +1,13 @@
-import math
-import os
 import numpy as np
-from src.nurbs.curve import *
-from src.iges.iges_entity126 import *
-from src.iges.iges_entity110 import *
-from src.iges.iges_entity116 import *
-from src.iges.iges_core import *
+import os
+from src.iges.iges_core import IGES_Model
+from src.iges.iges_entity110 import IGES_Entity110
+from src.iges.iges_entity116 import IGES_Entity116
+from src.nurbs.basis import equal, PntDist
+from src.nurbs.nurbs_curve import GlobalInterpolatedCrv
+from src.nurbs.nurbs_surface import Skinning
+
+BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
 
 AIRFOIL_DIR = '../airfoil/'
 AIRFOIL_LIST = []
@@ -19,135 +21,152 @@ def update_airfoil_list():
 
 
 class Airfoil(object):
-    '''
-    2D Airfoil, chord length equals to 1
-    '''
+    def __init__(self, airfoil_name):
+        """
+        2D Airfoil, with chord length equals to 1.
+        """
 
-    def __init__(self, _filename):
-        self.name = _filename
-        self.x = []
-        self.y_up = []
-        self.y_down = []
+        '''Read input data'''
+        pts = []
+        fin = open(AIRFOIL_DIR + airfoil_name + ".dat")
+        for line in fin:
+            (_x, _y, _z) = line.split()
+            pts.append(np.array([_x, _y, _z]))
+        fin.close()
 
-        # Read input data
-        airfoil = open(AIRFOIL_DIR + self.name + ".dat")
-        for line in airfoil:
-            (_x, _y_up, _y_down) = line.split()
-            self.x.append(float(_x))
-            self.y_up.append(float(_y_up))
-            self.y_down.append(float(_y_down))
-        airfoil.close()
-
-        self.n = len(self.x)
-        self.pts_num = 2 * self.n - 1
-        self.pts = np.zeros((self.pts_num, 3), float)
-
-        # Arrange in XFoil's format
-        cnt = 0
+        '''Reconstruct'''
+        self.airfoil = airfoil_name
+        self.n = len(pts)
+        self.pts = np.zeros((self.n, 3))
         for i in range(0, self.n):
-            self.pts[cnt][0] = self.x[- 1 - i]
-            self.pts[cnt][1] = self.y_up[- 1 - i]
-            cnt += 1
-
-        for i in range(1, self.n):
-            self.pts[cnt][0] = self.x[i]
-            self.pts[cnt][1] = self.y_down[i]
-            cnt += 1
-
-    def get_pts(self):
-        return self.pts
-
-    def iges(self):
-        foil = IGES_Model(self.name + '.igs')
-
-        # Points
-        for i in range(0, 2 * self.n - 1):
-            foil.AddPart(IGES_Entity116(self.pts[i][0], self.pts[i][1], self.pts[i][2]))
-
-        # Closed Curve
-        closed_pts = np.zeros((self.pts_num + 1, 3), float)
-        for j in range(0, 3):
-            closed_pts[self.pts_num][j] = self.pts[0][j]
-        for i in range(0, self.pts_num):
-            for j in range(0, 3):
-                closed_pts[i][j] = self.pts[i][j]
-        foil.AddPart(Spline(closed_pts).iges())
-
-        foil.Generate()
+            self.pts[i] = np.copy(pts[i])
 
 
-class Wing_Profile(object):
-    '''
-    3D profile for a physical wing at given position
-    '''
+class WingProfile(object):
+    def __init__(self, airfoil, ends, thickness_factor=1.0):
+        """
+        3D profile at given position.
+        """
 
-    def __init__(self, _airfoil, _ends, _thickness_factor=1.0):
-
-        self.airfoil = Airfoil(_airfoil)
-        self.ends = _ends
-        self.thickness = _thickness_factor
+        self.airfoil = Airfoil(airfoil)
+        self.ends = ends
+        self.thickness = thickness_factor
         self.n = self.airfoil.n
+        self.pts = np.copy(self.airfoil.pts)
 
-        assert _ends[0][2] == _ends[1][2]
+        if equal(ends[0][2], ends[1][2]):
+            raise ValueError("Invalid ending coordinates in Z direction!")
 
-        chord_len = math.sqrt(math.pow(_ends[0][0] - _ends[1][0], 2) + math.pow(_ends[0][1] - _ends[1][1], 2))
-        assert chord_len > 0
+        chordLen = PntDist(ends[0], ends[1])
+        if equal(chordLen, 0.0):
+            raise ValueError("Invalid ending coordinates in XY direction!")
 
-        dx = _ends[1][0] - _ends[0][0]
-        dy = _ends[1][1] - _ends[0][1]
-        dx /= chord_len
-        dy /= chord_len
-        rotation = complex(dx, dy)
+        rotation = complex((ends[1][0] - ends[0][0]) / chordLen, (ends[1][1] - ends[0][1]) / chordLen)
 
-        # 2 line, 3 dimension, n point on each line
-        self.pts = np.zeros((2, 3, self.n), dtype=float)
-
-        # stretch
+        '''Stretch, Z offset and Thickness'''
         for i in range(0, self.n):
-            # x-dir
-            self.pts[0][0][i] = self.pts[1][0][i] = float(chord_len * self.airfoil.x[i])
+            self.pts[i][0] *= chordLen
+            self.pts[i][1] *= (chordLen * thickness_factor)
+            self.pts[i][2] = ends[0][2]
 
-            # y-dir
-            self.pts[0][1][i] = float(chord_len * self.airfoil.y_up[i])
-            self.pts[1][1][i] = float(chord_len * self.airfoil.y_down[i])
-
-            # z-dir
-            self.pts[0][2][i] = self.pts[1][2][i] = _ends[0][2]
-
-        # thickness
+        '''Rotate around ends[0]'''
         for i in range(0, self.n):
-            self.pts[0][1][i] *= _thickness_factor
-            self.pts[1][1][i] *= _thickness_factor
+            ori_vect = complex(self.pts[i][0], self.pts[i][1])
+            ori_vect *= rotation
 
-        # rotate
-        for k in range(0, 2):
-            for i in range(0, self.n):
-                ori_vect = complex(self.pts[k][0][i], self.pts[k][1][i])
-                ori_vect *= rotation
+            self.pts[i][0] = ori_vect.real
+            self.pts[i][1] = ori_vect.imag
 
-                self.pts[k][0][i] = ori_vect.real
-                self.pts[k][1][i] = ori_vect.imag
+        '''Move to ends[0]'''
+        for i in range(0, self.n):
+            self.pts[i][0] += ends[0][0]
+            self.pts[i][1] += ends[0][1]
 
-        # move to target
-        for k in range(0, 2):
-            for i in range(0, self.n):
-                self.pts[k][0][i] += _ends[0][0]
-                self.pts[k][1][i] += _ends[0][1]
+    def to_iges(self, p=5, method='centripetal'):
+        return GlobalInterpolatedCrv(self.pts, p, method).to_iges(1, 0, [0, 0, 1])
 
-    def getPointList(self):
-        ret = np.zeros((2 * self.n - 1, 3), float)
-        cpi = 0
+
+def add_line(container: IGES_Model, pts, i: int, j: int):
+    container.add_entity(IGES_Entity110([pts[i][0], pts[i][1], pts[i][2]],
+                                        [pts[j][0], pts[j][1], pts[j][2]]))
+
+
+def add_pnt(container: IGES_Model, pnt):
+    container.add_entity(IGES_Entity116(pnt[0], pnt[1], pnt[2]))
+
+
+class Wing(object):
+    def __init__(self, airfoil_list, thickness_list, z_list, xf_list, yf_list, xt_list, yt_list):
+        self.n = len(airfoil_list)
+        self.airfoil = airfoil_list
+        self.thickness = thickness_list
+        self.z = z_list
+        self.xf = xf_list
+        self.yf = yf_list
+        self.xt = xt_list
+        self.yt = yt_list
+
+    def write(self, fn):
+        wing_model = IGES_Model(fn)
+
+        '''前后缘采样点'''
+        front_pts = np.zeros((self.n, 3))
+        tail_pts = np.zeros((self.n, 3))
+        for i in range(0, self.n):
+            front_pts[i][0] = self.xf[i]
+            front_pts[i][1] = self.yf[i]
+            tail_pts[i][0] = self.xt[i]
+            tail_pts[i][1] = self.yt[i]
+            tail_pts[i][2] = front_pts[i][2] = self.z[i]
 
         for i in range(0, self.n):
-            ret[cpi][0] = self.pts[0][0][self.n - 1 - i]
-            ret[cpi][1] = self.pts[0][1][self.n - 1 - i]
-            ret[cpi][2] = self.pts[0][2][self.n - 1 - i]
-            cpi += 1
+            wing_model.add_entity(IGES_Entity116(self.xf[i], self.yf[i], self.z[i]))
+            wing_model.add_entity(IGES_Entity116(self.xt[i], self.yt[i], self.z[i]))
 
-        for i in range(1, self.n):
-            ret[cpi][0] = self.pts[1][0][i]
-            ret[cpi][1] = self.pts[1][1][i]
-            ret[cpi][2] = self.pts[1][2][i]
-            cpi += 1
+        '''前后缘曲线'''
+        front_crv = GlobalInterpolatedCrv(front_pts, 5, 'chord')
+        tail_crv = GlobalInterpolatedCrv(tail_pts, 5, 'chord')
+        wing_model.add_entity(front_crv.to_iges(0, 0, [0, 0, 0]))
+        wing_model.add_entity(tail_crv.to_iges(0, 0, [0, 0, 0]))
 
-        return ret
+        '''根梢弦线'''
+        wing_model.add_entity(IGES_Entity110([self.xf[0], self.yf[0], self.z[0]], [self.xt[0], self.yt[0], self.z[0]]))
+        wing_model.add_entity(IGES_Entity110([self.xf[- 1], self.yf[- 1], self.z[- 1]], [self.xt[- 1], self.yt[- 1], self.z[- 1]]))
+
+        '''剖面'''
+        profile = []
+        for i in range(0, self.n):
+            epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
+                             [self.xt[i], self.yt[i], self.z[i]]])
+            wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
+            wing_model.add_entity(wp.to_iges())
+            add_pnt(wing_model, wp.pts[0])
+            add_pnt(wing_model, wp.pts[-1])
+            profile.append(wp)
+
+        '''蒙面'''
+        surf = Skinning(profile, 5, 3)
+        wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
+
+        '''远场边框'''
+        H = 80
+        L = 600
+        W = 250
+        farfield_pts = np.array([[-L / 2, -H / 2, 0],
+                                 [-L / 2, H / 2, 0],
+                                 [L / 2, H / 2, 0],
+                                 [L / 2, -H / 2, 0],
+                                 [-L / 2, -H / 2, W],
+                                 [-L / 2, H / 2, W],
+                                 [L / 2, H / 2, W],
+                                 [L / 2, -H / 2, W]])
+
+        for k in range(0, 8):
+            wing_model.add_entity(IGES_Entity116(farfield_pts[k][0], farfield_pts[k][1], farfield_pts[k][2]))
+
+        for k in range(0, 4):
+            add_line(wing_model, farfield_pts, k, (k + 1) % 4)
+            add_line(wing_model, farfield_pts, k + 4, (k + 5) % 4 + 4)
+            add_line(wing_model, farfield_pts, k, k + 4)
+
+        wing_model.write()
