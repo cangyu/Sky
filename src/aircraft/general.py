@@ -19,7 +19,9 @@ class GeneralFrame(object):
         self.tail_pnt = np.zeros((3, 3))
 
         self.xfront = None
+        self.yfront = None
         self.xtail = None
+        self.ytail = None
 
         self.update()
 
@@ -33,9 +35,13 @@ class GeneralFrame(object):
 
         z = np.array([0, self.Bm, self.Bt])
         xf = np.array([self.front_pnt[0][0], self.front_pnt[1][0], self.front_pnt[2][0]])
+        yf = np.array([self.front_pnt[0][1], self.front_pnt[1][1], self.front_pnt[2][1]])
         xt = np.array([self.tail_pnt[0][0], self.tail_pnt[1][0], self.tail_pnt[2][0]])
+        yt = np.array([self.tail_pnt[0][1], self.tail_pnt[1][1], self.tail_pnt[2][1]])
         self.xfront = interpolate.make_interp_spline(z, xf, 3, bc_type=([(1, 0)], [(2, 0)]))
+        self.yfront = interpolate.make_interp_spline(z, yf, 3, bc_type=([(1, 0)], [(2, 0)]))
         self.xtail = interpolate.make_interp_spline(z, xt, 3, bc_type=([(1, 0)], [(2, 0)]))
+        self.ytail = interpolate.make_interp_spline(z, yt, 3, bc_type=([(1, 0)], [(2, 0)]))
 
     def plot(self):
         z = np.linspace(0, self.Bt, 1000)

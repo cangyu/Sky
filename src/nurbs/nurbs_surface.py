@@ -46,9 +46,9 @@ class NURBS_Surface(object):
         nipd = np.zeros(self.n + 1)
         mjqd = np.zeros(self.m + 1)
         for i in range(0, self.n + 1):
-            nipd[i] = self.N1(i, p, u, k)
+            nipd[i] = self.N1(i, self.p, u, k)
         for j in range(0, self.m + 1):
-            mjqd[j] = self.N2(j, q, v, l)
+            mjqd[j] = self.N2(j, self.q, v, l)
 
         for i in range(0, self.n + 1):
             for j in range(0, self.m + 1):
@@ -60,9 +60,9 @@ class NURBS_Surface(object):
         nipd = np.zeros(self.n + 1)
         mjqd = np.zeros(self.m + 1)
         for i in range(0, self.n + 1):
-            nipd[i] = self.N1(i, p, u, k)
+            nipd[i] = self.N1(i, self.p, u, k)
         for j in range(0, self.m + 1):
-            mjqd[j] = self.N2(j, q, v, l)
+            mjqd[j] = self.N2(j, self.q, v, l)
 
         Akl = np.zeros(3)
         for i in range(0, self.n + 1):
@@ -300,17 +300,3 @@ def different_knot(lhs, rhs):
             k += 1
 
     return ans
-
-
-class GordonSurf(NURBS_Surface):
-    def __init__(self, ucrv, vcrv, p, q, pts):
-        uskin = Skinning(ucrv, p, q)
-        vskin = Skinning(vcrv, q, p)
-        uvinterp = GlobalInterpolatedSurf(pts, p, q)
-
-        # TODO
-
-
-class CoonsSurf(NURBS_Surface):
-    def __init__(self, c1, c2, c3, c4):
-        pass

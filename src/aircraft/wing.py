@@ -4,8 +4,8 @@ from src.iges.iges_core import IGES_Model
 from src.iges.iges_entity110 import IGES_Entity110
 from src.iges.iges_entity116 import IGES_Entity116
 from src.nurbs.basis import equal, PntDist
-from src.nurbs.nurbs_curve import GlobalInterpolatedCrv
-from src.nurbs.nurbs_surface import Skinning
+from src.nurbs.nurbs_curve import NURBS_Curve, GlobalInterpolatedCrv
+from src.nurbs.nurbs_surface import Skinning, GlobalInterpolatedSurf
 
 BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
 
@@ -21,21 +21,21 @@ def update_airfoil_list():
 
 
 class Airfoil(object):
-    def __init__(self, airfoil_name):
+    def __init__(self, name):
         """
         2D Airfoil, with chord length equals to 1.
         """
 
         '''Read input data'''
         pts = []
-        fin = open(AIRFOIL_DIR + airfoil_name + ".dat")
+        fin = open("{}{}.dat".format(AIRFOIL_DIR, name))
         for line in fin:
             (_x, _y, _z) = line.split()
             pts.append(np.array([_x, _y, _z]))
         fin.close()
 
         '''Reconstruct'''
-        self.airfoil = airfoil_name
+        self.name = name
         self.n = len(pts)
         self.pts = np.zeros((self.n, 3))
         for i in range(0, self.n):
@@ -43,7 +43,7 @@ class Airfoil(object):
 
 
 class WingProfile(object):
-    def __init__(self, airfoil, ends, thickness_factor=1.0):
+    def __init__(self, airfoil, ends, thickness_factor=1.0, p=5):
         """
         3D profile at given position.
         """
@@ -54,7 +54,7 @@ class WingProfile(object):
         self.n = self.airfoil.n
         self.pts = np.copy(self.airfoil.pts)
 
-        if equal(ends[0][2], ends[1][2]):
+        if not equal(ends[0][2], ends[1][2]):
             raise ValueError("Invalid ending coordinates in Z direction!")
 
         chordLen = PntDist(ends[0], ends[1])
@@ -71,19 +71,19 @@ class WingProfile(object):
 
         '''Rotate around ends[0]'''
         for i in range(0, self.n):
-            ori_vect = complex(self.pts[i][0], self.pts[i][1])
-            ori_vect *= rotation
+            origin_vector = complex(self.pts[i][0], self.pts[i][1])
+            origin_vector *= rotation
 
-            self.pts[i][0] = ori_vect.real
-            self.pts[i][1] = ori_vect.imag
+            self.pts[i][0] = origin_vector.real
+            self.pts[i][1] = origin_vector.imag
 
         '''Move to ends[0]'''
         for i in range(0, self.n):
             self.pts[i][0] += ends[0][0]
             self.pts[i][1] += ends[0][1]
 
-    def to_iges(self, p=5, method='centripetal'):
-        return GlobalInterpolatedCrv(self.pts, p, method).to_iges(1, 0, [0, 0, 1])
+        '''NURBS Representation'''
+        self.nurbs_rep = GlobalInterpolatedCrv(self.pts, p, 'centripetal')
 
 
 def add_line(container: IGES_Model, pts, i: int, j: int):
@@ -135,20 +135,27 @@ class Wing(object):
 
         '''剖面'''
         profile = []
+        nn = 0
+        mm = self.n
         for i in range(0, self.n):
             epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
                              [self.xt[i], self.yt[i], self.z[i]]])
             wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
-            wing_model.add_entity(wp.to_iges())
+            nn = len(wp.pts)
+            wing_model.add_entity(wp.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
             add_pnt(wing_model, wp.pts[0])
             add_pnt(wing_model, wp.pts[-1])
             profile.append(wp)
 
-        '''蒙面'''
-        surf = Skinning(profile, 5, 3)
+        '''全局插值'''
+        surf_pts = np.zeros((nn, mm, 3))
+        for i in range(0, nn):
+            for j in range(0, mm):
+                surf_pts[i][j] = np.copy(profile[j].pts[i])
+        surf = GlobalInterpolatedSurf(surf_pts, 5, 3)
         wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
 
-        '''远场边框'''
+        '''远场边框
         H = 80
         L = 600
         W = 250
@@ -168,5 +175,5 @@ class Wing(object):
             add_line(wing_model, farfield_pts, k, (k + 1) % 4)
             add_line(wing_model, farfield_pts, k + 4, (k + 5) % 4 + 4)
             add_line(wing_model, farfield_pts, k, k + 4)
-
+        '''
         wing_model.write()

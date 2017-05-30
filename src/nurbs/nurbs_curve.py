@@ -2,7 +2,7 @@ import numpy as np
 import math
 from scipy.misc import comb
 from scipy.linalg import solve
-from src.nurbs.basis import equal, to_homogeneous, PntDist, find_span, Basis
+from src.nurbs.basis import equal, to_homogeneous, PntDist, find_span, all_basis_funs, Basis
 from src.iges.iges_entity126 import IGES_Entity126
 
 
@@ -14,6 +14,20 @@ class NURBS_Curve(object):
         :param Pw: 带权控制点
         """
 
+        self.n = 0
+        self.m = 0
+        self.p = 0
+        self.U = None
+        self.Pw = None
+        self.N = None
+        self.weight = None
+        self.cpt = None
+        self.isPoly = True
+        self.isClosed = False
+
+        self.update(U, Pw)
+
+    def update(self, U, Pw):
         self.n = len(Pw) - 1
         self.m = len(U) - 1
         self.p = self.m - self.n - 1
@@ -36,8 +50,10 @@ class NURBS_Curve(object):
 
     def w(self, u, d=0):
         ans = 0.0
+        index = find_span(self.U, u)
+        N = all_basis_funs(index, u, self.p, self.U)
         for i in range(0, self.n + 1):
-            ans += self.N(i, self.p, u, d) * self.Pw[i][3]
+            ans += N[i] * self.Pw[i][3]
 
         return ans
 
@@ -107,10 +123,10 @@ class NURBS_Curve(object):
                 PPw[i] = to_homogeneous(self.__call__(us[i]))
 
             '''Solve'''
-            Qw = calc_ctrl_pts(nU, p + 1, PPw, us)
+            Qw = calc_ctrl_pts(nU, self.p + 1, PPw, us)
 
             '''Update'''
-            self.__init__(nU, Qw)
+            self.update(nU, Qw)
         else:
             self.elevate(t - 1)
 
@@ -129,7 +145,7 @@ class NURBS_Curve(object):
         n, dim = self.Pw.shape
         nPw = np.zeros((n + 1, dim))
         for i in range(0, n + 1):
-            alpha = 1.0 if i <= k - p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + p] - self.U[i]))
+            alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
             if equal(alpha, 1.0):
                 nPw[i] = self.Pw[i]
             elif equal(alpha, 0.0):
@@ -138,7 +154,7 @@ class NURBS_Curve(object):
                 nPw[i] = alpha * self.Pw[i] + (1 - alpha) * self.Pw[i - 1]
 
         '''Update'''
-        self.__init__(nU, nPw)
+        self.update(nU, nPw)
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):

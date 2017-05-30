@@ -38,6 +38,19 @@ def to_homogeneous(pnt, w=1.0):
     return pw
 
 
+def to_cartesian(pnt):
+    """
+    转换为笛卡尔坐标
+    :param pnt: 原始齐次坐标
+    :return: 投影后得到的笛卡尔坐标
+    """
+    p = np.zeros(len(pnt) - 1)
+    for i in range(0, len(p)):
+        p[i] = pnt[i] if equal(pnt[-1], 0.0) else pnt[i] / pnt[-1]
+
+    return p
+
+
 def find_span(U, u):
     mi = U[0]
     ma = U[-1]
@@ -55,18 +68,28 @@ def find_span(U, u):
     return right - 1  # Corner case when u=U[-1]
 
 
-def to_cartesian(pnt):
-    """
-    转换为笛卡尔坐标
-    :param pnt: 原始齐次坐标
-    :return: 投影后得到的笛卡尔坐标
-    """
-    p = np.zeros(len(pnt) - 1)
-    for i in range(0, len(p)):
-        p[i] = pnt[i] if equal(pnt[-1], 0.0) else pnt[i] / pnt[-1]
+def all_basis_funs(i, u, p, U):
+    N = np.zeros(p + 1)
+    left = np.zeros(p + 1)
+    right = np.zeros(p + 1)
+    N[0] = 1.0
+    for j in range(1, p + 1):
+        left[j] = u - U[i + 1 - j]
+        right[j] = U[i + j] - u
+        saved = 0.0
+        for r in range(0, j):
+            temp = N[r] / (right[r + 1] + left[j - r])
+            N[r] = saved + right[r + 1] * temp
+            saved = left[j - r] * temp
+        N[j] = saved
 
-    return p
+    m = len(U) - 1
+    n = m - p - 1
+    ans = np.zeros(n + 1)
+    for k in range(i - p, i + 1):
+        ans[k] = N[k - (i - p)]
 
+    return ans
 
 class Basis(object):
     def __init__(self, U, p):
@@ -92,14 +115,14 @@ class Basis(object):
         """
 
         if d < 0:
-            raise ValueError("Order of Derivative shold be non-negative!")
+            raise ValueError("Order of Derivative should be non-negative!")
 
         if d == 0:
-            if equal(u, self.U[-1]):
-                return 1.0 if i == self.n else 0.0
-
             if p == 0:
-                return 1.0 if self.U[i] <= u < self.U[i + 1] else 0.0
+                if equal(u, self.U[-1]):
+                    return 1.0 if i == self.n else 0.0
+                else:
+                    return 1.0 if self.U[i] <= u < self.U[i + 1] else 0.0
             else:
                 ans = 0.0
                 tmp = self.U[i + p] - self.U[i]
