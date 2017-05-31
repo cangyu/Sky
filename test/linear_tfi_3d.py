@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 import math
-from src.msh.linear_tfi import Linear_TFI_3D
+from src.msh.tfi import Linear_TFI_3D
 
 
 def write_uniform_p3d(msh: Linear_TFI_3D, U: int, V: int, W: int, fn="msh_p3d.xyz"):

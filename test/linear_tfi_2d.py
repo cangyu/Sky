@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import math
-from src.msh.linear_tfi import Linear_TFI_2D
+from src.msh.tfi import Linear_TFI_2D
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import Spline
 

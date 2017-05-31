@@ -17,10 +17,9 @@ def airfoil(foil, L, R):
 
     '''Read airfoil data'''
     af = Airfoil(foil)
-    pts = af.get_pts()
 
     '''Extend'''
-    for p in pts:
+    for p in af.pts:
         p *= L
 
     '''Parametric representation of airfoil'''

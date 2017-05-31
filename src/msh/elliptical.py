@@ -2,7 +2,7 @@ import math
 import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
-from src.msh.linear_tfi import Linear_TFI_2D
+from src.msh.tfi import Linear_TFI_2D
 from src.msh.plot3d import Plot3D, Plot3D_SingleBlock
 
 
