@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 
 
-class GeneralFrame(object):
+class BWBFrame(object):
     def __init__(self, param):
         self.Cr = float(param[0])
         self.Cm = float(param[1])

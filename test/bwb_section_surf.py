@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import math
-from src.aircraft.general import GeneralFrame
+from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
 
 
@@ -33,7 +33,7 @@ def write_bwb(n, airfoil, frame_param, fn=""):
     :return: None
     """
 
-    gf = GeneralFrame(frame_param)
+    gf = BWBFrame(frame_param)
 
     airfoil_list = []
     for i in range(n):
