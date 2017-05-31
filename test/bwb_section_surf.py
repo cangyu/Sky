@@ -65,3 +65,5 @@ class bwb_section_surf_test(unittest.TestCase):
     def test(self):
         write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
         # view_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
+        write_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
+        # view_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
