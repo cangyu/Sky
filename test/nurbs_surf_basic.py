@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.nurbs.nurbs_surface import NURBS_Surface
+from src.nurbs.surface import NURBS_Surface
 from src.iges.iges_core import IGES_Model
 
 

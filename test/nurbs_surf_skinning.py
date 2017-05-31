@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 from src.iges.iges_core import IGES_Model
-from src.nurbs.nurbs_curve import GlobalInterpolatedCrv
-from src.nurbs.nurbs_surface import Skinning
+from src.nurbs.curve import GlobalInterpolatedCrv
+from src.nurbs.surface import Skinning
 
 
 def read_airfoil_pts(fn):

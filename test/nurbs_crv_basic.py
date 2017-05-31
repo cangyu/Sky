@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 import math
-from src.nurbs.basis import to_homogeneous
-from src.nurbs.nurbs_curve import NURBS_Curve
+from src.nurbs.utility import to_homogeneous
+from src.nurbs.curve import NURBS_Curve
 from src.iges.iges_core import IGES_Model
 
 

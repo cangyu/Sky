@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from src.iges.iges_core import IGES_Model
-from src.nurbs.nurbs_surface import GlobalInterpolatedSurf
+from src.nurbs.surface import GlobalInterpolatedSurf
 
 
 def read_airfoil_pts(fn):

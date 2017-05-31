@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.nurbs.nurbs_curve import GlobalInterpolatedCrv
+from src.nurbs.curve import GlobalInterpolatedCrv
 from src.iges.iges_core import IGES_Model
 
 

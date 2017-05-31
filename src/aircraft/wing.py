@@ -3,9 +3,9 @@ import os
 from src.iges.iges_core import IGES_Model
 from src.iges.iges_entity110 import IGES_Entity110
 from src.iges.iges_entity116 import IGES_Entity116
-from src.nurbs.basis import equal, PntDist
-from src.nurbs.nurbs_curve import NURBS_Curve, GlobalInterpolatedCrv
-from src.nurbs.nurbs_surface import Skinning, GlobalInterpolatedSurf
+from src.nurbs.utility import equal, pnt_dist
+from src.nurbs.curve import GlobalInterpolatedCrv
+from src.nurbs.surface import GlobalInterpolatedSurf
 
 BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
 
@@ -57,7 +57,7 @@ class WingProfile(object):
         if not equal(ends[0][2], ends[1][2]):
             raise ValueError("Invalid ending coordinates in Z direction!")
 
-        chordLen = PntDist(ends[0], ends[1])
+        chordLen = pnt_dist(ends[0], ends[1])
         if equal(chordLen, 0.0):
             raise ValueError("Invalid ending coordinates in XY direction!")
 
@@ -106,7 +106,7 @@ class Wing(object):
         self.xt = xt_list
         self.yt = yt_list
 
-    def write(self, fn):
+    def write(self, fn, p=5, q=5, mirror=True):
         wing_model = IGES_Model(fn)
 
         '''前后缘采样点'''
@@ -135,25 +135,31 @@ class Wing(object):
 
         '''剖面'''
         profile = []
-        nn = 0
-        mm = self.n
         for i in range(0, self.n):
             epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
                              [self.xt[i], self.yt[i], self.z[i]]])
             wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
-            nn = len(wp.pts)
             wing_model.add_entity(wp.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
             add_pnt(wing_model, wp.pts[0])
             add_pnt(wing_model, wp.pts[-1])
             profile.append(wp)
 
         '''全局插值'''
+        nn = len(profile[0].pts)
+        mm = self.n
         surf_pts = np.zeros((nn, mm, 3))
         for i in range(0, nn):
             for j in range(0, mm):
                 surf_pts[i][j] = np.copy(profile[j].pts[i])
-        surf = GlobalInterpolatedSurf(surf_pts, 5, 3)
+        surf = GlobalInterpolatedSurf(surf_pts, p, q)
         wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
+
+        if mirror:
+            for i in range(nn):
+                for j in range(mm):
+                    surf_pts[i][j][2] = -surf_pts[i][j][2]
+            surf = GlobalInterpolatedSurf(surf_pts, p, q)
+            wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
 
         '''远场边框
         H = 80

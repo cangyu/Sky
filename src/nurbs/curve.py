@@ -1,8 +1,8 @@
 import numpy as np
 import math
-from scipy.misc import comb
 from scipy.linalg import solve
-from src.nurbs.basis import equal, to_homogeneous, PntDist, find_span, all_basis_funs, Basis
+from scipy.interpolate import BSpline
+from src.nurbs.utility import to_cartesian, to_homogeneous, pnt_dist, equal, all_basis_val
 from src.iges.iges_entity126 import IGES_Entity126
 
 
@@ -14,12 +14,11 @@ class NURBS_Curve(object):
         :param Pw: 带权控制点
         """
 
-        self.n = 0
         self.m = 0
+        self.n = 0
         self.p = 0
         self.U = None
         self.Pw = None
-        self.N = None
         self.weight = None
         self.cpt = None
         self.isPoly = True
@@ -35,7 +34,6 @@ class NURBS_Curve(object):
         self.U = np.copy(U)
         self.Pw = np.copy(Pw)
 
-        self.N = Basis(self.U, self.p)
         self.weight = np.zeros(self.n + 1)
         self.cpt = np.zeros((self.n + 1, 3))
         self.isPoly = True
@@ -48,15 +46,6 @@ class NURBS_Curve(object):
             for j in range(0, 3):
                 self.cpt[i][j] = Pw[i][j] / self.weight[i]
 
-    def w(self, u, d=0):
-        ans = 0.0
-        index = find_span(self.U, u)
-        N = all_basis_funs(index, u, self.p, self.U)
-        for i in range(0, self.n + 1):
-            ans += N[i] * self.Pw[i][3]
-
-        return ans
-
     def __call__(self, u, d=0):
         """
         计算曲线上的点
@@ -65,96 +54,16 @@ class NURBS_Curve(object):
         :return: 曲线在u处的d阶导矢
         """
 
-        Ad = np.zeros(3)
-        nipd = np.zeros(self.n + 1)
-        for i in range(0, self.n + 1):
-            nipd[i] = self.N(i, self.p, u, d)
-        for i in range(0, self.n + 1):
-            for j in range(0, 3):
-                Ad[j] += nipd[i] * self.Pw[i][j]
+        spl = BSpline(self.U, self.Pw, self.p)
+        pw = spl(u, d)
 
-        ccw = np.zeros(3)
-        i = 1
-        while i <= d:
-            ccw += comb(d, i, exact=True) * self.w(u, i) * self.__call__(u, d - i)
-            i += 1
-
-        wu = self.w(u)
-        if equal(wu, 0.0):
-            raise ValueError("Invalid weight settings!")
-
-        return (Ad - ccw) / wu
+        return to_cartesian(pw)
 
     def to_iges(self, planar, periodic, norm, form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0),
                               (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt,
                               self.U[0], self.U[-1], norm, form)
-
-    def elevate(self, t: int):
-        """
-        将曲线升阶t次
-        :param t: 升阶次数
-        :return: None.
-        """
-
-        if t <= 0:
-            return
-        elif t == 1:
-            '''New knot sequence'''
-            val, cnt = np.unique(self.U, return_counts=True)
-            s = len(val) - 2
-            for i in range(0, len(cnt)):
-                cnt[i] += 1
-
-            nU = np.zeros(np.sum(cnt))
-            k = 0
-            for i in range(0, len(val)):
-                for j in range(0, cnt[i]):
-                    nU[k] = val[i]
-                    k += 1
-
-            '''Sample'''
-            nn = self.n + 1 + s
-            us = np.linspace(self.U[0], self.U[-1], nn + 1)
-
-            PPw = np.zeros((nn + 1, 4))
-            for i in range(0, len(us)):
-                PPw[i] = to_homogeneous(self.__call__(us[i]))
-
-            '''Solve'''
-            Qw = calc_ctrl_pts(nU, self.p + 1, PPw, us)
-
-            '''Update'''
-            self.update(nU, Qw)
-        else:
-            self.elevate(t - 1)
-
-    def insert_knot(self, u):
-        """
-        插入一个节点
-        :param u: 待插入节点
-        :return: None
-        """
-
-        '''Insert'''
-        k = find_span(self.U, u)
-        nU = np.insert(self.U, k, u)
-
-        '''Calculate new CtrlPts'''
-        n, dim = self.Pw.shape
-        nPw = np.zeros((n + 1, dim))
-        for i in range(0, n + 1):
-            alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
-            if equal(alpha, 1.0):
-                nPw[i] = self.Pw[i]
-            elif equal(alpha, 0.0):
-                nPw[i] = self.Pw[i - 1]
-            else:
-                nPw[i] = alpha * self.Pw[i] + (1 - alpha) * self.Pw[i - 1]
-
-        '''Update'''
-        self.update(nU, nPw)
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
@@ -196,7 +105,7 @@ def calc_pnt_param(pts, method):
 
     dist = np.zeros(n + 1)
     for i in range(1, n + 1):
-        dist[i] = PntDist(pts[i - 1], pts[i])
+        dist[i] = pnt_dist(pts[i - 1], pts[i])
 
     d = 0
     if method == 'chord':  # 弦长参数化
@@ -258,11 +167,9 @@ def calc_ctrl_pts(U, p, pts, param):
     ctrl_pts = np.zeros((n + 1, dim))
 
     '''Coefficient Matrix'''
-    N = Basis(U, p)
     cm = np.zeros((n + 1, n + 1))
     for k in range(0, n + 1):
-        for i in range(0, n + 1):
-            cm[k][i] = N(i, p, param[k])
+        cm[k] = all_basis_val(param[k], p, U)
 
     '''Solve'''
     Q = np.zeros((dim, n + 1))

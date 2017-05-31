@@ -5,18 +5,18 @@ from scipy import interpolate
 
 
 class GeneralFrame(object):
-    def __init__(self):
-        self.Cr = 100.0
-        self.Cm = 60.0
-        self.Ct = 20.0
-        self.Bm = 30.0
-        self.Bt = 105.0
-        self.Alpha_r = 0
-        self.Alpha_m = 45
-        self.Alpha_t = 30
+    def __init__(self, param):
+        self.Cr = float(param[0])
+        self.Cm = float(param[1])
+        self.Ct = float(param[2])
+        self.Bm = float(param[3])
+        self.Bt = float(param[4])
+        self.Alpha_r = float(param[5])
+        self.Alpha_m = float(param[6])
+        self.Alpha_t = float(param[7])
 
-        self.front_pnt = np.zeros((3, 3))
-        self.tail_pnt = np.zeros((3, 3))
+        self.front_pnt = np.zeros((3, 3), float)
+        self.tail_pnt = np.zeros((3, 3), float)
 
         self.xfront = None
         self.yfront = None
@@ -43,8 +43,8 @@ class GeneralFrame(object):
         self.xtail = interpolate.make_interp_spline(z, xt, 3, bc_type=([(1, 0)], [(2, 0)]))
         self.ytail = interpolate.make_interp_spline(z, yt, 3, bc_type=([(1, 0)], [(2, 0)]))
 
-    def plot(self):
-        z = np.linspace(0, self.Bt, 1000)
+    def plot(self, N=1000):
+        z = np.linspace(0, self.Bt, N)
         xf = self.xfront(z)
         xt = self.xtail(z)
 
