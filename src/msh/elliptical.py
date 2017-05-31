@@ -4,10 +4,64 @@ from scipy import sparse
 from scipy.sparse.linalg import dsolve
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.plot3d import Plot3D, Plot3D_SingleBlock
+from operator import mul
+from functools import reduce
 
 
-def square_diff(a, b):
+def square_diff(a: float, b: float):
     return math.pow(a - b, 2)
+
+
+def coord_list(i: int, j: int):
+    """
+    (i,j)周围的9个点的坐标
+    """
+
+    return np.array([(i, j), (i, j + 1), (i + 1, j), (i, j - 1), (i - 1, j),
+                     (i + 1, j + 1), (i + 1, j - 1), (i - 1, j - 1), (i - 1, j + 1)])
+
+
+def index_list(k: int, M: int):
+    """
+    第k个点周围9个点的序号 
+    """
+
+    return np.array([k, k + 1, k + M - 1, k - 1, k - M + 1, k + M, k + M - 2, k - M, k - M + 2])
+
+
+def is_special(row: int, col: int, N: int, M: int):
+    """
+    判断(row,col)是否在边界上
+    :param row: 行号
+    :param col: 列号
+    :param N: 最大行号
+    :param M: 最大列号
+    :return: Boolean result.
+    """
+
+    if row == 0 or row == N or col == 0 or col == M:
+        return True
+    else:
+        return False
+
+
+def cd1_2d(r, i: int, j: int, axis: int, gp=1.0):
+    """
+    1阶中心差分
+    """
+
+    return (r[i + 1][j][axis] - r[i - 1][j][axis]) / (2 * gp)
+
+
+def cd2_2d(r, i: int, j: int, axis: int, dir1: int, dir2: int, gp=(1.0, 1.0)):
+    """
+    2阶中心差分
+    """
+
+    if dir1 == dir2:
+        return (r[i + 1][j][axis] - 2 * r[i][j][axis] + r[i - 1][j][axis]) / math.pow(gp[dir1], 2)
+    else:
+        return (r[i + 1][j + 1][axis] - r[i + 1][j - 1][axis] - r[i - 1][j + 1][axis] + r[i - 1][j - 1][axis]) / (4 * reduce(mul, gp))
 
 
 class Laplace_2D(object):
@@ -28,10 +82,6 @@ class Laplace_2D(object):
         self.eta = eta
         self.M = len(pu) - 1
         self.N = len(pv) - 1
-        self.c1 = c1
-        self.c2 = c2
-        self.c3 = c3
-        self.c4 = c4
 
         '''Initialize'''
         init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
@@ -40,10 +90,9 @@ class Laplace_2D(object):
             for j in range(0, self.M + 1):
                 self.r[i][j] = init_msh[j][i]
 
-    def calc_msh(self):
         residual = 1.0
         while residual > 1e-12:
-            cu = self.iterate()
+            cu = self._iterate()
             cnt = 0
             residual = 0.0
             for i in range(1, self.N):
@@ -54,11 +103,11 @@ class Laplace_2D(object):
                     self.r[i][j][1] = cu[1][cnt]
                     cnt += 1
 
-    def iterate(self):
-        pder_x_zeta = lambda i, j: 0.5 * (self.r[i + 1][j][0] - self.r[i - 1][j][0]) / self.zeta
-        pder_x_eta = lambda i, j: 0.5 * (self.r[i][j + 1][0] - self.r[i][j - 1][0]) / self.eta
-        pder_y_zeta = lambda i, j: 0.5 * (self.r[i + 1][j][1] - self.r[i - 1][j][1]) / self.zeta
-        pder_y_eta = lambda i, j: 0.5 * (self.r[i][j + 1][1] - self.r[i][j - 1][1]) / self.eta
+    def _iterate(self):
+        """
+        迭代计算内部网格点
+        :return: 内部网格点坐标
+        """
 
         '''Pre-compute alpha, beta, gama for each node'''
         alpha = np.zeros((self.N - 1, self.M - 1))
@@ -88,28 +137,6 @@ class Laplace_2D(object):
                                       -beta[i][j] / 2 / zet,
                                       beta[i][j] / 2 / zet])
 
-        coord_list = lambda i, j: np.array([(i, j),
-                                            (i, j + 1),
-                                            (i + 1, j),
-                                            (i, j - 1),
-                                            (i - 1, j),
-                                            (i + 1, j + 1),
-                                            (i + 1, j - 1),
-                                            (i - 1, j - 1),
-                                            (i - 1, j + 1)])
-
-        index_list = lambda k: np.array([k,
-                                         k + 1,
-                                         k + self.M - 1,
-                                         k - 1,
-                                         k - self.M + 1,
-                                         k + self.M,
-                                         k + self.M - 2,
-                                         k - self.M,
-                                         k - self.M + 2])
-
-        is_special = lambda row, col: True if row == 0 or row == self.N or col == 0 or col == self.M else False
-
         rows = []
         cols = []
         val = []
@@ -118,10 +145,10 @@ class Laplace_2D(object):
             for j in range(1, self.M):
                 a = coef(i - 1, j - 1)
                 coord = coord_list(i, j)
-                index = index_list(ck)
+                index = index_list(ck, self.M)
                 for k in range(0, 9):
                     row, col = coord[k]
-                    if is_special(row, col):
+                    if is_special(row, col, self.N, self.M):
                         b[0][ck] -= a[k] * self.r[row][col][0]
                         b[1][ck] -= a[k] * self.r[row][col][1]
                     else:
@@ -215,21 +242,6 @@ class Possion_2D(object):
         :return: 内部网格点坐标
         """
 
-        '''Helpers'''
-        pxz = lambda i, j: (self.r[i + 1][j][0] - self.r[i - 1][j][0]) / (2.0 * self.zeta)
-        pxe = lambda i, j: (self.r[i][j + 1][0] - self.r[i][j - 1][0]) / (2.0 * self.eta)
-        pxzz = lambda i, j: (self.r[i + 1][j][0] - 2 * self.r[i][j][0] + self.r[i - 1][j][0]) / math.pow(self.zeta, 2)
-        pxee = lambda i, j: (self.r[i][j + 1][0] - 2 * self.r[i][j][0] + self.r[i][j - 1][0]) / math.pow(self.eta, 2)
-        pxze = lambda i, j: (self.r[i + 1][j + 1][0] - self.r[i + 1][j - 1][0] -
-                             self.r[i - 1][j + 1][0] + self.r[i - 1][j - 1][0]) / (4 * self.zeta * self.eta)
-
-        pyz = lambda i, j: (self.r[i + 1][j][1] - self.r[i - 1][j][1]) / (2.0 * self.zeta)
-        pye = lambda i, j: (self.r[i][j + 1][1] - self.r[i][j - 1][1]) / (2.0 * self.eta)
-        pyzz = lambda i, j: (self.r[i + 1][j][1] - 2 * self.r[i][j][1] + self.r[i - 1][j][1]) / math.pow(self.zeta, 2)
-        pyee = lambda i, j: (self.r[i][j + 1][1] - 2 * self.r[i][j][1] + self.r[i][j - 1][1]) / math.pow(self.eta, 2)
-        pyze = lambda i, j: (self.r[i + 1][j + 1][1] - self.r[i + 1][j - 1][1] -
-                             self.r[i - 1][j + 1][1] + self.r[i - 1][j - 1][1]) / (4 * self.zeta * self.eta)
-
         '''phi, psi'''
         phi = np.zeros((self.N + 1, self.M + 1))
         psi = np.zeros((self.N + 1, self.M + 1))
@@ -284,28 +296,6 @@ class Possion_2D(object):
                                       -beta[i][j] / 2 / zet,
                                       beta[i][j] / 2 / zet])
 
-        coord_list = lambda i, j: np.array([(i, j),
-                                            (i, j + 1),
-                                            (i + 1, j),
-                                            (i, j - 1),
-                                            (i - 1, j),
-                                            (i + 1, j + 1),
-                                            (i + 1, j - 1),
-                                            (i - 1, j - 1),
-                                            (i - 1, j + 1)])
-
-        index_list = lambda k: np.array([k,
-                                         k + 1,
-                                         k + self.M - 1,
-                                         k - 1,
-                                         k - self.M + 1,
-                                         k + self.M,
-                                         k + self.M - 2,
-                                         k - self.M,
-                                         k - self.M + 2])
-
-        is_special = lambda row, col: True if row == 0 or row == self.N or col == 0 or col == self.M else False
-
         rows = []
         cols = []
         val = []
@@ -314,10 +304,10 @@ class Possion_2D(object):
             for j in range(1, self.M):
                 a = coef(i - 1, j - 1)
                 coord = coord_list(i, j)
-                index = index_list(ck)
+                index = index_list(ck, self.M)
                 for k in range(0, 9):
                     row, col = coord[k]
-                    if is_special(row, col):
+                    if is_special(row, col, self.N, self.M):
                         b[0][ck] -= a[k] * self.r[row][col][0]
                         b[1][ck] -= a[k] * self.r[row][col][1]
                     else:
