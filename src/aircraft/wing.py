@@ -106,7 +106,7 @@ class Wing(object):
         self.xt = xt_list
         self.yt = yt_list
 
-    def write(self, fn, p=5, q=5, mirror=True):
+    def write(self, fn, p=5, q=5, mirror=True, farfield_box=False, H=80, L=600, W=250):
         wing_model = IGES_Model(fn)
 
         '''前后缘采样点'''
@@ -161,25 +161,23 @@ class Wing(object):
             surf = GlobalInterpolatedSurf(surf_pts, p, q)
             wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
 
-        '''远场边框
-        H = 80
-        L = 600
-        W = 250
-        farfield_pts = np.array([[-L / 2, -H / 2, 0],
-                                 [-L / 2, H / 2, 0],
-                                 [L / 2, H / 2, 0],
-                                 [L / 2, -H / 2, 0],
-                                 [-L / 2, -H / 2, W],
-                                 [-L / 2, H / 2, W],
-                                 [L / 2, H / 2, W],
-                                 [L / 2, -H / 2, W]])
+        '''远场边框'''
+        if farfield_box:
+            farfield_pts = np.array([[-L / 2, -H / 2, 0],
+                                     [-L / 2, H / 2, 0],
+                                     [L / 2, H / 2, 0],
+                                     [L / 2, -H / 2, 0],
+                                     [-L / 2, -H / 2, W],
+                                     [-L / 2, H / 2, W],
+                                     [L / 2, H / 2, W],
+                                     [L / 2, -H / 2, W]])
 
-        for k in range(0, 8):
-            wing_model.add_entity(IGES_Entity116(farfield_pts[k][0], farfield_pts[k][1], farfield_pts[k][2]))
+            for k in range(0, 8):
+                wing_model.add_entity(IGES_Entity116(farfield_pts[k][0], farfield_pts[k][1], farfield_pts[k][2]))
 
-        for k in range(0, 4):
-            add_line(wing_model, farfield_pts, k, (k + 1) % 4)
-            add_line(wing_model, farfield_pts, k + 4, (k + 5) % 4 + 4)
-            add_line(wing_model, farfield_pts, k, k + 4)
-        '''
+            for k in range(0, 4):
+                add_line(wing_model, farfield_pts, k, (k + 1) % 4)
+                add_line(wing_model, farfield_pts, k + 4, (k + 5) % 4 + 4)
+                add_line(wing_model, farfield_pts, k, k + 4)
+
         wing_model.write()
