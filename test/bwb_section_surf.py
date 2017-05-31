@@ -3,6 +3,7 @@ import numpy as np
 import math
 from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
+from src.com.catia import view
 
 
 def chebshev_dist(start, end, n):
@@ -30,7 +31,7 @@ def write_bwb(n, airfoil, frame_param, fn=""):
     :param airfoil: 剖面翼型名称
     :param fn: 输出文件名
     :param frame_param: 总体描述参数 
-    :return: None
+    :return: File handle
     """
 
     gf = BWBFrame(frame_param)
@@ -52,7 +53,15 @@ def write_bwb(n, airfoil, frame_param, fn=""):
         fn = "BWB_{}_{}_{}_{}.igs".format(n, airfoil, frame_param[0], frame_param[4])
     wg.write(fn)
 
+    return fn
+
+
+def view_bwb(n, airfoil, frame_param):
+    fn = write_bwb(n, airfoil, frame_param)
+    view(fn)
+
 
 class bwb_section_surf_test(unittest.TestCase):
     def test(self):
         write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
+        # view_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
