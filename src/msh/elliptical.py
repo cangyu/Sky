@@ -34,27 +34,27 @@ def is_special(row, col, N, M):
 
 
 def pxz(r, i, j, gp):
-    return (r[i + 1][j][0] - r[i - 1][j][0]) / (2 * gp)
-
-
-def pxe(r, i, j, gp):
     return (r[i][j + 1][0] - r[i][j - 1][0]) / (2 * gp)
 
 
+def pxe(r, i, j, gp):
+    return (r[i + 1][j][0] - r[i - 1][j][0]) / (2 * gp)
+
+
 def pyz(r, i, j, gp):
-    return (r[i + 1][j][1] - r[i - 1][j][1]) / (2 * gp)
-
-
-def pye(r, i, j, gp):
     return (r[i][j + 1][1] - r[i][j - 1][1]) / (2 * gp)
 
 
+def pye(r, i, j, gp):
+    return (r[i + 1][j][1] - r[i - 1][j][1]) / (2 * gp)
+
+
 def pxzz(r, i, j, gp):
-    return (r[i + 1][j][0] - 2 * r[i][j][0] + r[i - 1][j][0]) / gp ** 2
+    return (r[i][j + 1][0] - 2 * r[i][j][0] + r[i][j - 1][0]) / gp ** 2
 
 
 def pxee(r, i, j, gp):
-    return (r[i][j + 1][0] - 2 * r[i][j][0] + r[i][j - 1][0]) / gp ** 2
+    return (r[i + 1][j][0] - 2 * r[i][j][0] + r[i - 1][j][0]) / gp ** 2
 
 
 def pxze(r, i, j, gp):
@@ -62,11 +62,11 @@ def pxze(r, i, j, gp):
 
 
 def pyzz(r, i, j, gp):
-    return (r[i + 1][j][1] - 2 * r[i][j][1] + r[i - 1][j][1]) / gp ** 2
+    return (r[i][j + 1][1] - 2 * r[i][j][1] + r[i][j - 1][1]) / gp ** 2
 
 
 def pyee(r, i, j, gp):
-    return (r[i][j + 1][1] - 2 * r[i][j][1] + r[i][j - 1][1]) / gp ** 2
+    return (r[i + 1][j][1] - 2 * r[i][j][1] + r[i - 1][j][1]) / gp ** 2
 
 
 def pyze(r, i, j, gp):
@@ -228,19 +228,22 @@ class Possion_2D(object):
         self.eta = eta
         self.M = len(pu) - 1
         self.N = len(pv) - 1
+        self.r = np.zeros((self.N + 1, self.M + 1, 2))
 
         '''Initialize'''
         init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
-        self.r = np.zeros((self.N + 1, self.M + 1, 2))
         for i in range(0, self.N + 1):
             for j in range(0, self.M + 1):
                 self.r[i][j] = init_msh[j][i]
 
         '''Solve the grid iteratively'''
         residual = 1.0
+        k = 0
         while residual > 1e-12:
+            print("{}:{}".format(k, residual))
             cu = self._iterate()
             cnt = 0
+            k += 1
             residual = 0.0
             for i in range(1, self.N):
                 for j in range(1, self.M):
@@ -350,3 +353,16 @@ class Possion_2D(object):
         u[1] = dsolve.spsolve(AA, b[1], use_umfpack=True)
 
         return u
+
+    def write_plot3d(self, filename="msh.xyz"):
+        K, J, I = 1, self.N + 1, self.M + 1
+        pts = np.zeros((K, J, I, 3))
+
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    pts[k][j][i][0] = self.r[j][i][0]
+                    pts[k][j][i][1] = self.r[j][i][1]
+
+        p3d = Plot3D(I, J, K, pts)
+        p3d.output(filename)
