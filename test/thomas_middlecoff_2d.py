@@ -99,11 +99,6 @@ def airfoil_c_msh(foil, La, Lt, H):
         af.pts[i] *= La
 
 
-class TestThomasMiddlecoff2D(TestCase):
-    def test_airfoil(self):
-        U, V = 60, 25
-        write_uniform_airfoil("NACA0012", 10, 50, U, V)
-
-
 if __name__ == '__main__':
-    unittest.main()
+    U, V = 260, 65
+    write_uniform_airfoil("NACA0012", 10, 50, U, V)
