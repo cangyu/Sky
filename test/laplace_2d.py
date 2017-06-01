@@ -74,6 +74,7 @@ def write_uniform_airfoil(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0
     c1, c2, c3, c4 = airfoil(foil, L, R)
 
     grid = Laplace_2D(c1, c2, c3, c4, u_list, v_list, delta_zeta, delta_eta)
+    grid.calc_grid()
 
     if fn == "":
         fn += foil

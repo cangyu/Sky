@@ -75,6 +75,7 @@ def write_uniform_airfoil(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0
     c1, c2, c3, c4 = airfoil_o_msh(foil, L, R)
 
     grid = Possion_2D(c1, c2, c3, c4, u_list, v_list, delta_zeta, delta_eta)
+    grid.calc_grid(0.1)
 
     if fn == "":
         fn += foil
@@ -100,5 +101,5 @@ def airfoil_c_msh(foil, La, Lt, H):
 
 
 if __name__ == '__main__':
-    U, V = 260, 65
+    U, V = 120, 55
     write_uniform_airfoil("NACA0012", 10, 50, U, V)

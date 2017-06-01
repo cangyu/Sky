@@ -23,8 +23,6 @@ class CurvilinearGrid2D(object):
         self.alpha = None
         self.beta = None
         self.gamma = None
-        self.A = None
-        self.b = None
 
     @abstractmethod
     def get_coefficient_list(self, i, j):
@@ -92,6 +90,7 @@ class CurvilinearGrid2D(object):
                 self.gamma[i][j] = val_pxz ** 2 + val_pyz ** 2
 
     def calc_coefficient_matrix(self):
+        b = np.zeros((2, self.unknown_num))
         rows = []
         cols = []
         val = []
@@ -103,18 +102,21 @@ class CurvilinearGrid2D(object):
                 index = self.get_index_list(ck)
                 for k in range(0, 9):
                     row, col = coord[k]
-                if self.is_special(row, col):
-                    self.b[ck] -= a[k] * self.r[row][col]
-                else:
-                    rows.append(ck)
-                    cols.append(index[k])
-                    val.append(a[k])
+                    if self.is_special(row, col):
+                        b[0][ck] -= a[k] * self.r[row][col][0]
+                        b[1][ck] -= a[k] * self.r[row][col][1]
+                    else:
+                        rows.append(ck)
+                        cols.append(index[k])
+                        val.append(a[k])
 
                 ck += 1
 
-        self.A = sparse.coo_matrix((val, (rows, cols)), shape=(self.unknown_num, self.unknown_num), dtype=float).tocsr()
+        A = sparse.coo_matrix((val, (rows, cols)), shape=(self.unknown_num, self.unknown_num), dtype=float)
+        AA = A.tocsr()
+        return AA, b
 
-    def calc_grid(self, eps=1e-10, method='default'):
+    def calc_grid(self, eps=1e-10):
         """
         Solve the grid iteratively
         :param eps: 残差
@@ -126,7 +128,7 @@ class CurvilinearGrid2D(object):
         residual = 1.0
         k = 0
         while residual > eps:
-            cu = self.solve(method)
+            cu = self.iterate()
             cnt = 0
             k += 1
             residual = 0.0
@@ -143,18 +145,6 @@ class CurvilinearGrid2D(object):
     @abstractmethod
     def iterate(self):
         pass
-
-    def solve(self, method='default'):
-        if method not in ['default', 'amg']:
-            raise ValueError("Invalid method!")
-
-        if method == 'default':
-            u = dsolve.spsolve(self.A, self.b, use_umfpack=True)
-        else:
-            ml = pyamg.ruge_stuben_solver(self.A)
-            u = ml.solve(self.b, tol=1e-10)
-
-        return u
 
     def write_plot3d(self, filename="msh.xyz"):
         K, J, I = 1, self.N + 1, self.M + 1
@@ -207,7 +197,6 @@ class Laplace_2D(CurvilinearGrid2D):
         self.alpha = np.zeros((self.N + 1, self.M + 1))
         self.beta = np.zeros((self.N + 1, self.M + 1))
         self.gamma = np.zeros((self.N + 1, self.M + 1))
-        self.b = np.zeros((self.unknown_num, 2))
 
         '''Initialize'''
         init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
@@ -225,18 +214,25 @@ class Laplace_2D(CurvilinearGrid2D):
     def iterate(self):
         """
         迭代计算内部网格点
-        :param: 求解方法
-        :return: 内部网格点坐标
         """
+
+        u = np.zeros((2, self.unknown_num))
 
         '''alpha, beta, gamma'''
         self.calc_all_alpha_beta_gamma()
 
         '''coefficient matrix'''
-        self.calc_coefficient_matrix()
+        A, b = self.calc_coefficient_matrix()
 
-        '''Solve'''
-        return self.solve()
+        '''solve'''
+        # u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+        # u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+
+        ml = pyamg.ruge_stuben_solver(A)
+        u[0] = ml.solve(b[0], tol=1e-10)
+        u[1] = ml.solve(b[1], tol=1e-10)
+
+        return u
 
 
 class Possion_2D(CurvilinearGrid2D):
@@ -266,13 +262,11 @@ class Possion_2D(CurvilinearGrid2D):
         self.gamma = np.zeros((self.N + 1, self.M + 1))
         self.phi = np.zeros((self.N + 1, self.M + 1))
         self.psi = np.zeros((self.N + 1, self.M + 1))
-        self.b = np.zeros((self.unknown_num, 2))
 
         '''Initialize'''
-        init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
-        for i in range(0, self.N + 1):
-            for j in range(0, self.M + 1):
-                self.r[i][j] = init_msh[j][i]
+        init_grid = Laplace_2D(c1, c2, c3, c4, pu, pv, zeta, eta)
+        init_grid.calc_grid()
+        self.r = np.copy(init_grid.r)
 
     def get_coefficient_list(self, i, j):
         az2 = self.alpha[i][j] / self.zeta ** 2
@@ -288,6 +282,8 @@ class Possion_2D(CurvilinearGrid2D):
         迭代计算内部网格点
         :return: 内部网格点坐标
         """
+
+        u = np.zeros((2, self.unknown_num))
 
         '''alpha, beta, gamma'''
         self.calc_all_alpha_beta_gamma()
@@ -320,7 +316,14 @@ class Possion_2D(CurvilinearGrid2D):
                 self.psi[i][j] = dist[j]
 
         '''coefficient matrix'''
-        self.calc_coefficient_matrix()
+        A, b = self.calc_coefficient_matrix()
 
-        '''Solve'''
-        return self.solve()
+        '''solve'''
+        u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+        u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+
+        # ml = pyamg.ruge_stuben_solver(A)
+        # u[0] = ml.solve(b[0], tol=1e-10)
+        # u[1] = ml.solve(b[1], tol=1e-10)
+
+        return u
