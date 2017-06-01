@@ -29,39 +29,48 @@ def index_list(k: int, M: int):
     return np.array([k, k + 1, k + M - 1, k - 1, k - M + 1, k + M, k + M - 2, k - M, k - M + 2])
 
 
-def is_special(row: int, col: int, N: int, M: int):
-    """
-    判断(row,col)是否在边界上
-    :param row: 行号
-    :param col: 列号
-    :param N: 最大行号
-    :param M: 最大列号
-    :return: Boolean result.
-    """
-
-    if row == 0 or row == N or col == 0 or col == M:
-        return True
-    else:
-        return False
+def is_special(row, col, N, M):
+    return True if row in (0, N) or col in (0, M) else False
 
 
-def cd1_2d(r, i: int, j: int, axis: int, gp=1.0):
-    """
-    1阶中心差分
-    """
-
-    return (r[i + 1][j][axis] - r[i - 1][j][axis]) / (2 * gp)
+def pxz(r, i, j, gp):
+    return (r[i + 1][j][0] - r[i - 1][j][0]) / (2 * gp)
 
 
-def cd2_2d(r, i: int, j: int, axis: int, dir1: int, dir2: int, gp=(1.0, 1.0)):
-    """
-    2阶中心差分
-    """
+def pxe(r, i, j, gp):
+    return (r[i][j + 1][0] - r[i][j - 1][0]) / (2 * gp)
 
-    if dir1 == dir2:
-        return (r[i + 1][j][axis] - 2 * r[i][j][axis] + r[i - 1][j][axis]) / math.pow(gp[dir1], 2)
-    else:
-        return (r[i + 1][j + 1][axis] - r[i + 1][j - 1][axis] - r[i - 1][j + 1][axis] + r[i - 1][j - 1][axis]) / (4 * reduce(mul, gp))
+
+def pyz(r, i, j, gp):
+    return (r[i + 1][j][1] - r[i - 1][j][1]) / (2 * gp)
+
+
+def pye(r, i, j, gp):
+    return (r[i][j + 1][1] - r[i][j - 1][1]) / (2 * gp)
+
+
+def pxzz(r, i, j, gp):
+    return (r[i + 1][j][0] - 2 * r[i][j][0] + r[i - 1][j][0]) / gp ** 2
+
+
+def pxee(r, i, j, gp):
+    return (r[i][j + 1][0] - 2 * r[i][j][0] + r[i][j - 1][0]) / gp ** 2
+
+
+def pxze(r, i, j, gp):
+    return (r[i + 1][j + 1][0] - r[i + 1][j - 1][0] - r[i - 1][j + 1][0] + r[i - 1][j - 1][0]) / (4 * reduce(mul, gp))
+
+
+def pyzz(r, i, j, gp):
+    return (r[i + 1][j][1] - 2 * r[i][j][1] + r[i - 1][j][1]) / gp ** 2
+
+
+def pyee(r, i, j, gp):
+    return (r[i][j + 1][1] - 2 * r[i][j][1] + r[i][j - 1][1]) / gp ** 2
+
+
+def pyze(r, i, j, gp):
+    return (r[i + 1][j + 1][1] - r[i + 1][j - 1][1] - r[i - 1][j + 1][1] + r[i - 1][j - 1][1]) / (4 * reduce(mul, gp))
 
 
 class Laplace_2D(object):
@@ -82,14 +91,15 @@ class Laplace_2D(object):
         self.eta = eta
         self.M = len(pu) - 1
         self.N = len(pv) - 1
+        self.r = np.zeros((self.N + 1, self.M + 1, 2))
 
         '''Initialize'''
         init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
-        self.r = np.zeros((self.N + 1, self.M + 1, 2))
         for i in range(0, self.N + 1):
             for j in range(0, self.M + 1):
                 self.r[i][j] = init_msh[j][i]
 
+        '''Solve iteratively'''
         residual = 1.0
         while residual > 1e-12:
             cu = self._iterate()
@@ -109,24 +119,18 @@ class Laplace_2D(object):
         :return: 内部网格点坐标
         """
 
-        '''Pre-compute alpha, beta, gama for each node'''
-        alpha = np.zeros((self.N - 1, self.M - 1))
-        beta = np.zeros((self.N - 1, self.M - 1))
-        gamma = np.zeros((self.N - 1, self.M - 1))
-
-        for i in range(0, self.N - 1):
-            ci = i + 1
-            for j in range(0, self.M - 1):
-                cj = j + 1
-                alpha[i][j] = math.pow(pder_x_eta(ci, cj), 2) + math.pow(pder_y_eta(ci, cj), 2)
-                beta[i][j] = pder_x_zeta(ci, cj) * pder_x_eta(ci, cj) + pder_y_zeta(ci, cj) * pder_y_eta(ci, cj)
-                gamma[i][j] = math.pow(pder_x_zeta(ci, cj), 2) + math.pow(pder_y_zeta(ci, cj), 2)
-
-        '''Coefficients of the equation set'''
         unknown_num = (self.N - 1) * (self.M - 1)
         b = np.zeros((2, unknown_num))
+        u = np.zeros((2, unknown_num))
 
-        zt2, et2, zet = math.pow(self.zeta, 2), math.pow(self.eta, 2), self.eta * self.zeta
+        alpha = np.zeros((self.N + 1, self.M + 1))
+        beta = np.zeros((self.N + 1, self.M + 1))
+        gamma = np.zeros((self.N + 1, self.M + 1))
+
+        zt2 = math.pow(self.zeta, 2)
+        et2 = math.pow(self.eta, 2)
+        zet = self.eta * self.zeta
+
         coef = lambda i, j: np.array([-2 * (alpha[i][j] / zt2 + gamma[i][j] / et2),
                                       gamma[i][j] / et2,
                                       alpha[i][j] / zt2,
@@ -137,13 +141,26 @@ class Laplace_2D(object):
                                       -beta[i][j] / 2 / zet,
                                       beta[i][j] / 2 / zet])
 
+        '''alpha, beta, gama'''
+        for i in range(1, self.N):
+            for j in range(1, self.M):
+                vpxe = pxe(self.r, i, j, self.eta)
+                vpxz = pxz(self.r, i, j, self.zeta)
+                vpye = pye(self.r, i, j, self.eta)
+                vpyz = pyz(self.r, i, j, self.zeta)
+
+                alpha[i][j] = vpxe * vpxe + vpye * vpye
+                beta[i][j] = vpxe * vpxz + vpye * vpyz
+                gamma[i][j] = vpxz * vpxz + vpyz * vpyz
+
+        '''Coefficient Matrix'''
         rows = []
         cols = []
         val = []
         ck = 0
         for i in range(1, self.N):
             for j in range(1, self.M):
-                a = coef(i - 1, j - 1)
+                a = coef(i, j)
                 coord = coord_list(i, j)
                 index = index_list(ck, self.M)
                 for k in range(0, 9):
@@ -160,7 +177,8 @@ class Laplace_2D(object):
 
         A = sparse.coo_matrix((val, (rows, cols)), shape=(unknown_num, unknown_num), dtype=float)
         AA = A.tocsr()
-        u = np.zeros((2, unknown_num))
+
+        '''Solve'''
         u[0] = dsolve.spsolve(AA, b[0], use_umfpack=True)
         u[1] = dsolve.spsolve(AA, b[1], use_umfpack=True)
 
@@ -210,10 +228,6 @@ class Possion_2D(object):
         self.eta = eta
         self.M = len(pu) - 1
         self.N = len(pv) - 1
-        self.c1 = c1
-        self.c2 = c2
-        self.c3 = c3
-        self.c4 = c4
 
         '''Initialize'''
         init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
@@ -242,21 +256,59 @@ class Possion_2D(object):
         :return: 内部网格点坐标
         """
 
-        '''phi, psi'''
+        zt2 = math.pow(self.zeta, 2)
+        et2 = math.pow(self.eta, 2)
+        zet = self.eta * self.zeta
+
+        alpha = np.zeros((self.N + 1, self.M + 1))
+        beta = np.zeros((self.N + 1, self.M + 1))
+        gamma = np.zeros((self.N + 1, self.M + 1))
+
         phi = np.zeros((self.N + 1, self.M + 1))
         psi = np.zeros((self.N + 1, self.M + 1))
-        cphi = lambda i, j: -(pyz(i, j) * pyzz(i, j) + pxz(i, j) * pxzz(i, j)) / \
-                            (math.pow(pxz(i, j), 2) + math.pow(pyz(i, j), 2))
-        cpsi = lambda i, j: -(pye(i, j) * pyee(i, j) + pxe(i, j) * pxee(i, j)) / \
-                            (math.pow(pxe(i, j), 2) + math.pow(pye(i, j), 2))
 
+        unknown_num = (self.N - 1) * (self.M - 1)
+        b = np.zeros((2, unknown_num))
+        u = np.zeros((2, unknown_num))
+
+        coef = lambda i, j: np.array([-2 * (alpha[i][j] / zt2 + gamma[i][j] / et2),
+                                      gamma[i][j] * (1 / et2 + psi[i][j] / 2 / self.eta),
+                                      alpha[i][j] * (1 / zt2 + phi[i][j] / 2 / self.zeta),
+                                      gamma[i][j] / (1 / et2 - psi[i][j] / 2 / self.eta),
+                                      alpha[i][j] / (1 / zt2 - phi[i][j] / 2 / self.zeta),
+                                      -beta[i][j] / 2 / zet,
+                                      beta[i][j] / 2 / zet,
+                                      -beta[i][j] / 2 / zet,
+                                      beta[i][j] / 2 / zet])
+
+        '''alpha, beta, gamma'''
+        for i in range(1, self.N):
+            for j in range(1, self.M):
+                vpxe = pxe(self.r, i, j, self.eta)
+                vpxz = pxz(self.r, i, j, self.zeta)
+                vpye = pye(self.r, i, j, self.eta)
+                vpyz = pyz(self.r, i, j, self.zeta)
+
+                alpha[i][j] = vpxe * vpxe + vpye * vpye
+                beta[i][j] = vpxe * vpxz + vpye * vpyz
+                gamma[i][j] = vpxz * vpxz + vpyz * vpyz
+
+        '''phi, psi'''
         for i in [0, self.N]:
             for j in range(1, self.M):
-                phi[i][j] = cphi(i, j)
+                vpxz = pxz(self.r, i, j, self.zeta)
+                vpxzz = pxzz(self.r, i, j, self.zeta)
+                vpyz = pyz(self.r, i, j, self.zeta)
+                vpyzz = pyzz(self.r, i, j, self.zeta)
+                phi[i][j] = -(vpxz * vpxzz + vpyz * vpyzz) / (vpxz ** 2 + vpyz ** 2)
 
         for j in [0, self.M]:
             for i in range(1, self.N):
-                psi[j][i] = cpsi(j, i)
+                vpxe = pxe(self.r, i, j, self.eta)
+                vpxee = pxee(self.r, i, j, self.eta)
+                vpye = pye(self.r, i, j, self.eta)
+                vpyee = pyee(self.r, i, j, self.eta)
+                psi[i][j] = -(vpxe * vpxee + vpye * vpyee) / (vpxe ** 2 + vpye ** 2)
 
         for j in range(1, self.M):
             dist = np.linspace(phi[0][j], phi[self.N][j], self.N + 1)
@@ -268,41 +320,14 @@ class Possion_2D(object):
             for j in range(1, self.M):
                 psi[i][j] = dist[j]
 
-        '''alpha, beta, gamma'''
-        alpha = np.zeros((self.N - 1, self.M - 1))
-        beta = np.zeros((self.N - 1, self.M - 1))
-        gamma = np.zeros((self.N - 1, self.M - 1))
-
-        for i in range(0, self.N - 1):
-            ci = i + 1
-            for j in range(0, self.M - 1):
-                cj = j + 1
-                alpha[i][j] = math.pow(pxe(ci, cj), 2) + math.pow(pye(ci, cj), 2)
-                beta[i][j] = pxe(ci, cj) * pxz(ci, cj) + pye(ci, cj) * pyz(ci, cj)
-                gamma[i][j] = math.pow(pxz(ci, cj), 2) + math.pow(pyz(ci, cj), 2)
-
-        '''Coefficients of the equation set'''
-        unknown_num = (self.N - 1) * (self.M - 1)
-        b = np.zeros((2, unknown_num))
-
-        zt2, et2, zet = math.pow(self.zeta, 2), math.pow(self.eta, 2), self.eta * self.zeta
-        coef = lambda i, j: np.array([-2 * (alpha[i][j] / zt2 + gamma[i][j] / et2),
-                                      gamma[i][j] * (1 / et2 + psi[i][j] / 2 / self.eta),
-                                      alpha[i][j] * (1 / zt2 + phi[i][j] / 2 / self.zeta),
-                                      gamma[i][j] / (1 / et2 - psi[i][j] / 2 / self.eta),
-                                      alpha[i][j] / (1 / zt2 - phi[i][j] / 2 / self.zeta),
-                                      -beta[i][j] / 2 / zet,
-                                      beta[i][j] / 2 / zet,
-                                      -beta[i][j] / 2 / zet,
-                                      beta[i][j] / 2 / zet])
-
+        '''Coefficient Matrix'''
         rows = []
         cols = []
         val = []
         ck = 0
         for i in range(1, self.N):
             for j in range(1, self.M):
-                a = coef(i - 1, j - 1)
+                a = coef(i, j)
                 coord = coord_list(i, j)
                 index = index_list(ck, self.M)
                 for k in range(0, 9):
@@ -319,7 +344,8 @@ class Possion_2D(object):
 
         A = sparse.coo_matrix((val, (rows, cols)), shape=(unknown_num, unknown_num), dtype=float)
         AA = A.tocsr()
-        u = np.zeros((2, unknown_num))
+
+        '''Solve'''
         u[0] = dsolve.spsolve(AA, b[0], use_umfpack=True)
         u[1] = dsolve.spsolve(AA, b[1], use_umfpack=True)
 

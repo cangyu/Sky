@@ -14,25 +14,13 @@ class NURBS_Curve(object):
         :param Pw: 带权控制点
         """
 
-        self.m = 0
-        self.n = 0
-        self.p = 0
-        self.U = None
-        self.Pw = None
-        self.weight = None
-        self.cpt = None
-        self.isPoly = True
-        self.isClosed = False
-
-        self.update(U, Pw)
-
-    def update(self, U, Pw):
         self.n = len(Pw) - 1
         self.m = len(U) - 1
         self.p = self.m - self.n - 1
 
         self.U = np.copy(U)
         self.Pw = np.copy(Pw)
+        self.spl = BSpline(self.U, self.Pw, self.p)
 
         self.weight = np.zeros(self.n + 1)
         self.cpt = np.zeros((self.n + 1, 3))
@@ -54,9 +42,7 @@ class NURBS_Curve(object):
         :return: 曲线在u处的d阶导矢
         """
 
-        spl = BSpline(self.U, self.Pw, self.p)
-        pw = spl(u, d)
-
+        pw = self.spl(u, d)
         return to_cartesian(pw)
 
     def to_iges(self, planar, periodic, norm, form=0):
@@ -67,7 +53,7 @@ class NURBS_Curve(object):
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
-    def __init__(self, pts, p, method='centripetal'):
+    def __init__(self, pts, p=3, method='centripetal'):
         """
         构造一条p次非有理B样条曲线插值于pts
         :param pts: 待插值点序列

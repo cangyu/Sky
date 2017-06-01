@@ -3,7 +3,7 @@ import numpy as np
 import math
 from src.msh.tfi import Linear_TFI_2D
 from src.aircraft.wing import Airfoil
-from src.nurbs.curve import Spline
+from src.nurbs.curve import GlobalInterpolatedCrv
 
 
 def write_uniform_p3d(msh: Linear_TFI_2D, U: int, V: int, fn="msh_p3d.xyz"):
@@ -56,26 +56,23 @@ def airfoil(foil, L, R):
 
     '''Read airfoil data'''
     af = Airfoil(foil)
-    pts = af.get_pts()
 
     '''Extend'''
-    for p in pts:
-        p *= L
+    for i in range(len(af.pts)):
+        af.pts[i] *= L
 
     '''Parametric representation of airfoil'''
-    crv = Spline(pts)
-    cx = crv.x_rep()
-    cy = crv.y_rep()
-    c1 = lambda u: np.array([cx(u), cy(u)])
+    crv = GlobalInterpolatedCrv(af.pts, 5)
+    c1 = lambda u: crv(u)[0:2]
 
     '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
     calc_len = lambda dir: math.pow(math.pow(dir[0], 2) + math.pow(dir[1], 2), 0.5)
     inner_product = lambda d1, d2: d1[0] * d2[0] + d1[1] * d2[1]
 
-    dir1 = calc_dir(pts[1], pts[0])
+    dir1 = calc_dir(af.pts[1], af.pts[0])
     len1 = calc_len(dir1)
-    dir2 = calc_dir(pts[-2], pts[-1])
+    dir2 = calc_dir(af.pts[-2], af.pts[-1])
     len2 = calc_len(dir2)
 
     rotate = lambda dir, theta: (dir[0] * math.cos(math.radians(theta)) - dir[1] * math.sin(math.radians(theta)),
@@ -85,17 +82,17 @@ def airfoil(foil, L, R):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([pts[0][0] + v * R * dir3[0], pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1]])
     r = calc_len(c2(1.0))
 
-    dir5 = (pts[-1][0], pts[-1][1])
+    dir5 = (af.pts[-1][0], af.pts[-1][1])
     l4 = calc_len(dir5)
     theta = math.pi - math.acos(inner_product(dir4, dir5) / l4)
     alpha = math.asin(l4 / r * math.sin(theta))
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([pts[-1][0] + v * b * dir4[0], pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1]])
 
     '''Farfiled boundary'''
     sp = c2(1.0)
