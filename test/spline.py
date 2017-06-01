@@ -1,7 +1,7 @@
 import unittest
+import numpy as np
 from src.nurbs.spline import Spline
 from src.iges.iges_core import IGES_Model
-import numpy as np
 
 
 def build_airfoil(fn):
