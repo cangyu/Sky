@@ -5,9 +5,10 @@ import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.msh.elliptical import Possion_2D
+from src.msh.spacing import single_exponential
 
 
-def airfoil_o_msh(foil, L, R):
+def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
     """
     计算翼型O型流场边界
     :param foil: 翼型名称 
@@ -56,7 +57,7 @@ def airfoil_o_msh(foil, L, R):
 
     c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1]])
 
-    '''Farfiled boundary'''
+    '''farfield boundary'''
     sp = c2(1.0)
     ep = c4(1.0)
     sa = math.atan2(sp[1], sp[0])
@@ -66,40 +67,18 @@ def airfoil_o_msh(foil, L, R):
 
     c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
 
-    return c1, c2, c3, c4
-
-
-def write_uniform_airfoil(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
     u_list = np.linspace(0, 1.0, U + 1)
-    v_list = np.linspace(0, 1.0, V + 1)
-    c1, c2, c3, c4 = airfoil_o_msh(foil, L, R)
+    v_list = single_exponential(0, 1.0, V + 1, 2)
 
-    grid = Possion_2D(c1, c2, c3, c4, u_list, v_list, delta_zeta, delta_eta)
+    grid = Possion_2D(c1, c2, c3, c4, u_list, v_list, 1.0, 1.0)
     grid.calc_grid(0.1)
 
-    if fn == "":
-        fn += foil
-        fn += "_{}_{}_{}_{}_{}_{}_PU.xyz".format(L, R, U, V, delta_zeta, delta_eta)
+    if fn == '':
+        fn = foil + "_{}_{}_{}_{}_{}_{}_PU.xyz".format(L, R, U, V, 1.0, 1.0)
 
     grid.write_plot3d(fn)
 
 
-def airfoil_c_msh(foil, La, Lt, H):
-    """
-    绕翼型C型网格
-    :param foil: 翼型名称
-    :param La: 翼型长度
-    :param Lt: 尾流区长度
-    :param H: 宽度
-    :return: 4条边界的参数化表达式
-    """
-
-    '''Airfoil points'''
-    af = Airfoil(foil)
-    for i in range(len(af.pts)):
-        af.pts[i] *= La
-
-
 if __name__ == '__main__':
-    U, V = 120, 55
-    write_uniform_airfoil("NACA0012", 10, 50, U, V)
+    U, V = 60, 25
+    write_airfoil_o_msh("NACA0012", 10, 50, U, V)

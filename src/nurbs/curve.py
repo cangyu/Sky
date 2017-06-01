@@ -45,6 +45,26 @@ class NURBS_Curve(object):
         pw = self.spl(u, d)
         return to_cartesian(pw)
 
+    def curvature(self, u):
+        p1 = self.__call__(u, 1)
+        p2 = self.__call__(u, 2)
+
+        dd = np.zeros(3)
+        dd[0] = math.pow(p2[2] * p1[1] - p2[1] * p1[2], 2)
+        dd[1] = math.pow(p2[0] * p1[2] - p2[2] * p1[0], 2)
+        dd[2] = math.pow(p2[1] * p1[0] - p2[0] * p1[1], 2)
+        dividend = math.sqrt(np.sum(dd))
+
+        dv = np.zeros(3)
+        dv[0] = math.pow(p1[0], 2)
+        dv[1] = math.pow(p1[1], 2)
+        dv[2] = math.pow(p1[2], 2)
+        divisor = math.pow(np.sum(dv), 3 / 2)
+
+        kappa = dividend / divisor
+
+        return kappa
+
     def to_iges(self, planar, periodic, norm, form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0),
                               (1 if self.isPoly else 0), periodic,

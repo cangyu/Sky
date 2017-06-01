@@ -263,10 +263,17 @@ class Possion_2D(CurvilinearGrid2D):
         self.phi = np.zeros((self.N + 1, self.M + 1))
         self.psi = np.zeros((self.N + 1, self.M + 1))
 
-        '''Initialize'''
+        '''Laplace Initialize
         init_grid = Laplace_2D(c1, c2, c3, c4, pu, pv, zeta, eta)
         init_grid.calc_grid()
         self.r = np.copy(init_grid.r)
+        '''
+
+        '''TFI Initialize'''
+        init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
+        for i in range(0, self.N + 1):
+            for j in range(0, self.M + 1):
+                self.r[i][j] = init_msh[j][i]
 
     def get_coefficient_list(self, i, j):
         az2 = self.alpha[i][j] / self.zeta ** 2
