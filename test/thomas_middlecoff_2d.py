@@ -1,11 +1,10 @@
 import unittest
-from unittest import TestCase
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.msh.elliptical import Possion_2D
-from src.msh.spacing import single_exponential
+from src.msh.spacing import single_exponential, double_exponential
 
 
 def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
@@ -67,17 +66,25 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
 
     c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
 
-    u_list = np.linspace(0, 1.0, U + 1)
-    v_list = single_exponential(0, 1.0, V + 1, 2)
+    u_list = double_exponential(0, 1.0, U + 1, 0.5, -1.2, 0.5)
+    v_list = single_exponential(0, 1.0, V + 1, 1.5)
 
     grid = Possion_2D(c1, c2, c3, c4, u_list, v_list, 1.0, 1.0)
-    grid.calc_grid(0.1)
+    grid.calc_grid(5)
 
     if fn == '':
-        fn = foil + "_{}_{}_{}_{}_{}_{}_PU.xyz".format(L, R, U, V, 1.0, 1.0)
+        fn = foil + "_{}_{}_{}_{}_{}_{}_Possion.xyz".format(L, R, U, V, 1.0, 1.0)
 
     grid.write_plot3d(fn)
 
+
+'''
+class TM2D_Test(unittest.TestCase):
+    @classmethod
+    def test_airfoil(cls):
+        U, V = 60, 25
+        write_airfoil_o_msh("NACA0012", 10, 50, U, V)
+'''
 
 if __name__ == '__main__':
     U, V = 60, 25

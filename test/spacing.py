@@ -21,12 +21,10 @@ def plot_double(begin, end, N, A1, A2, A3):
 
 
 class SpacingTest(unittest.TestCase):
-    def test_single(self):
+    @classmethod
+    def test_single(cls):
         plot_single(0.0, 1.0, 101, 2)
 
-    def test_double(self):
-        plot_double(0.0, 1.0, 401, 0.45, -1.2, 0.52)
-
-
-if __name__ == '__main__':
-    unittest.main()
+    @classmethod
+    def test_double(cls):
+        plot_double(0.0, 1.0, 401, 0.4, -1.8, 0.46)

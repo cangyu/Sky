@@ -4,9 +4,10 @@ import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.msh.elliptical import Laplace_2D
+from src.msh.spacing import single_exponential, double_exponential
 
 
-def airfoil(foil, L, R):
+def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
     """
     计算翼型流场边界
     :param foil: 翼型名称 
@@ -65,20 +66,14 @@ def airfoil(foil, L, R):
 
     c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
 
-    return c1, c2, c3, c4
-
-
-def write_uniform_airfoil(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
-    u_list = np.linspace(0, 1.0, U + 1)
-    v_list = np.linspace(0, 1.0, V + 1)
-    c1, c2, c3, c4 = airfoil(foil, L, R)
+    u_list = double_exponential(0, 1.0, U + 1, 0.5, -1.5, 0.5)
+    v_list = single_exponential(0, 1.0, V + 1, 3)
 
     grid = Laplace_2D(c1, c2, c3, c4, u_list, v_list, delta_zeta, delta_eta)
     grid.calc_grid()
 
     if fn == "":
-        fn += foil
-        fn += "_{}_{}_{}_{}_{}_{}_Uniform.xyz".format(L, R, U, V, delta_zeta, delta_eta)
+        fn += foil + "_{}_{}_{}_{}_{}_{}_Laplace.xyz".format(L, R, U, V, delta_zeta, delta_eta)
 
     grid.write_plot3d(fn)
 
@@ -90,4 +85,4 @@ class Laplace2D_WritePlot3D_Test(unittest.TestCase):
 
     def test_airfoil(self):
         U, V = 60, 25
-        write_uniform_airfoil("NACA0012", 10, 50, U, V)
+        write_airfoil_msh("NACA0012", 10, 50, U, V)

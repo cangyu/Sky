@@ -1,4 +1,5 @@
 import math
+import sys
 import numpy as np
 import pyamg
 from scipy import sparse
@@ -125,7 +126,7 @@ class CurvilinearGrid2D(object):
         :return: None
         """
 
-        residual = 1.0
+        residual = sys.float_info.max
         k = 0
         while residual > eps:
             cu = self.iterate()
