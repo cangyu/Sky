@@ -12,11 +12,6 @@ def l0(u):
     return np.array([(1 - u) * (La + Lt) + u * La, R, 0])
 
 
-def l1(u):
-    ang = u * math.pi + math.pi / 2
-    return np.array([(Lf + La) * math.cos(ang) + La, R * math.sin(ang), 0])
-
-
 def l2(u):
     return np.array([(1 - u) * La + u * (La + Lt), -R, 0])
 
@@ -28,35 +23,14 @@ def ellipse_arc_len(a, b):
     return math.pi * (3 * (a + b) - math.sqrt((3 * a + b) * (a + 3 * b)))
 
 
-'''Design Variables'''
-airfoil = 'NACA0012'
-
-N0 = 25
-A = 2
-
-N1 = 30
-N2 = 70
+A = 3
 A1 = 0.5
 A2 = -2.5
 A3 = 0.5
-A4 = 2.5
-
-La = 10
-Lt = 20 * La
-Lf = 15 * La
-R = 10 * La
-Thickness = 1.0
-
-tfi = True
-laplace = True
-possion = False
-build_model = False
+A4 = 2
 
 '''Derived Variables'''
-ending = np.array([[0, 0, 0], [La, 0, 0]])
-af = WingProfile(airfoil, ending, Thickness, 5)
-yhu = af.pts[0][1]
-ydu = af.pts[-1][1]
+
 T1 = 2 * Lt + af.nurbs_rep.length()
 T3 = 2 * Lt + ellipse_arc_len(La + Lf, R) / 2
 u1 = 1 / 3
@@ -97,18 +71,6 @@ def c1(u: float):
 
 
 '''C3'''
-outer = []
-for i in range(N1):
-    outer.append(l0(i / (N1 - 1)))
-
-for i in range(1, N2):
-    outer.append(l1(i / (N2 - 1)))
-
-for i in range(1, N1):
-    outer.append(l2(i / (N1 - 1)))
-
-outer = np.copy(outer)
-outer_crv = GlobalInterpolatedCrv(outer, method='chord')
 
 
 def c3(u: float):
@@ -159,17 +121,57 @@ if laplace:
     grid.calc_grid()
     grid.write_plot3d(airfoil + "_Laplace.xyz")
 
-if possion:
-    grid = Possion_2D(c1, c2, c3, c4, pu, pv)
-    grid.calc_grid(100)
-    grid.write_plot3d(airfoil + "_Possion.xyz")
+airfoil = 'NACA0012'
+Thickness = 1.0
+La = 10
+Lt = 20 * La
+Lf = 15 * La
+R = 10 * La
 
-if build_model:
-    model = IGES_Model('frame.igs')
-    model.add_entity(af.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
-    model.add_entity(hu.to_iges())
-    model.add_entity(du.to_iges())
-    model.add_entity(outer_crv.to_iges(1, 0, [0, 0, 1]))
-    model.add_entity(tul.to_iges())
-    model.add_entity(tdl.to_iges())
-    model.write()
+N1 = 45
+N2 = 80
+N3 = 30
+N4 = 5
+
+crv = []
+
+ending = np.array([[0, 0, 0], [La, 0, 0]])
+af = WingProfile(airfoil, ending, Thickness, 5)
+yhu = af.pts[0][1]
+ydu = af.pts[-1][1]
+
+crv.append(af.nurbs_rep)
+
+'''C2'''
+outer = np.zeros((N2, 3))
+ang = lambda u: u * math.pi + math.pi / 2
+l1 = lambda u: np.array([(Lf + La) * math.cos(ang(u)) + La, R * math.sin(ang(u)), 0])
+for i in range(N2):
+    outer[i] = np.copy(l1(i / (N2 - 1)))
+
+crv.append(GlobalInterpolatedCrv(outer, method='chord'))
+
+'''C3, C4, C5, C6, C7, C8, C9, C10'''
+p = np.array([[La, yhu, 0],
+              [La, ydu, 0],
+              [La, R, 0],
+              [La, -R, 0],
+              [La + Lt, yhu, 0],
+              [La + Lt, ydu, 0],
+              [La + Lt, R, 0],
+              [La + Lt, -R, 0]])
+
+crv.append(Line(p[0], p[2]))
+crv.append(Line(p[1], p[3]))
+crv.append(Line(p[4], p[6]))
+crv.append(Line(p[5], p[7]))
+crv.append(Line(p[4], p[0]))
+crv.append(Line(p[6], p[2]))
+crv.append(Line(p[5], p[1]))
+crv.append(Line(p[7], p[3]))
+crv.append(Line(p[1], p[0]))
+crv.append(Line(p[5], p[4]))
+
+c = []
+for i in range(len(crv)):
+    c.append(lambda _u: crv[i](_u)[0:2])

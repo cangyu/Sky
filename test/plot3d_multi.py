@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
-from src.nurbs.curve import Spline
+from src.nurbs.spline import Spline
 from src.msh.elliptical import Laplace_2D
 from src.msh.plot3d import Plot3D_SingleBlock, Plot3D_MultiBlock
 
@@ -18,16 +18,14 @@ def airfoil(foil, L, R):
 
     '''Read airfoil data'''
     af = Airfoil(foil)
-    pts = af.get_pts()
-
-    '''Extend'''
-    for p in pts:
-        p *= L
+    for i in range(len(af.pts)):
+        af.pts[i] *= L
 
     '''Parametric representation of airfoil'''
-    crv = Spline(pts)
-    cx = crv.x_rep()
-    cy = crv.y_rep()
+    crv = Spline()
+    crv.interpolate(af.pts)
+    cx = crv.x
+    cy = crv.y
     c1 = lambda u: np.array([cx(u), cy(u)])
 
     '''Vertical boundary'''
@@ -35,9 +33,9 @@ def airfoil(foil, L, R):
     calc_len = lambda dir: math.pow(math.pow(dir[0], 2) + math.pow(dir[1], 2), 0.5)
     inner_product = lambda d1, d2: d1[0] * d2[0] + d1[1] * d2[1]
 
-    dir1 = calc_dir(pts[1], pts[0])
+    dir1 = calc_dir(af.pts[1], af.pts[0])
     len1 = calc_len(dir1)
-    dir2 = calc_dir(pts[-2], pts[-1])
+    dir2 = calc_dir(af.pts[-2], af.pts[-1])
     len2 = calc_len(dir2)
 
     rotate = lambda dir, theta: (dir[0] * math.cos(math.radians(theta)) - dir[1] * math.sin(math.radians(theta)),
@@ -47,19 +45,19 @@ def airfoil(foil, L, R):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([pts[0][0] + v * R * dir3[0],
-                             pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0],
+                             af.pts[0][1] + v * R * dir3[1]])
     r = calc_len(c2(1.0))
 
-    dir5 = (pts[-1][0], pts[-1][1])
+    dir5 = (af.pts[-1][0], af.pts[-1][1])
     l4 = calc_len(dir5)
     theta = math.pi - math.acos(inner_product(dir4, dir5) / l4)
     alpha = math.asin(l4 / r * math.sin(theta))
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([pts[-1][0] + v * b * dir4[0],
-                             pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0],
+                             af.pts[-1][1] + v * b * dir4[1]])
 
     '''Farfiled boundary'''
     sp = c2(1.0)
@@ -73,8 +71,8 @@ def airfoil(foil, L, R):
                              r * math.sin((1 - u) * sa + u * ea)])
 
     '''Tail'''
-    c5 = lambda u: np.array([(1 - u) * pts[-1][0] + u * pts[0][0],
-                             (1 - u) * pts[-1][1] + u * pts[0][1]])
+    c5 = lambda u: np.array([(1 - u) * af.pts[-1][0] + u * af.pts[0][0],
+                             (1 - u) * af.pts[-1][1] + u * af.pts[0][1]])
 
     ea2 = ea - math.pi * 2 if ea > 0 else ea
     c6 = lambda u: np.array([r * math.cos((1 - u) * ea2 + u * sa),
@@ -91,8 +89,8 @@ def write_uniform_airfoil(foil, L, R, U1, U2, V, fn="", delta_zeta=1.0, delta_et
 
     grid1 = Laplace_2D(c1, c2, c3, c4, u1_list, v_list, delta_zeta, delta_eta)
     grid2 = Laplace_2D(c2, c5, c4, c6, v_list, u2_list, delta_eta, delta_zeta)
-    grid1.calc_msh()
-    grid2.calc_msh()
+    grid1.calc_grid()
+    grid2.calc_grid()
 
     blk_list = []
     blk_list.append(grid1.plot3d_blk())
