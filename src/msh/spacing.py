@@ -2,6 +2,7 @@ import math
 import numpy as np
 import scipy
 from scipy.optimize import newton
+from src.nurbs.curve import NURBS_Curve
 
 
 def single_exponential(begin, end, N, A):
@@ -47,3 +48,13 @@ def double_exponential(begin, end, N, A1, A2, A3):
         ans[i] += begin
 
     return ans
+
+
+def curvature_dense(crv: NURBS_Curve):
+    N = 1001
+    rho = np.linspace(0, 1.0, N)
+    kappa = np.copy(rho)
+    for i in range(N):
+        kappa[i] = crv.curvature(rho[i])
+
+        # TODO
