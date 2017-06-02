@@ -1,9 +1,12 @@
 import numpy as np
 import math
+from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline
+from scipy.integrate import romberg
 from src.nurbs.utility import to_cartesian, to_homogeneous, pnt_dist, equal, all_basis_val
 from src.iges.iges_entity126 import IGES_Entity126
+from src.iges.iges_entity110 import IGES_Entity110
 
 
 class NURBS_Curve(object):
@@ -44,6 +47,9 @@ class NURBS_Curve(object):
 
         pw = self.spl(u, d)
         return to_cartesian(pw)
+
+    def length(self):
+        return romberg(lambda u: norm(self.__call__(u, 1)), 0.0, 1.0)
 
     def curvature(self, u):
         p1 = self.__call__(u, 1)
@@ -193,3 +199,22 @@ def calc_ctrl_pts(U, p, pts, param):
             ctrl_pts[i][j] = P[j][i]
 
     return ctrl_pts
+
+
+class Line(NURBS_Curve):
+    def __init__(self, a, b):
+        """
+        两点间直线段
+        :param s: 起始点坐标
+        :param t: 终点坐标
+        """
+
+        self.begin = np.copy(a)
+        self.end = np.copy(b)
+        U = np.array([0, 0, 1, 1])
+        Pw = np.array([[a[0], a[1], a[2], 1], [b[0], b[1], b[2], 1]])
+
+        super(Line, self).__init__(U, Pw)
+
+    def to_iges(self):
+        return IGES_Entity110(self.begin, self.end)

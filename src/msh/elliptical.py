@@ -174,7 +174,7 @@ class CurvilinearGrid2D(object):
 
 
 class Laplace_2D(CurvilinearGrid2D):
-    def __init__(self, c1, c2, c3, c4, pu, pv, zeta=1.0, eta=1.0):
+    def __init__(self, c1, c2, c3, c4, pu0, pu1, pv0, pv1, zeta=1.0, eta=1.0):
         """
         生成二维Laplace网格
         :param c1: 沿u方向的曲线，靠近u轴
@@ -191,8 +191,8 @@ class Laplace_2D(CurvilinearGrid2D):
 
         self.zeta = zeta
         self.eta = eta
-        self.M = len(pu) - 1
-        self.N = len(pv) - 1
+        self.M = len(pu0) - 1
+        self.N = len(pv0) - 1
         self.unknown_num = (self.N - 1) * (self.M - 1)
         self.r = np.zeros((self.N + 1, self.M + 1, 2))
         self.alpha = np.zeros((self.N + 1, self.M + 1))
@@ -200,7 +200,7 @@ class Laplace_2D(CurvilinearGrid2D):
         self.gamma = np.zeros((self.N + 1, self.M + 1))
 
         '''Initialize'''
-        init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu, pv)
+        init_msh = Linear_TFI_2D(c1, c2, c3, c4).calc_msh(pu0, pu1, pv0, pv1)
         for i in range(0, self.N + 1):
             for j in range(0, self.M + 1):
                 self.r[i][j] = init_msh[j][i]
@@ -226,12 +226,12 @@ class Laplace_2D(CurvilinearGrid2D):
         A, b = self.calc_coefficient_matrix()
 
         '''solve'''
-        # u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
-        # u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+        u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+        u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
 
-        ml = pyamg.ruge_stuben_solver(A)
-        u[0] = ml.solve(b[0], tol=1e-10)
-        u[1] = ml.solve(b[1], tol=1e-10)
+        # ml = pyamg.ruge_stuben_solver(A)
+        # u[0] = ml.solve(b[0], tol=1e-10)
+        # u[1] = ml.solve(b[1], tol=1e-10)
 
         return u
 

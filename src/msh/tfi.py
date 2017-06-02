@@ -34,12 +34,23 @@ class Linear_TFI_2D(object):
     def __call__(self, u, v):
         return self.U(u, v) + self.V(u, v) - self.UV(u, v)
 
-    def calc_msh(self, pu, pv):
-        self.grid = np.zeros((len(pu), len(pv), 2))
+    def calc_msh(self, pu0, pu1, pv0, pv1):
+        if len(pu0) != len(pu1):
+            raise ValueError("Invalid U direction parameters!")
+        if len(pv0) != len(pv1):
+            raise ValueError("Invalid V direction parameters!")
 
-        for i in range(0, len(pu)):
-            for j in range(0, len(pv)):
-                self.grid[i][j] = self.__call__(pu[i], pv[j])
+        d1 = len(pu0)
+        d2 = len(pv0)
+        self.grid = np.zeros((d1, d2, 2))
+
+        for i in range(d1):
+            pi = i / (d1 - 1)
+            ppi = (1 - pi) * pu0[i] + pi * pu1[i]
+            for j in range(d2):
+                pj = j / (d2 - 1)
+                ppj = (1 - pj) * pv0[j] + pj * pv1[j]
+                self.grid[i][j] = self.__call__(ppi, ppj)
 
         return self.grid
 

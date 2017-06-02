@@ -84,5 +84,5 @@ class Laplace2D_WritePlot3D_Test(unittest.TestCase):
     """
 
     def test_airfoil(self):
-        U, V = 60, 25
-        write_airfoil_msh("NACA0012", 10, 50, U, V)
+        write_airfoil_msh('NACA0012', 10, 50, 60, 25)
+        write_airfoil_msh('M6', 10, 50, 60, 25)
