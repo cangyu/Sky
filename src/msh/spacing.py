@@ -24,14 +24,12 @@ def double_exponential(begin, end, N, A1, A2, A3):
     if p <= 0:
         raise ValueError("Invalid parameters!")
 
-    def f(x):
-        return scipy.exp(x) - 1.0 - p * x
-
-    def pf(x):
-        return scipy.exp(x) - p
-
     p1z = math.log(p)
-    A4 = newton(f, 10 * p1z, pf, maxiter=500)
+    A4 = newton(func=lambda x: scipy.exp(x) - 1.0 - p * x,
+                x0=5 * p1z,
+                fprime=lambda x: scipy.exp(x) - p,
+                maxiter=20,
+                fprime2=lambda x: scipy.exp(x))
 
     def r(x):
         if x <= A3:
