@@ -2,7 +2,6 @@ import numpy as np
 import math
 from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
-from src.iges.iges_core import IGES_Model
 from src.msh.spacing import single_exponential, double_exponential
 from src.msh.elliptical import Laplace_2D, Possion_2D
 from src.msh.tfi import Linear_TFI_2D
@@ -175,3 +174,4 @@ crv.append(Line(p[5], p[4]))
 c = []
 for i in range(len(crv)):
     c.append(lambda _u: crv[i](_u)[0:2])
+
