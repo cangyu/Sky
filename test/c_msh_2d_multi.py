@@ -7,13 +7,13 @@ from src.msh.elliptical import Laplace_2D, Possion_2D
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.plot3d import Plot3D_MultiBlock
 
-airfoil = 'NACA0012'
+airfoil = 'M6'
 Thickness = 1.0
 La = 10
 Lt = 20 * La
 Lf = 15 * La
 R = 10 * La
-N = np.array([81, 26, 41, 3])
+N = np.array([81, 46, 91, 2])
 
 ending = np.array([[0, 0, 0], [La, 0, 0]])
 inner = WingProfile(airfoil, ending, Thickness, 5)
@@ -122,9 +122,17 @@ grid = Laplace_2D(c0, c2, c1, c3, pu[0], pu[1], 1.0, 1.0)
 grid.calc_grid()
 blk_list.append(grid.plot3d_blk())
 
-msh = Plot3D_MultiBlock(blk_list)
-msh.output('test.xyz')
+grid = Linear_TFI_2D(c8, c11, c6, c10)
+grid.calc_msh(pu[2], pu[3])
+blk_list.append(grid.plot3d_blk())
 
-grid = Linear_TFI_2D(c0, c2, c1, c3)
-grid.calc_msh(pu[0], pu[1])
-grid.write_plot3d('tfi_grid.xyz')
+grid = Linear_TFI_2D(c7, c4, c7, c2)
+grid.calc_msh(pu[2], pu[1])
+blk_list.append(grid.plot3d_blk())
+
+grid = Linear_TFI_2D(c8, c5, c9, c3)
+grid.calc_msh(pu[2], pu[1])
+blk_list.append(grid.plot3d_blk())
+
+msh = Plot3D_MultiBlock(blk_list)
+msh.output('{}_C_grid.xyz'.format(airfoil))

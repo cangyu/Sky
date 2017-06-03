@@ -1,5 +1,5 @@
 import numpy as np
-from src.msh.plot3d import Plot3D
+from src.msh.plot3d import Plot3D, Plot3D_SingleBlock
 
 
 class Linear_TFI_2D(object):
@@ -35,7 +35,6 @@ class Linear_TFI_2D(object):
         return self.U(u, v) + self.V(u, v) - self.UV(u, v)
 
     def calc_msh(self, pu, pv):
-
         d1 = len(pu)
         d2 = len(pv)
         self.grid = np.zeros((d1, d2, 2))
@@ -61,6 +60,18 @@ class Linear_TFI_2D(object):
 
         p3d = Plot3D(I, J, K, pts)
         p3d.output(fn)
+
+    def plot3d_blk(self):
+        K, J, I = 1, self.grid.shape[1], self.grid.shape[0]
+        pts = np.zeros((K, J, I, 3))
+
+        for k in range(0, K):
+            for j in range(0, J):
+                for i in range(0, I):
+                    pts[k][j][i][0] = self.grid[i][j][0]
+                    pts[k][j][i][1] = self.grid[i][j][1]
+
+        return Plot3D_SingleBlock(I, J, K, pts)
 
 
 class Linear_TFI_3D(object):
