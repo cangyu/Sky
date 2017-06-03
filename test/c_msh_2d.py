@@ -166,10 +166,10 @@ if possion:
 
 if build_model:
     model = IGES_Model('frame.igs')
-    model.add_entity(af.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
-    model.add_entity(hu.to_iges())
-    model.add_entity(du.to_iges())
+    model.add_entity(af.nurbs_rep.to_iges)
+    model.add_entity(hu.to_iges)
+    model.add_entity(du.to_iges)
     model.add_entity(outer_crv.to_iges(1, 0, [0, 0, 1]))
-    model.add_entity(tul.to_iges())
-    model.add_entity(tdl.to_iges())
+    model.add_entity(tul.to_iges)
+    model.add_entity(tdl.to_iges)
     model.write()
