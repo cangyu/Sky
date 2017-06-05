@@ -35,7 +35,8 @@ class PLOT3D_Block(object):
     def __init__(self, pts):
         """
         单块结构网格
-        :param pts: 所有网格点坐标，下标从左到右依次循环X, Y, Z
+        :param pts: 所有网格点坐标，下标从左到右依次循环I, J, K, 
+                    每个元素包含(X, Y, Z, IBLANK)
         """
 
         '''X方向节点数量，Y方向节点数量，Z方向节点数量，网格点信息维度'''
@@ -76,3 +77,43 @@ class PLOT3D_Block(object):
         """
 
         self.data[i][j][k][-1] = t
+
+    @classmethod
+    def build_from_2d(cls, pts):
+        """
+        从二维网格点数组构建PLOT3D块
+        :param pts: 二维网格点数组, 下标从左到右依次循环I, J,
+                    每个元素包含(X, Y, Z) / (X, Y)
+        :return: PLOT3D_Block
+        """
+
+        I, J, Dim = pts.shape
+        p3d = np.zeros((I, J, 1, 4))
+        for k in range(1):
+            for j in range(J):
+                for i in range(I):
+                    for d in range(Dim):
+                        p3d[i][j][k][d] = pts[i][j][d]
+                    p3d[i][j][k][-1] = 1  # 默认均设为正常点
+
+        return PLOT3D_Block(p3d)
+
+    @classmethod
+    def build_from_3d(cls, pts):
+        """
+        从三维网格点数组构建PLOT3D块
+        :param pts: 三维网格点数组, 下标从左到右依次循环I, J, K
+                    每个元素包含(X, Y, Z)
+        :return: PLOT3D_Block
+        """
+
+        I, J, K, Dim = pts.shape
+        p3d = np.zeros((I, J, K, 4))
+        for k in range(K):
+            for j in range(J):
+                for i in range(I):
+                    for d in range(Dim):
+                        p3d[i][j][k][d] = pts[i][j][d]
+                    p3d[i][j][k][-1] = 1  # 默认均设为正常点
+
+        return PLOT3D_Block(p3d)
