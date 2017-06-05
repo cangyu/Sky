@@ -5,25 +5,64 @@ import pyamg
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
 from src.msh.tfi import Linear_TFI_2D
-from src.msh.plot3d import Plot3D, Plot3D_SingleBlock
 from abc import ABCMeta, abstractmethod
 
-
-def square_diff(a: float, b: float):
-    return math.pow(a - b, 2)
+"""
+统一约定：
+1. (i,j,k)对应(x,y,z),(u,v.w),(xi, eta, mu),(x1,x2,x3), (I,J,K)...
+2. 不用(N,M),避免行列混淆
+3. 计算域上网格步长均为1
+"""
 
 
 class CurvilinearGrid2D(object):
     def __init__(self):
         self.r = None
-        self.zeta = 1.0
-        self.eta = 1.0
-        self.N = int(0)
-        self.M = int(0)
-        self.unknown_num = int(0)
+        self.I = int(0)  # 网格点在第1维度的最大下标
+        self.J = int(0)  # 网格点在第2维度的最大下标
         self.alpha = None
         self.beta = None
         self.gamma = None
+
+    def pder(self, i, j, comp, dir1, dir2=None):
+        """
+        中心差分偏导数
+        :param i: 网格点在第1维度的下标
+        :param j: 网格点在第2维度的下标
+        :param comp: 分量
+        :param dir1: 偏导数方向
+        :param dir2: 偏导数方向
+        :return: 在(i,j)处的偏导数
+        """
+
+        if comp not in ('x', 'y'):
+            raise AssertionError("Invalid component!")
+        if dir1 not in ('xi', 'eta'):
+            raise AssertionError("Invalid first direction!")
+        if (dir2 is not None) and (dir2 not in ('xi', 'eta')):
+            raise AssertionError("Invalid second direction!")
+
+        comp = ord(comp) - ord('x')
+
+        if dir2 is None:
+            if dir1 == 'xi':
+                return (self.r[i + 1][j][comp] - self.r[i - 1][j][comp]) / 2
+            else:
+                return (self.r[i][j + 1][comp] - self.r[i][j - 1][comp]) / 2
+        else:
+            if dir1 == dir2:
+                return self.r[i + 1][j][comp] - 2 * self.[i][j][comp] + self.r[i - 1][j][comp]
+            else:
+                return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] - self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / 4
+
+    def is_special(self, i, j):
+        """
+        判断网格点是否在最外围上
+        :param i: 网格点在第1维度的下标
+        :param j: 网格点在第2维度的下标
+        """
+
+        return True if i in (0, self.I) or j in (0, self.J) else False
 
     @abstractmethod
     def get_coefficient_list(self, i, j):
@@ -35,49 +74,22 @@ class CurvilinearGrid2D(object):
         (i,j)周围的9个点的坐标
         """
 
-        return np.array([(i, j), (i, j + 1), (i + 1, j), (i, j - 1), (i - 1, j), (i + 1, j + 1), (i + 1, j - 1), (i - 1, j - 1), (i - 1, j + 1)])
+        return np.array([(i, j),
+                         (i + 1, j),
+                         (i, j + 1),
+                         (i - 1, j),
+                         (i, j - 1),
+                         (i + 1, j + 1),
+                         (i - 1, j + 1),
+                         (i - 1, j - 1),
+                         (i + 1, j - 1)])
 
     def get_index_list(self, k):
         """
         第k个点周围9个点的序号 
         """
 
-        return np.array([k, k + 1, k + self.M - 1, k - 1, k - self.M + 1, k + self.M, k + self.M - 2, k - self.M, k - self.M + 2])
-
-    def is_special(self, row, col):
-        return True if row in (0, self.N) or col in (0, self.M) else False
-
-    def pxz(self, i, j):
-        return (self.r[i][j + 1][0] - self.r[i][j - 1][0]) / (2 * self.zeta)
-
-    def pxe(self, i, j):
-        return (self.r[i + 1][j][0] - self.r[i - 1][j][0]) / (2 * self.eta)
-
-    def pyz(self, i, j):
-        return (self.r[i][j + 1][1] - self.r[i][j - 1][1]) / (2 * self.zeta)
-
-    def pye(self, i, j):
-        return (self.r[i + 1][j][1] - self.r[i - 1][j][1]) / (2 * self.eta)
-
-    def pxzz(self, i, j):
-        return (self.r[i][j + 1][0] - 2 * self.r[i][j][0] + self.r[i][j - 1][0]) / self.zeta ** 2
-
-    def pxee(self, i, j):
-        return (self.r[i + 1][j][0] - 2 * self.r[i][j][0] + self.r[i - 1][j][0]) / self.eta ** 2
-
-    def pxze(self, i, j):
-        return (self.r[i + 1][j + 1][0] - self.r[i + 1][j - 1][0] -
-                self.r[i - 1][j + 1][0] + self.r[i - 1][j - 1][0]) / (4 * self.zeta * self.eta)
-
-    def pyzz(self, i, j):
-        return (self.r[i][j + 1][1] - 2 * self.r[i][j][1] + self.r[i][j - 1][1]) / self.zeta ** 2
-
-    def pyee(self, i, j):
-        return (self.r[i + 1][j][1] - 2 * self.r[i][j][1] + self.r[i - 1][j][1]) / self.eta ** 2
-
-    def pyze(self, i, j):
-        return (self.r[i + 1][j + 1][1] - self.r[i + 1][j - 1][1] -
-                self.r[i - 1][j + 1][1] + self.r[i - 1][j - 1][1]) / (4 * self.zeta * self.eta)
+        return np.array([k, k + 1, k + self.J - 1, k - 1, k - self.J + 1, k + self.J, k + self.J - 2, k - self.J, k - self.J + 2])
 
     def calc_all_alpha_beta_gamma(self):
         for i in range(1, self.N):
@@ -117,60 +129,64 @@ class CurvilinearGrid2D(object):
         AA = A.tocsr()
         return AA, b
 
-    def calc_grid(self, eps=1e-10):
-        """
-        Solve the grid iteratively
-        :param eps: 残差
-        :param debug: 调试选项
-        :param method: 每步计算方法
-        :return: None
-        """
 
-        residual = sys.float_info.max
-        k = 0
-        while residual > eps:
-            cu = self.iterate()
-            cnt = 0
-            k += 1
-            residual = 0.0
-            for i in range(1, self.N):
-                for j in range(1, self.M):
-                    residual += square_diff(cu[0][cnt], self.r[i][j][0])
-                    residual += square_diff(cu[1][cnt], self.r[i][j][1])
-                    self.r[i][j][0] = cu[0][cnt]
-                    self.r[i][j][1] = cu[1][cnt]
-                    cnt += 1
+def calc_grid(self, eps=1e-10):
+    """
+    Solve the grid iteratively
+    :param eps: 残差
+    :param debug: 调试选项
+    :param method: 每步计算方法
+    :return: None
+    """
 
-            print("{}:{}".format(k, residual))
+    residual = sys.float_info.max
+    k = 0
+    while residual > eps:
+        cu = self.iterate()
+        cnt = 0
+        k += 1
+        residual = 0.0
+        for i in range(1, self.N):
+            for j in range(1, self.M):
+                residual += square_diff(cu[0][cnt], self.r[i][j][0])
+                residual += square_diff(cu[1][cnt], self.r[i][j][1])
+                self.r[i][j][0] = cu[0][cnt]
+                self.r[i][j][1] = cu[1][cnt]
+                cnt += 1
 
-    @abstractmethod
-    def iterate(self):
-        pass
+        print("{}:{}".format(k, residual))
 
-    def write_plot3d(self, filename="msh.xyz"):
-        K, J, I = 1, self.N + 1, self.M + 1
-        pts = np.zeros((K, J, I, 3))
 
-        for k in range(0, K):
-            for j in range(0, J):
-                for i in range(0, I):
-                    pts[k][j][i][0] = self.r[j][i][0]
-                    pts[k][j][i][1] = self.r[j][i][1]
+@abstractmethod
+def iterate(self):
+    pass
 
-        p3d = Plot3D(I, J, K, pts)
-        p3d.output(filename)
 
-    def plot3d_blk(self):
-        K, J, I = 1, self.N + 1, self.M + 1
-        pts = np.zeros((K, J, I, 3))
+def write_plot3d(self, filename="msh.xyz"):
+    K, J, I = 1, self.N + 1, self.M + 1
+    pts = np.zeros((K, J, I, 3))
 
-        for k in range(0, K):
-            for j in range(0, J):
-                for i in range(0, I):
-                    pts[k][j][i][0] = self.r[j][i][0]
-                    pts[k][j][i][1] = self.r[j][i][1]
+    for k in range(0, K):
+        for j in range(0, J):
+            for i in range(0, I):
+                pts[k][j][i][0] = self.r[j][i][0]
+                pts[k][j][i][1] = self.r[j][i][1]
 
-        return Plot3D_SingleBlock(I, J, K, pts)
+    p3d = Plot3D(I, J, K, pts)
+    p3d.output(filename)
+
+
+def plot3d_blk(self):
+    K, J, I = 1, self.N + 1, self.M + 1
+    pts = np.zeros((K, J, I, 3))
+
+    for k in range(0, K):
+        for j in range(0, J):
+            for i in range(0, I):
+                pts[k][j][i][0] = self.r[j][i][0]
+                pts[k][j][i][1] = self.r[j][i][1]
+
+    return Plot3D_SingleBlock(I, J, K, pts)
 
 
 class Laplace_2D(CurvilinearGrid2D):
