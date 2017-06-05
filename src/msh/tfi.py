@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Linear_TFI_2D(object):
-    def __init__(self, c1: callable(float), c2: callable(float), c3: callable(float), c4: callable(float)):
+    def __init__(self, c1, c2, c3, c4):
         """
         2维无限插值(Linear)
         :param c1: 平行于x轴方向的第1条曲线，调用得到3维坐标点
@@ -42,8 +42,10 @@ class Linear_TFI_2D(object):
         :return: 所有网格点的坐标
         """
 
+        if len(pu.shape) != 2:
+            raise AssertionError("Invalid dimension!")
         if pu.shape != pv.shape:
-            raise TypeError("U V shape don't match!")
+            raise AssertionError("U V shape don't match!")
 
         d1, d2 = pu.shape
         self.grid = np.empty((d1, d2, 3), float)
@@ -121,8 +123,23 @@ class Linear_TFI_3D(object):
         return self.U(u, v, w) + self.V(u, v, w) + self.W(u, v, w) - (self.UV(u, v, w) + self.VW(u, v, w) + self.WU(u, v, w)) + self.UVW(u, v, w)
 
     def calc_grid(self, pu, pv, pw):
-        d1, d2, d3 = len(pu), len(pv), len(pw)
-        self.grid = np.zeros((d1, d2, d3, 3))
+        """
+        根据网格点的参数分布计算对应的坐标
+        :param pu: 所有网格点的U方向参数值，3维，IxJxK 个网格点
+        :param pv: 所有网格点的V方向参数值，3维，IxJxK 个网格点
+        :param pw: 所有网格点的W方向参数值，3维，IxJxK 个网格点
+        :return: 所有网格点的坐标
+        """
+
+        if len(pu.shape) != 3:
+            raise AssertionError("Invalid dimension!")
+        if pu.shape != pv.shape:
+            raise AssertionError("U V shape don't match!")
+        if pv.shape != pw.shape:
+            raise AssertionError("V W shape don't match!")
+
+        d1, d2, d3 = pu.shape
+        self.grid = np.empty((d1, d2, d3, 3))
 
         for i in range(d1):
             for j in range(d2):
