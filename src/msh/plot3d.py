@@ -1,137 +1,78 @@
 import numpy as np
-from copy import deepcopy
 
 
-class Plot3D(object):
-    def __init__(self, I, J, K, pts):
-        """
-        单块结构网格
-        :param I: X方向节点数量:[0, I)
-        :param J: Y方向节点数量:[0, J)
-        :param K: Z方向节点数量:[0, K)
-        :param pts: 网格点坐标，下标从左到右依次循环Z，Y，X
-        """
-        self.I, self.J, self.K = I, J, K
-        self.X = np.zeros((K, J, I), float)
-        self.Y = np.zeros((K, J, I), float)
-        self.Z = np.zeros((K, J, I), float)
-        self.IBLANK = np.zeros(I * J * K, int)
-
-        for k in range(0, K):
-            for j in range(0, J):
-                for i in range(0, I):
-                    self.X[k][j][i] = pts[k][j][i][0]
-                    self.Y[k][j][i] = pts[k][j][i][1]
-                    self.Z[k][j][i] = pts[k][j][i][2]
-
-        self.calc_iblank()
-
-    def calc_iblank(self):
-        cnt = -1
-        for k in range(0, self.K):
-            for j in range(0, self.J):
-                for i in range(0, self.I):
-                    cnt += 1
-                    if self.K == 1:
-                        if i == 0 or i == self.I - 1 or j == 0 or j == self.J - 1:
-                            self.IBLANK[cnt] = 2
-                        else:
-                            self.IBLANK[cnt] = 1
-                    else:
-                        if i == self.I - 1 or j == self.J - 1 or k == self.K - 1 or i == 0 or j == 0 or k == 0:
-                            self.IBLANK[cnt] = 2
-                        else:
-                            self.IBLANK[cnt] = 1
-
-    def write_cord(self, cord, fout):
-        for k in range(0, self.K):
-            for j in range(0, self.J):
-                for i in range(0, self.I):
-                    if i == 0:
-                        fout.write("\n{}".format(cord[k][j][i]))
-                    else:
-                        fout.write(" {}".format(cord[k][j][i]))
-
-    def write_iblank(self, fout):
-        ci = -1
-        for k in range(0, self.K):
-            for j in range(0, self.J):
-                for i in range(0, self.I):
-                    ci += 1
-                    if i == 0:
-                        fout.write("\n{}".format(self.IBLANK[ci]))
-                    else:
-                        fout.write(" {}".format(self.IBLANK[ci]))
-
-    def output(self, filename):
-        fout = open(filename, 'w')
-
-        # BLOCK_NUM
-        # I, J, K
-        fout.write("{}\n{} {} {}".format(1, self.I, self.J, self.K))
-
-        # X,Y,Z Coordinates
-        self.write_cord(self.X, fout)
-        self.write_cord(self.Y, fout)
-        self.write_cord(self.Z, fout)
-
-        # IBLANK
-        self.write_iblank(fout)
-
-        fout.write("\n")
-        fout.close()
-
-
-class Plot3D_SingleBlock(object):
-    def __init__(self, I: int, J: int, K: int, pts):
-        """
-        单块结构网格，无IBLANK
-        :param I: X方向节点数量:[0, I)
-        :param J: Y方向节点数量:[0, J)
-        :param K: Z方向节点数量:[0, K)
-        :param pts: 网格点坐标，下标从左到右依次循环Z，Y，X
-        """
-        self.I, self.J, self.K = I, J, K
-        self.X = np.zeros((K, J, I))
-        self.Y = np.zeros((K, J, I))
-        self.Z = np.zeros((K, J, I))
-
-        for k in range(0, K):
-            for j in range(0, J):
-                for i in range(0, I):
-                    self.X[k][j][i] = pts[k][j][i][0]
-                    self.Y[k][j][i] = pts[k][j][i][1]
-                    self.Z[k][j][i] = pts[k][j][i][2]
-
-    def write_cord(self, cord, fout):
-        for k in range(0, self.K):
-            for j in range(0, self.J):
-                for i in range(0, self.I):
-                    if i == 0:
-                        fout.write("\n{}".format(cord[k][j][i]))
-                    else:
-                        fout.write(" {}".format(cord[k][j][i]))
-
-    def write_all_coordinate(self, fout):
-        self.write_cord(self.X, fout)
-        self.write_cord(self.Y, fout)
-        self.write_cord(self.Z, fout)
-
-
-class Plot3D_MultiBlock(object):
-    def __init__(self, blk):
+class PLOT3D(object):
+    def __init__(self):
         """
         多块结构网格
         :param blk: 块列表 
         """
 
-        self.blk = deepcopy(blk)
+        self.blk_num = 0
+        self.blk_list = []
 
-    def output(self, fn):
+    def add_block(self, blk):
+        self.blk_list.append(blk)
+        self.blk_num += 1
+
+    def write(self, fn):
+        """
+        输出多块网格到文件
+        :param fn: 输出文件名
+        :return: None
+        """
+
         fout = open(fn, 'w')
-        fout.write("{}".format(len(self.blk)))
-        for blk in self.blk:
+        fout.write("{}".format(self.blk_num))
+        for blk in self.blk_list:
             fout.write("\n{} {} {}".format(blk.I, blk.J, blk.K))
-        for blk in self.blk:
-            blk.write_all_coordinate(fout)
+        for blk in self.blk_list:
+            blk.write(fout)
         fout.close()
+
+
+class PLOT3D_Block(object):
+    def __init__(self, pts):
+        """
+        单块结构网格
+        :param pts: 所有网格点坐标，下标从左到右依次循环X, Y, Z
+        """
+
+        '''X方向节点数量，Y方向节点数量，Z方向节点数量，网格点信息维度'''
+        self.I, self.J, self.K, self.Dim = pts.shape
+        self.data = np.empty((self.I, self.J, self.K, self.Dim), float, order='F')
+
+        for d in range(self.Dim):
+            for k in range(self.K):
+                for j in range(self.J):
+                    for i in range(self.I):
+                        self.data[i][j][k][d] = pts[i][j][k][d]
+
+    def write(self, fout):
+        """
+        输出网格到流
+        :param fout:输出流 
+        :return: None
+        """
+
+        for d in range(self.Dim):
+            for k in range(self.K):
+                for j in range(self.J):
+                    for i in range(self.I):
+                        fout.write("{}{}".format(('\n' if i == 0 else ' '), self.data[i][j][k][d]))
+
+    def set_iblank(self, i, j, k, t):
+        """
+        设置网格点的IBLANK信息
+         0 : 计算域之外
+         1 : 正常点
+         2 : 固面边界
+        -n : 与第n块网格相邻
+        :param i: X方向下标
+        :param j: Y方向下标
+        :param k: Z方向下标
+        :param t: IBLANK value
+        :return: None
+        """
+
+        self.data[i][j][k][-1] = t
