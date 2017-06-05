@@ -144,6 +144,6 @@ class Linear_TFI_3D(object):
         for i in range(d1):
             for j in range(d2):
                 for k in range(d3):
-                    self.grid[i][j][k] = self.__call__(pu[i], pv[j], pw[k])
+                    self.grid[i][j][k] = self.__call__(pu[i][j][k], pv[i][j][k], pw[i][j][k])
 
         return self.grid
