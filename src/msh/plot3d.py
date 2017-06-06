@@ -14,7 +14,7 @@ class PLOT3D(object):
         self.blk_list.append(blk)
         self.blk_num += 1
 
-    def write(self, fn, with_iblank=True):
+    def write(self, fn, with_iblank=False):
         """
         输出多块网格到文件
         :param fn: 输出文件名
