@@ -1,9 +1,10 @@
-import unittest
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
-from src.msh.elliptical import Possion_2D
+from src.msh.elliptical import ThomasMiddlecoff2D
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
+from src.msh.tfi import Linear_TFI_2D
 from src.msh.spacing import single_exponential, double_exponential
 
 
@@ -25,7 +26,7 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
 
     '''Parametric representation of airfoil'''
     crv = GlobalInterpolatedCrv(af.pts, 5)
-    c1 = lambda u: crv(u)[0:2]
+    c1 = lambda u: crv(u)
 
     '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
@@ -44,7 +45,7 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1], 0])
     r = calc_len(c2(1.0))
 
     dir5 = (af.pts[-1][0], af.pts[-1][1])
@@ -54,7 +55,7 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1], 0])
 
     '''farfield boundary'''
     sp = c2(1.0)
@@ -64,27 +65,24 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
     if ea < 0:
         ea += math.pi * 2
 
-    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
+    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea), 0])
 
-    u_list = double_exponential(0, 1.0, U + 1, 0.5, -1.2, 0.5)
-    v_list = single_exponential(0, 1.0, V + 1, 1.5)
-
-    grid = Possion_2D(c1, c2, c3, c4, u_list, v_list, 1.0, 1.0)
-    grid.calc_grid(5)
+    # u_list = double_exponential(U + 1, 0.5, -1.2, 0.5)
+    u_list = np.linspace(0.0, 1.0, U + 1)
+    v_list = single_exponential(V + 1, 1.5)
+    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
 
     if fn == '':
-        fn = foil + "_{}_{}_{}_{}_{}_{}_Possion.xyz".format(L, R, U, V, 1.0, 1.0)
+        fn = foil + "_{}_{}_{}_{}_{}_{}_TM.xyz".format(L, R, U, V, 1.0, 1.0)
 
-    grid.write_plot3d(fn)
+    tfi_grid = Linear_TFI_2D(c1, c2, c3, c4)
+    tfi_grid.calc_grid(ppu, ppv)
+    tm_grid = ThomasMiddlecoff2D(tfi_grid.get_grid())
+    tm_grid.calc_grid(step=2000, w=0.8)
+    msh = PLOT3D()
+    msh.add_block(PLOT3D_Block.build_from_2d(tm_grid.get_grid()))
+    msh.write(fn)
 
-
-'''
-class TM2D_Test(unittest.TestCase):
-    @classmethod
-    def test_airfoil(cls):
-        U, V = 60, 25
-        write_airfoil_o_msh("NACA0012", 10, 50, U, V)
-'''
 
 if __name__ == '__main__':
     U, V = 60, 25

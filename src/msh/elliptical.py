@@ -108,8 +108,8 @@ class CurvilinearGrid2D(object):
 
         return ans
 
-    def p3d_blk(self):
-        return PLOT3D_Block.build_from_3d(self.r)
+    def get_grid(self):
+        return self.r
 
 
 class Laplace2D(CurvilinearGrid2D):
@@ -121,32 +121,33 @@ class Laplace2D(CurvilinearGrid2D):
 
         super(Laplace2D, self).__init__(grid)
 
-    def calc_grid(self, eps=1e-10, w=1.0):
+    def calc_grid(self, eps=1e-4, w=1.0):
         """
         迭代计算内部网格点
         :param eps: 残差限
         :param w: 松弛因子
-        :return: 光顺后的新网格
+        :return: None
         """
 
+        iteration_cnt = 0
         residual = sys.float_info.max
         while residual > eps:
             self.calc_alpha_beta_gamma()
-            new_grid = np.zeros_like(self.r)
+            new_grid = np.copy(self.r)
 
             for i in range(1, self.I):
                 for j in range(1, self.J):
                     t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
                     t1 = self.alpha[i][j] / (self.delta_xi ** 2) * (self.r[i + 1][j] + self.r[i - 1][j])
-                    t2 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
+                    t2 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta'), 0])
                     t3 = self.gamma[i][j] / (self.delta_eta ** 2) * (self.r[i][j + 1] + self.r[i][j - 1])
                     t = (t1 - t2 + t3) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
+            iteration_cnt += 1
             residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
+            print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
-
-        return self.r
 
 
 class ThomasMiddlecoff2D(CurvilinearGrid2D):
@@ -186,33 +187,34 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
             for i in range(1, self.I):
                 self.psi[i][j] = dist[i]
 
-    def calc_grid(self, eps=1e-10, w=1.0):
+    def calc_grid(self, step, eps=1e-4, w=1.0):
         """
         迭代计算内部网格点
         :return: 内部网格点坐标
         :param eps: 残差限
         :param w: 松弛因子
-        :return: 光顺后的新网格
+        :return: None
         """
 
+        iteration_cnt = 0
         residual = sys.float_info.max
-        while residual > eps:
+        while residual > eps and iteration_cnt < step:
             self.calc_alpha_beta_gamma()
             self.calc_phi_psi()
-            new_grid = np.zeros_like(self.r)
+            new_grid = np.copy(self.r)
 
             for i in range(1, self.I):
                 for j in range(1, self.J):
                     t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
                     t1 = (self.alpha[i][j] / (self.delta_xi ** 2) + self.phi[i][j] / (2 * self.delta_xi)) * self.r[i + 1][j]
                     t2 = (self.alpha[i][j] / (self.delta_xi ** 2) - self.phi[i][j] / (2 * self.delta_xi)) * self.r[i - 1][j]
-                    t3 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
+                    t3 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta'), 0])
                     t4 = (self.gamma[i][j] / (self.delta_eta ** 2) + self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j + 1]
                     t5 = (self.gamma[i][j] / (self.delta_eta ** 2) - self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j - 1]
                     t = (t1 + t2 - t3 + t4 + t5) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
+            iteration_cnt += 1
             residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
+            print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
-
-        return self.r

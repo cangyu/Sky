@@ -3,7 +3,9 @@ import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
-from src.msh.elliptical import Laplace_2D
+from src.msh.elliptical import Laplace2D
+from src.msh.tfi import Linear_TFI_2D
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.spacing import single_exponential, double_exponential
 
 
@@ -25,7 +27,7 @@ def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
 
     '''Parametric representation of airfoil'''
     crv = GlobalInterpolatedCrv(af.pts, 5)
-    c1 = lambda u: crv(u)[0:2]
+    c1 = lambda u: crv(u)
 
     '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
@@ -44,7 +46,7 @@ def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1], 0])
     r = calc_len(c2(1.0))
 
     dir5 = (af.pts[-1][0], af.pts[-1][1])
@@ -54,7 +56,7 @@ def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1], 0])
 
     '''Farfiled boundary'''
     sp = c2(1.0)
@@ -64,25 +66,28 @@ def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
     if ea < 0:
         ea += math.pi * 2
 
-    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
+    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea), 0])
 
-    u_list = double_exponential(0, 1.0, U + 1, 0.5, -1.5, 0.5)
-    v_list = single_exponential(0, 1.0, V + 1, 3)
+    u_list = double_exponential(U + 1, 0.5, -1.5, 0.5)
+    v_list = single_exponential(V + 1, 3)
 
-    grid = Laplace_2D(c1, c2, c3, c4, u_list, v_list, delta_zeta, delta_eta)
-    grid.calc_grid()
+    grid = Linear_TFI_2D(c1, c2, c3, c4)
+    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
+    grid.calc_grid(ppu, ppv)
+    lgrid = Laplace2D(grid.get_grid())
+    lgrid.calc_grid()
 
     if fn == "":
         fn += foil + "_{}_{}_{}_{}_{}_{}_Laplace.xyz".format(L, R, U, V, delta_zeta, delta_eta)
 
-    grid.write_plot3d(fn)
+    msh = PLOT3D()
+    msh.add_block(PLOT3D_Block.build_from_2d(lgrid.get_grid()))
+    msh.write(fn)
 
 
-class Laplace2D_WritePlot3D_Test(unittest.TestCase):
-    """
-    Test grid generation.
-    """
-
-    def test_airfoil(self):
-        write_airfoil_msh('NACA0012', 10, 50, 60, 25)
-        write_airfoil_msh('M6', 10, 50, 60, 25)
+"""
+Test grid generation.
+"""
+if __name__ == '__main__':
+    write_airfoil_msh('NACA0012', 10, 50, 60, 25)
+    write_airfoil_msh('M6', 10, 50, 60, 25)

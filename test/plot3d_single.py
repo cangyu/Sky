@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import math
-from src.msh.plot3d import Plot3D
+from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 
 def rect(X_MIN, X_MAX, Y_MIN, Y_MAX, Z_MIN, Z_MAX, U, V, W, fout=""):
@@ -20,7 +20,7 @@ def rect(X_MIN, X_MAX, Y_MIN, Y_MAX, Z_MIN, Z_MAX, U, V, W, fout=""):
     :return: None
     """
 
-    pts = np.zeros((W + 1, V + 1, U + 1, 3))
+    pts = np.zeros((U + 1, V + 1, W + 1, 3))
 
     u_list = np.linspace(X_MIN, X_MAX, U + 1)
     v_list = np.linspace(Y_MIN, Y_MAX, V + 1)
@@ -33,13 +33,14 @@ def rect(X_MIN, X_MAX, Y_MIN, Y_MAX, Z_MIN, Z_MAX, U, V, W, fout=""):
         fout += "_{}_{}".format(Z_MIN, Z_MAX)
         fout += "_{}_{}_{}.xyz".format(U, V, W)
 
-    for k in range(0, W + 1):
+    for i in range(0, U + 1):
         for j in range(0, V + 1):
-            for i in range(0, U + 1):
-                pts[k][j][i] = np.array([u_list[i], v_list[j], w_list[k]])
+            for k in range(0, W + 1):
+                pts[i][j][k] = np.array([u_list[i], v_list[j], w_list[k]])
 
-    msh = Plot3D(U + 1, V + 1, W + 1, pts)
-    msh.output(fout)
+    msh = PLOT3D()
+    msh.add_block(PLOT3D_Block.build_from_3d(pts))
+    msh.write(fout)
 
 
 def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
@@ -58,7 +59,7 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
     :return: None
     """
 
-    pts = np.zeros((W + 1, V + 1, U + 1, 3))
+    pts = np.zeros((U + 1, V + 1, W + 1, 3))
 
     u_list = np.linspace(R_MIN, R_MAX, U + 1)
     v_list = np.linspace(THETA_MIN, THETA_MAX, V + 1)
@@ -71,19 +72,19 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W, fout=""):
         fout += "_{}_{}".format(H_MIN, H_MAX)
         fout += "_{}_{}_{}.xyz".format(U, V, W)
 
-    for k in range(0, W + 1):
+    for i in range(0, U + 1):
         for j in range(0, V + 1):
-            for i in range(0, U + 1):
+            for k in range(0, W + 1):
                 ct = math.radians(v_list[j])
-                pts[k][j][i] = np.array([u_list[i] * math.cos(ct), u_list[i] * math.sin(ct), w_list[k]])
+                pts[i][j][k] = np.array([u_list[i] * math.cos(ct), u_list[i] * math.sin(ct), w_list[k]])
 
-    msh = Plot3D(U + 1, V + 1, W + 1, pts)
-    msh.output(fout)
+    msh = PLOT3D()
+    msh.add_block(PLOT3D_Block.build_from_3d(pts))
+    msh.write(fout)
 
 
 class Plot3D_Test(unittest.TestCase):
-    def test_rect(self):
+    @staticmethod
+    def test():
         rect(0, 100, 0, 60, 0, 40, 60, 15, 20)
-
-    def test_cylinder(self):
         sect(50, 100, 60, 320, 0, 30, 60, 15, 20)

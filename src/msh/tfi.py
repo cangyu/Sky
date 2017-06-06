@@ -1,7 +1,15 @@
 import numpy as np
 
 
-class Linear_TFI_2D(object):
+class TFI(object):
+    def __init__(self):
+        self.grid = None
+
+    def get_grid(self):
+        return self.grid
+
+
+class Linear_TFI_2D(TFI):
     def __init__(self, c1, c2, c3, c4):
         """
         2维无限插值(Linear)
@@ -11,7 +19,7 @@ class Linear_TFI_2D(object):
         :param c4: 平行于y轴方向的第2条曲线，调用得到3维坐标点
         """
 
-        self.grid = None
+        super(Linear_TFI_2D, self).__init__()
 
         self.c1 = c1
         self.c2 = c2
@@ -39,7 +47,7 @@ class Linear_TFI_2D(object):
         根据网格点的参数分布计算对应的坐标
         :param pu: 所有网格点的U方向参数值，2维，IxJ 个网格点
         :param pv: 所有网格点的V方向参数值，2维，IxJ 个网格点
-        :return: 所有网格点的坐标
+        :return: None
         """
 
         if len(pu.shape) != 2:
@@ -54,10 +62,8 @@ class Linear_TFI_2D(object):
             for j in range(d2):
                 self.grid[i][j] = self.__call__(pu[i][j], pv[i][j])
 
-        return self.grid
 
-
-class Linear_TFI_3D(object):
+class Linear_TFI_3D(TFI):
     def __init__(self, s1, s2, s3, s4, s5, s6):
         """
         3维无限插值(Linear),右手系
@@ -69,7 +75,7 @@ class Linear_TFI_3D(object):
         :param s6: 垂直于z轴的第2个曲面(Top)
         """
 
-        self.grid = None
+        super(Linear_TFI_3D, self).__init__()
 
         self.s1 = s1
         self.s2 = s2
@@ -106,14 +112,7 @@ class Linear_TFI_3D(object):
         self.UV = lambda u, v, w: (1 - u) * (1 - v) * self.c13(w) + (1 - u) * v * self.c14(w) + u * (1 - v) * self.c23(w) + u * v * self.c24(w)
         self.VW = lambda u, v, w: (1 - v) * (1 - w) * self.c35(u) + (1 - v) * w * self.c36(u) + v * (1 - w) * self.c45(u) + v * w * self.c46(u)
         self.WU = lambda u, v, w: (1 - w) * (1 - u) * self.c15(v) + (1 - w) * u * self.c25(v) + w * (1 - u) * self.c16(v) + w * u * self.c26(v)
-        self.UVW = lambda u, v, w: (1 - u) * (1 - v) * (1 - w) * self.p135 + \
-                                   (1 - u) * (1 - v) * w * self.p136 + \
-                                   (1 - u) * v * (1 - w) * self.p145 + \
-                                   (1 - u) * v * w * self.p146 + \
-                                   u * (1 - v) * (1 - w) * self.p235 + \
-                                   u * (1 - v) * w * self.p236 + \
-                                   u * v * (1 - w) * self.p245 + \
-                                   u * v * w * self.p246
+        self.UVW = lambda u, v, w: (1 - u) * (1 - v) * (1 - w) * self.p135 + (1 - u) * (1 - v) * w * self.p136 + (1 - u) * v * (1 - w) * self.p145 + (1 - u) * v * w * self.p146 + u * (1 - v) * (1 - w) * self.p235 + u * (1 - v) * w * self.p236 + u * v * (1 - w) * self.p245 + u * v * w * self.p246
 
     def __call__(self, u, v, w):
         """
@@ -128,7 +127,7 @@ class Linear_TFI_3D(object):
         :param pu: 所有网格点的U方向参数值，3维，IxJxK 个网格点
         :param pv: 所有网格点的V方向参数值，3维，IxJxK 个网格点
         :param pw: 所有网格点的W方向参数值，3维，IxJxK 个网格点
-        :return: 所有网格点的坐标
+        :return: None
         """
 
         if len(pu.shape) != 3:
@@ -145,5 +144,3 @@ class Linear_TFI_3D(object):
             for j in range(d2):
                 for k in range(d3):
                     self.grid[i][j][k] = self.__call__(pu[i][j][k], pv[i][j][k], pw[i][j][k])
-
-        return self.grid

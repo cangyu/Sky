@@ -1,30 +1,42 @@
 import unittest
 import numpy as np
 import matplotlib.pyplot as plt
-from src.msh.spacing import single_exponential, double_exponential
+from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent, hyperbolic_sine
 
 
-def plot_single(begin, end, N, A):
-    rho = np.linspace(begin, end, N)
-    r = single_exponential(begin, end, N, A)
+def plot_single(N, A):
+    r = single_exponential(N, A)
     plt.figure()
-    plt.plot(rho, r)
+    plt.plot(np.linspace(0.0, 1.0, N), r)
     plt.show()
 
 
-def plot_double(begin, end, N, A1, A2, A3):
-    rho = np.linspace(begin, end, N)
-    r = double_exponential(begin, end, N, A1, A2, A3)
+def plot_double(N, A1, A2, A3):
+    r = double_exponential(N, A1, A2, A3)
     plt.figure()
-    plt.plot(rho, r)
+    plt.plot(np.linspace(0.0, 1.0, N), r)
+    plt.show()
+
+
+def plot_hyperbolic_tangent(N, B):
+    r = hyperbolic_tangent(N, B)
+    plt.figure()
+    plt.plot(np.linspace(0.0, 1.0, N), r)
+    plt.show()
+
+
+def plot_hyperbolic_sine(N, C):
+    r = hyperbolic_sine(N, C)
+    plt.figure()
+    plt.plot(np.linspace(0.0, 1.0, N), r)
     plt.show()
 
 
 class SpacingTest(unittest.TestCase):
     @classmethod
-    def test_single(cls):
-        plot_single(0.0, 1.0, 101, 2)
-
-    @classmethod
-    def test_double(cls):
-        plot_double(0.0, 1.0, 401, 0.4, -1.8, 0.46)
+    def test(cls):
+        # plot_single(101, 2)
+        # plot_double(401, 0.5, -1.5, 0.5)  # A2取负值使得中间较密
+        # plot_double(401, 0.5, 1.5, 0.5)  # A2取正值使得中间稀疏，两边密集
+        plot_hyperbolic_tangent(201, 2)
+        # plot_hyperbolic_sine(201, 2.5)

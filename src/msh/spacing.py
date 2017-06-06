@@ -2,6 +2,15 @@ import numpy as np
 from scipy.optimize import newton
 
 
+def linear_expand(seq, begin, end):
+    r = np.copy(seq)
+    delta = end - begin
+    for i in range(len(seq)):
+        r[i] *= delta
+        r[i] += begin
+    return r
+
+
 def single_exponential(N, A):
     """
     单指数分布
@@ -46,7 +55,7 @@ def double_exponential(N, A1, A2, A3):
     A4 = newton(func=lambda x: np.exp(x) - 1.0 - p * x,
                 x0=5 * p1z,
                 fprime=lambda x: np.exp(x) - p,
-                maxiter=20,
+                maxiter=50,
                 fprime2=lambda x: np.exp(x))
 
     ea21 = np.exp(A2) - 1
@@ -95,6 +104,6 @@ def hyperbolic_sine(N, C):
 
     sc = np.sinh(C)
     for i in range(N):
-        r[i] = 1 + np.sinh(C * (1 - rho[i])) / sc
+        r[i] = 1 + np.sinh(C * (rho[i] - 1)) / sc
 
     return r

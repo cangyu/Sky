@@ -2,14 +2,18 @@ import numpy as np
 import unittest
 import math
 from src.msh.tfi import Linear_TFI_3D
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
 def write_uniform_p3d(msh: Linear_TFI_3D, U: int, V: int, W: int, fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
     w_list = np.linspace(0, 1.0, W + 1)
-    msh.calc_msh(u_list, v_list, w_list)
-    msh.write_plot3d(fn)
+    ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
+    msh.calc_grid(ppu, ppv, ppw)
+    grid = PLOT3D()
+    grid.add_block(PLOT3D_Block.build_from_3d(msh.get_grid()))
+    grid.write(fn)
 
 
 def cuboid(L, W, H):

@@ -1,10 +1,10 @@
-import unittest
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.spline import Spline
-from src.msh.elliptical import Laplace_2D
-from src.msh.plot3d import Plot3D_SingleBlock, Plot3D_MultiBlock
+from src.msh.tfi import Linear_TFI_2D
+from src.msh.elliptical import Laplace2D
+from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 
 def airfoil(foil, L, R):
@@ -26,7 +26,7 @@ def airfoil(foil, L, R):
     crv.interpolate(af.pts)
     cx = crv.x
     cy = crv.y
-    c1 = lambda u: np.array([cx(u), cy(u)])
+    c1 = lambda u: np.array([cx(u), cy(u), 0])
 
     '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
@@ -45,8 +45,7 @@ def airfoil(foil, L, R):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0],
-                             af.pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1], 0])
     r = calc_len(c2(1.0))
 
     dir5 = (af.pts[-1][0], af.pts[-1][1])
@@ -56,8 +55,7 @@ def airfoil(foil, L, R):
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0],
-                             af.pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1], 0])
 
     '''Farfiled boundary'''
     sp = c2(1.0)
@@ -67,16 +65,12 @@ def airfoil(foil, L, R):
     if ea < 0:
         ea += math.pi * 2
 
-    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea),
-                             r * math.sin((1 - u) * sa + u * ea)])
+    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea), 0])
 
     '''Tail'''
-    c5 = lambda u: np.array([(1 - u) * af.pts[-1][0] + u * af.pts[0][0],
-                             (1 - u) * af.pts[-1][1] + u * af.pts[0][1]])
-
+    c5 = lambda u: np.array([(1 - u) * af.pts[-1][0] + u * af.pts[0][0], (1 - u) * af.pts[-1][1] + u * af.pts[0][1], 0])
     ea2 = ea - math.pi * 2 if ea > 0 else ea
-    c6 = lambda u: np.array([r * math.cos((1 - u) * ea2 + u * sa),
-                             r * math.sin((1 - u) * ea2 + u * sa)])
+    c6 = lambda u: np.array([r * math.cos((1 - u) * ea2 + u * sa), r * math.sin((1 - u) * ea2 + u * sa), 0])
 
     return c1, c2, c3, c4, c5, c6
 
@@ -87,27 +81,28 @@ def write_uniform_airfoil(foil, L, R, U1, U2, V, fn="", delta_zeta=1.0, delta_et
     v_list = np.linspace(0, 1.0, V + 1)
     c1, c2, c3, c4, c5, c6 = airfoil(foil, L, R)
 
-    grid1 = Laplace_2D(c1, c2, c3, c4, u1_list, v_list, delta_zeta, delta_eta)
-    grid2 = Laplace_2D(c2, c5, c4, c6, v_list, u2_list, delta_eta, delta_zeta)
+    grid1 = Linear_TFI_2D(c1, c2, c3, c4)
+    ppu, ppv = np.meshgrid(u1_list, v_list, indexing='ij')
+    grid1.calc_grid(ppu, ppv)
+    grid1 = Laplace2D(grid1.get_grid())
     grid1.calc_grid()
-    grid2.calc_grid()
 
-    blk_list = []
-    blk_list.append(grid1.plot3d_blk())
-    blk_list.append(grid2.plot3d_blk())
+    grid2 = Linear_TFI_2D(c2, c5, c4, c6)
+    ppu, ppv = np.meshgrid(u2_list, v_list, indexing='ij')
+    grid2.calc_grid(ppu, ppv)
 
     if fn == "":
         fn += foil
         fn += "_{}_{}_{}_{}_{}_{}_{}_Multi.xyz".format(L, R, U1, U2, V, delta_zeta, delta_eta)
 
-    grid = Plot3D_MultiBlock(blk_list)
-    grid.output(fn)
+    msh = PLOT3D()
+    msh.add_block(PLOT3D_Block.build_from_2d(grid1.get_grid()))
+    msh.add_block(PLOT3D_Block.build_from_2d(grid2.get_grid()))
+    msh.write(fn)
 
 
-class Plot3D_MultiBlock_Test(unittest.TestCase):
-    """
-    Plot3D 多块网格测试
-    """
-
-    def test_airfoil(self):
-        write_uniform_airfoil("NACA0012", 15, 50, 120, 10, 80)
+"""
+Plot3D 多块网格测试
+"""
+if __name__ == '__main__':
+    write_uniform_airfoil("NACA0012", 15, 50, 60, 10, 30)

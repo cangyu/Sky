@@ -3,9 +3,10 @@ import math
 from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
 from src.iges.iges_core import IGES_Model
-from src.msh.spacing import single_exponential, double_exponential
-from src.msh.elliptical import Laplace_2D, Possion_2D
+from src.msh.spacing import linear_expand, single_exponential, double_exponential
 from src.msh.tfi import Linear_TFI_2D
+from src.msh.elliptical import Laplace2D, ThomasMiddlecoff2D
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
 def l0(u):
@@ -47,11 +48,6 @@ Lf = 15 * La
 R = 10 * La
 Thickness = 1.0
 
-tfi = True
-laplace = True
-possion = False
-build_model = False
-
 '''Derived Variables'''
 ending = np.array([[0, 0, 0], [La, 0, 0]])
 af = WingProfile(airfoil, ending, Thickness, 5)
@@ -73,11 +69,11 @@ tdl = Line([La + Lt, ydu, 0], [La + Lt, -R, 0])
 
 
 def c2(u):
-    return tul(u)[0:2]
+    return tul(u)
 
 
 def c4(u):
-    return tdl(u)[0:2]
+    return tdl(u)
 
 
 '''C1'''
@@ -93,7 +89,7 @@ def c1(u: float):
     else:
         ans = du((u - u2) / (1.0 - u2))
 
-    return ans[0:2]
+    return ans
 
 
 '''C3'''
@@ -119,25 +115,25 @@ def c3(u: float):
     else:
         ans = l2((u - u2) / (1.0 - u2))
 
-    return ans[0:2]
+    return ans
 
 
 '''
 def c3(u: float):
-    return outer_crv(u)[0:2]
+    return outer_crv(u)
 '''
 
 '''Boundary distribution'''
-pv = single_exponential(0.0, 1.0, N0 + 1, A)
-# pv = np.linspace(0.0, 1.0, N0 + 1)
-# pu = np.linspace(0.0, 1.0, 2 * N1 + N2 + 1)
-# pu = double_exponential(0.0, 1.0, 2 * N1 + N2 + 1, A1, A2, A3)
+pv = single_exponential(N0 + 1, A)
+# pv = np.linspace(N0 + 1)
+# pu = np.linspace(2 * N1 + N2 + 1)
+# pu = double_exponential(2 * N1 + N2 + 1, A1, A2, A3)
 
 
 pu = []
-pu1 = single_exponential(0.0, u1, N1 + 1, -A4)
-pu2 = double_exponential(u1, u2, N2 + 1, A1, A2, A3)
-pu3 = single_exponential(u2, 1.0, N1 + 1, A4)
+pu1 = linear_expand(single_exponential(N1 + 1, -A4), 0.0, u1)
+pu2 = linear_expand(double_exponential(N2 + 1, A1, A2, A3), u1, u2)
+pu3 = linear_expand(single_exponential(N1 + 1, A4), u2, 1.0)
 for u in pu1:
     pu.append(u)
 
@@ -149,27 +145,37 @@ for i in range(1, len(pu3)):
 
 pu = np.copy(pu)
 
-if tfi:
-    grid = Linear_TFI_2D(c1, c2, c3, c4)
-    grid.calc_msh(pu, pv)
-    grid.write_plot3d(airfoil + "_TFI.xyz")
+ppu, ppv = np.meshgrid(pu, pv, indexing='ij')
 
-if laplace:
-    grid = Laplace_2D(c1, c2, c3, c4, pu, pv)
-    grid.calc_grid()
-    grid.write_plot3d(airfoil + "_Laplace.xyz")
+'''TFI Grid'''
+tfi_grid = Linear_TFI_2D(c1, c2, c3, c4)
+tfi_grid.calc_grid(ppu, ppv)
+msh = PLOT3D()
+msh.add_block(PLOT3D_Block.build_from_2d(tfi_grid.get_grid()))
+msh.write(airfoil + "_TFI.xyz")
 
-if possion:
-    grid = Possion_2D(c1, c2, c3, c4, pu, pv)
-    grid.calc_grid(100)
-    grid.write_plot3d(airfoil + "_Possion.xyz")
+'''Laplace Grid'''
+laplace_grid = Laplace2D(tfi_grid.get_grid())
+laplace_grid.calc_grid()
+msh = PLOT3D()
+msh.add_block(PLOT3D_Block.build_from_2d(laplace_grid.get_grid()))
+msh.write(airfoil + "_Laplace.xyz")
 
-if build_model:
-    model = IGES_Model('frame.igs')
-    model.add_entity(af.nurbs_rep.to_iges)
-    model.add_entity(hu.to_iges)
-    model.add_entity(du.to_iges)
-    model.add_entity(outer_crv.to_iges(1, 0, [0, 0, 1]))
-    model.add_entity(tul.to_iges)
-    model.add_entity(tdl.to_iges)
-    model.write()
+'''ThomasMiddlecoff Grid
+tm_grid = ThomasMiddlecoff2D(tfi_grid)
+tm_grid.calc_grid()
+msh = PLOT3D()
+msh.add_block(PLOT3D_Block.build_from_2d(tm_grid.get_grid()))
+msh.write(airfoil + "_TM.xyz")
+'''
+
+'''Build Model
+model = IGES_Model('frame.igs')
+model.add_entity(af.nurbs_rep.to_iges)
+model.add_entity(hu.to_iges)
+model.add_entity(du.to_iges)
+model.add_entity(outer_crv.to_iges(1, 0, [0, 0, 1]))
+model.add_entity(tul.to_iges)
+model.add_entity(tdl.to_iges)
+model.write()
+'''

@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import math
 from src.msh.tfi import Linear_TFI_2D
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 
@@ -9,39 +10,42 @@ from src.nurbs.curve import GlobalInterpolatedCrv
 def write_uniform_p3d(msh: Linear_TFI_2D, U: int, V: int, fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    msh.calc_msh(u_list, v_list)
-    msh.write_plot3d(fn)
+    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
+    msh.calc_grid(ppu, ppv)
+    grid = PLOT3D()
+    grid.add_block(PLOT3D_Block.build_from_2d(msh.get_grid()))
+    grid.write(fn)
 
 
 def rectangular(L: float, W: float):
-    c1 = lambda u: np.array([L * u, 0])
-    c3 = lambda u: np.array([L * u, W])
-    c2 = lambda v: np.array([0, W * v])
-    c4 = lambda v: np.array([L, W * v])
+    c1 = lambda u: np.array([L * u, 0, 0])
+    c3 = lambda u: np.array([L * u, W, 0])
+    c2 = lambda v: np.array([0, W * v, 0])
+    c4 = lambda v: np.array([L, W * v, 0])
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
 def circle(R1: float, R2: float):
-    c1 = lambda u: np.array([(1 - u) * R1 + u * R2, 0])
-    c3 = lambda u: np.array([0, (1 - u) * R1 + u * R2])
-    c2 = lambda v: np.array([R1 * math.cos(0.5 * math.pi * v), R1 * math.sin(0.5 * math.pi * v)])
-    c4 = lambda v: np.array([R2 * math.cos(0.5 * math.pi * v), R2 * math.sin(0.5 * math.pi * v)])
+    c1 = lambda u: np.array([(1 - u) * R1 + u * R2, 0, 0])
+    c3 = lambda u: np.array([0, (1 - u) * R1 + u * R2, 0])
+    c2 = lambda v: np.array([R1 * math.cos(0.5 * math.pi * v), R1 * math.sin(0.5 * math.pi * v), 0])
+    c4 = lambda v: np.array([R2 * math.cos(0.5 * math.pi * v), R2 * math.sin(0.5 * math.pi * v), 0])
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
 def eccentric_circle(delta: float, R1: float, R2: float):
-    c1 = lambda u: np.array([(delta + R1) * (1 - u) + R2 * u, 0])
-    c3 = lambda u: np.array([(delta - R1) * (1 - u) - R2 * u, 0])
-    c2 = lambda v: np.array([R1 * math.cos(math.pi * v) + delta, R1 * math.sin(math.pi * v)])
-    c4 = lambda v: np.array([R2 * math.cos(math.pi * v), R2 * math.sin(math.pi * v)])
+    c1 = lambda u: np.array([(delta + R1) * (1 - u) + R2 * u, 0, 0])
+    c3 = lambda u: np.array([(delta - R1) * (1 - u) - R2 * u, 0, 0])
+    c2 = lambda v: np.array([R1 * math.cos(math.pi * v) + delta, R1 * math.sin(math.pi * v), 0])
+    c4 = lambda v: np.array([R2 * math.cos(math.pi * v), R2 * math.sin(math.pi * v), 0])
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
 def curve_rect(L: float, H1: float, H2: float, H3: float):
-    c1 = lambda u: np.array([u * L, 4 * H3 * u * (1 - u)])
-    c3 = lambda u: np.array([u * L, (H1 * (1 - u * u) + H2 * u * u)])
-    c2 = lambda v: np.array([0, v * H1])
-    c4 = lambda v: np.array([L, v * H2])
+    c1 = lambda u: np.array([u * L, 4 * H3 * u * (1 - u), 0])
+    c3 = lambda u: np.array([u * L, (H1 * (1 - u * u) + H2 * u * u), 0])
+    c2 = lambda v: np.array([0, v * H1, 0])
+    c4 = lambda v: np.array([L, v * H2, 0])
     return Linear_TFI_2D(c1, c2, c3, c4)
 
 
@@ -63,7 +67,7 @@ def airfoil(foil, L, R):
 
     '''Parametric representation of airfoil'''
     crv = GlobalInterpolatedCrv(af.pts, 5)
-    c1 = lambda u: crv(u)[0:2]
+    c1 = lambda u: crv(u)
 
     '''Vertical boundary'''
     calc_dir = lambda start, end: (end[0] - start[0], end[1] - start[1])
@@ -82,7 +86,7 @@ def airfoil(foil, L, R):
     dir3 = (dir1[0] / len1, dir1[1] / len1)
     dir4 = (dir2[0] / len2, dir2[1] / len2)
 
-    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1]])
+    c2 = lambda v: np.array([af.pts[0][0] + v * R * dir3[0], af.pts[0][1] + v * R * dir3[1], 0])
     r = calc_len(c2(1.0))
 
     dir5 = (af.pts[-1][0], af.pts[-1][1])
@@ -92,7 +96,7 @@ def airfoil(foil, L, R):
     beta = math.pi - theta - alpha
     b = r / math.sin(theta) * math.sin(beta)
 
-    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1]])
+    c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1], 0])
 
     '''Farfiled boundary'''
     sp = c2(1.0)
@@ -102,7 +106,7 @@ def airfoil(foil, L, R):
     if ea < 0:
         ea += math.pi * 2
 
-    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea)])
+    c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea), 0])
 
     return Linear_TFI_2D(c1, c2, c3, c4)
 
