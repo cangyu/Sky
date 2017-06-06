@@ -9,7 +9,7 @@ from abc import abstractmethod
 '''
 
 
-class CurvilinearGrid2D(object):
+class EllipticGrid2D(object):
     def __init__(self, grid):
         """
         二维曲边结构网格
@@ -112,7 +112,7 @@ class CurvilinearGrid2D(object):
         return self.r
 
 
-class Laplace2D(CurvilinearGrid2D):
+class Laplace2D(EllipticGrid2D):
     def __init__(self, grid):
         """
         对网格做Laplace光顺
@@ -145,12 +145,12 @@ class Laplace2D(CurvilinearGrid2D):
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
             iteration_cnt += 1
-            residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
+            residual = EllipticGrid2D.calc_diff(self.r, new_grid)
             print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
 
 
-class ThomasMiddlecoff2D(CurvilinearGrid2D):
+class ThomasMiddlecoff2D(EllipticGrid2D):
     def __init__(self, grid):
         """
         基于Thomas-Middlecoff方法对输入网格进行光顺
@@ -215,6 +215,6 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
             iteration_cnt += 1
-            residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
+            residual = EllipticGrid2D.calc_diff(self.r, new_grid)
             print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
