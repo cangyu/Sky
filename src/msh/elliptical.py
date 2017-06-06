@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-from src.msh.plot3d import PLOT3D_Block
 from abc import abstractmethod
 
 '''
@@ -73,7 +72,8 @@ class CurvilinearGrid2D(object):
                 else:
                     return (self.r[i][j + 1][comp] - 2 * self.r[i][j][comp] + self.r[i][j - 1][comp]) / (self.delta_eta ** 2)
             else:
-                return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] - self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / (4 * self.delta_xi * self.delta_eta)
+                return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] - self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / (
+                    4 * self.delta_xi * self.delta_eta)
 
     def calc_alpha_beta_gamma(self):
         """
@@ -187,7 +187,7 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
             for i in range(1, self.I):
                 self.psi[i][j] = dist[i]
 
-    def calc_grid(self, step, eps=1e-4, w=1.0):
+    def calc_grid(self, eps=1e-4, w=1.0):
         """
         迭代计算内部网格点
         :return: 内部网格点坐标
@@ -198,7 +198,7 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
 
         iteration_cnt = 0
         residual = sys.float_info.max
-        while residual > eps and iteration_cnt < step:
+        while residual > eps:
             self.calc_alpha_beta_gamma()
             self.calc_phi_psi()
             new_grid = np.copy(self.r)
@@ -206,11 +206,11 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
             for i in range(1, self.I):
                 for j in range(1, self.J):
                     t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
-                    t1 = (self.alpha[i][j] / (self.delta_xi ** 2) + self.phi[i][j] / (2 * self.delta_xi)) * self.r[i + 1][j]
-                    t2 = (self.alpha[i][j] / (self.delta_xi ** 2) - self.phi[i][j] / (2 * self.delta_xi)) * self.r[i - 1][j]
+                    t1 = self.alpha[i][j] * (1.0 / (self.delta_xi ** 2) + self.phi[i][j] / (2 * self.delta_xi)) * self.r[i + 1][j]
+                    t2 = self.alpha[i][j] * (1.0 / (self.delta_xi ** 2) - self.phi[i][j] / (2 * self.delta_xi)) * self.r[i - 1][j]
                     t3 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta'), 0])
-                    t4 = (self.gamma[i][j] / (self.delta_eta ** 2) + self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j + 1]
-                    t5 = (self.gamma[i][j] / (self.delta_eta ** 2) - self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j - 1]
+                    t4 = self.gamma[i][j] * (1.0 / (self.delta_eta ** 2) + self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j + 1]
+                    t5 = self.gamma[i][j] * (1.0 / (self.delta_eta ** 2) - self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j - 1]
                     t = (t1 + t2 - t3 + t4 + t5) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
