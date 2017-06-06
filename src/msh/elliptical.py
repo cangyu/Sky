@@ -7,7 +7,6 @@ from abc import abstractmethod
 统一约定：
 1. (i,j,k)对应(x,y,z),(u,v.w),(xi, eta, mu),(x1,x2,x3), (I,J,K)...
 2. 不用(N,M),避免行列混淆
-3. 计算域上网格各方向步长均为1
 '''
 
 
@@ -35,6 +34,13 @@ class CurvilinearGrid2D(object):
         self.I -= 1  # 网格点在第1维度的最大下标
         self.J -= 1  # 网格点在第2维度的最大下标
 
+        self.delta_xi = 1.0
+        self.delta_eta = 1.0
+
+    def set_step(self, xi, eta):
+        self.delta_xi = xi
+        self.delta_eta = eta
+
     def pder(self, i, j, comp, dir1, dir2=None):
         """
         中心差分偏导数
@@ -57,25 +63,26 @@ class CurvilinearGrid2D(object):
 
         if dir2 is None:
             if dir1 == 'xi':
-                return (self.r[i + 1][j][comp] - self.r[i - 1][j][comp]) / 2
+                return (self.r[i + 1][j][comp] - self.r[i - 1][j][comp]) / (2 * self.delta_xi)
             else:
-                return (self.r[i][j + 1][comp] - self.r[i][j - 1][comp]) / 2
+                return (self.r[i][j + 1][comp] - self.r[i][j - 1][comp]) / (2 * self.delta_eta)
         else:
             if dir1 == dir2:
-                return self.r[i + 1][j][comp] - 2 * self.r[i][j][comp] + self.r[i - 1][j][comp]
+                if dir1 == 'xi':
+                    return (self.r[i + 1][j][comp] - 2 * self.r[i][j][comp] + self.r[i - 1][j][comp]) / (self.delta_xi ** 2)
+                else:
+                    return (self.r[i][j + 1][comp] - 2 * self.r[i][j][comp] + self.r[i][j - 1][comp]) / (self.delta_eta ** 2)
             else:
-                return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] -
-                        self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / 4
+                return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] - self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / (4 * self.delta_xi * self.delta_eta)
 
     def calc_alpha_beta_gamma(self):
         """
         计算所有网格点上的alpha，beta, gamma
         """
 
-        for j in range(1, self.J):
-            for i in range(1, self.I):
-                c = np.array([self.pder(i, j, 'x', 'xi'), self.pder(i, j, 'x', 'eta'),
-                              self.pder(i, j, 'y', 'xi'), self.pder(i, j, 'y', 'eta')])
+        for i in range(1, self.I):
+            for j in range(1, self.J):
+                c = np.array([self.pder(i, j, 'x', 'xi'), self.pder(i, j, 'x', 'eta'), self.pder(i, j, 'y', 'xi'), self.pder(i, j, 'y', 'eta')])
                 self.alpha[i][j] = c[1] ** 2 + c[3] ** 2
                 self.beta[i][j] = c[0] * c[1] + c[2] * c[3]
                 self.gamma[i][j] = c[0] ** 2 + c[2] ** 2
@@ -93,13 +100,11 @@ class CurvilinearGrid2D(object):
         if grid1.shape != grid2.shape:
             raise AssertionError("Grid shape do not match!")
 
-        I, J, Dim = grid1.shape
-
+        tmp = grid1 - grid2
         ans = 0.0
-        for i in range(I):
-            for j in range(J):
-                for k in range(Dim):
-                    ans += np.fabs(grid1[i][j][k] - grid2[i][j][k])
+        for i in range(len(tmp)):
+            for j in range(len(tmp[i])):
+                ans = max(ans, np.linalg.norm(tmp[i][j], np.inf))
 
         return ans
 
@@ -113,6 +118,7 @@ class Laplace2D(CurvilinearGrid2D):
         对网格做Laplace光顺
         :param grid: 初始网格
         """
+
         super(Laplace2D, self).__init__(grid)
 
     def calc_grid(self, eps=1e-10, w=1.0):
@@ -127,13 +133,16 @@ class Laplace2D(CurvilinearGrid2D):
         while residual > eps:
             self.calc_alpha_beta_gamma()
             new_grid = np.zeros_like(self.r)
+
             for i in range(1, self.I):
                 for j in range(1, self.J):
-                    r_xi_eta = np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
-                    t = (self.alpha[i][j] * (self.r[i + 1][j] + self.r[i - 1][j]) +
-                         self.gamma[i][j] * (self.r[i][j + 1] + self.r[i][j - 1]) -
-                         2 * self.beta[i][j] * r_xi_eta) / (2 * (self.alpha[i][j] + self.gamma[i][j]))
+                    t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
+                    t1 = self.alpha[i][j] / (self.delta_xi ** 2) * (self.r[i + 1][j] + self.r[i - 1][j])
+                    t2 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
+                    t3 = self.gamma[i][j] / (self.delta_eta ** 2) * (self.r[i][j + 1] + self.r[i][j - 1])
+                    t = (t1 - t2 + t3) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
+
             residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
             self.r = np.copy(new_grid)
 
@@ -151,28 +160,31 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
         self.psi = np.zeros((self.I + 1, self.J + 1))
 
     def calc_phi_psi(self):
-        for i in (0, self.J):
-            for j in range(1, self.I):
-                c = np.array([self.pder(i, j, 'x', 'xi'), self.pder(i, j), self.pder(i, j), self.pder(i, j)])
-                self.phi[i][j] = -(val_pxz * val_pxzz + val_pyz * val_pyzz) / (val_pxz ** 2 + val_pyz ** 2)
+        """
+        计算所有网格点上的phi, psi
+        """
 
-        for j in (0, self.I):
-            for i in range(1, self.J):
-                val_pxe = self.pxe(i, j)
-                val_pxee = self.pxee(i, j)
-                val_pye = self.pye(i, j)
-                val_pyee = self.pyee(i, j)
-                self.psi[i][j] = -(val_pxe * val_pxee + val_pye * val_pyee) / (val_pxe ** 2 + val_pye ** 2)
+        '''Boundary'''
+        for j in (0, self.J):
+            for i in range(1, self.I):
+                c = np.array([self.pder(i, j, 'x', 'xi'), self.pder(i, j, 'x', 'xi', 'xi'), self.pder(i, j, 'y', 'xi'), self.pder(i, j, 'y', 'xi', 'xi')])
+                self.phi[i][j] = -(c[0] * c[1] + c[2] * c[3]) / (c[0] ** 2 + c[2] ** 2)
 
-        for j in range(1, self.M):
-            dist = np.linspace(self.phi[0][j], self.phi[self.N][j], self.N + 1)
-            for i in range(1, self.N):
-                self.phi[i][j] = dist[i]
+        for i in (0, self.I):
+            for j in range(1, self.J):
+                c = np.array([self.pder(i, j, 'x', 'eta'), self.pder(i, j, 'x', 'eta', 'eta'), self.pder(i, j, 'y', 'eta'), self.pder(i, j, 'y', 'eta', 'eta')])
+                self.psi[i][j] = -(c[0] * c[1] + c[2] * c[3]) / (c[0] ** 2 + c[2] ** 2)
 
-        for i in range(1, self.N):
-            dist = np.linspace(self.psi[i][0], self.psi[i][self.M], self.M + 1)
-            for j in range(1, self.M):
-                self.psi[i][j] = dist[j]
+        '''Linear Interpolate'''
+        for i in range(1, self.I):
+            dist = np.linspace(self.phi[i][0], self.phi[i][self.J], self.J + 1)
+            for j in range(1, self.J):
+                self.phi[i][j] = dist[j]
+
+        for j in range(1, self.J):
+            dist = np.linspace(self.psi[0][j], self.psi[self.I][j], self.I + 1)
+            for i in range(1, self.I):
+                self.psi[i][j] = dist[i]
 
     def calc_grid(self, eps=1e-10, w=1.0):
         """
@@ -188,13 +200,18 @@ class ThomasMiddlecoff2D(CurvilinearGrid2D):
             self.calc_alpha_beta_gamma()
             self.calc_phi_psi()
             new_grid = np.zeros_like(self.r)
+
             for i in range(1, self.I):
                 for j in range(1, self.J):
-                    r_xi_eta = np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
-                    t = (self.alpha[i][j] * (self.r[i + 1][j] + self.r[i - 1][j]) +
-                         self.gamma[i][j] * (self.r[i][j + 1] + self.r[i][j - 1]) -
-                         2 * self.beta[i][j] * r_xi_eta) / (2 * (self.alpha[i][j] + self.gamma[i][j]))
+                    t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
+                    t1 = (self.alpha[i][j] / (self.delta_xi ** 2) + self.phi[i][j] / (2 * self.delta_xi)) * self.r[i + 1][j]
+                    t2 = (self.alpha[i][j] / (self.delta_xi ** 2) - self.phi[i][j] / (2 * self.delta_xi)) * self.r[i - 1][j]
+                    t3 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta')])
+                    t4 = (self.gamma[i][j] / (self.delta_eta ** 2) + self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j + 1]
+                    t5 = (self.gamma[i][j] / (self.delta_eta ** 2) - self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j - 1]
+                    t = (t1 + t2 - t3 + t4 + t5) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
+
             residual = CurvilinearGrid2D.calc_diff(self.r, new_grid)
             self.r = np.copy(new_grid)
 
