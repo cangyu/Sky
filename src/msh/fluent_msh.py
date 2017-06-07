@@ -19,14 +19,20 @@ class XF_Header(XF_Component):
 
 
 class XF_Dimension(XF_Component):
-    def __init__(self, dim):
+    def __init__(self, ND):
         super(XF_Dimension, self).__init__(2)
-        self.dim = dim
+        self.ND = ND
 
 
 class XF_Node(XF_Component):
-    def __init__(self):
+    def __init__(self, zone, first, last, type, ND, pts=None):
         super(XF_Node, self).__init__(10)
+        self.zone_id = zone
+        self.first_index = first
+        self.last_index = last
+        self.type = type
+        self.ND = ND
+        self.pts = pts
 
 
 class XF_Cell(XF_Component):
