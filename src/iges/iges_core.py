@@ -4,11 +4,11 @@ from abc import *
 
 
 class IGES_StartSection:
-    '''
-    Start Section of an IGS file
-    '''
-
     def __init__(self, _desc):
+        """
+        Start Section of an IGS file
+        """
+
         self.start_section_str = _desc
         self.SeqCnt = 0
 
@@ -29,11 +29,11 @@ class IGES_StartSection:
 
 
 class IGES_GlobalSection:
-    '''
-    Global section of an IGS file
-    '''
-
     def __init__(self, _cfn):
+        """
+        Global section of an IGS file
+        """
+
         self.SeqCnt = 0
 
         # 1. 参数分界符字符
@@ -158,11 +158,11 @@ class IGES_GlobalSection:
 
 
 class IGES_Directory:
-    '''
-    Directory Entry for an Entity
-    '''
-
     def __init__(self, etn):
+        """
+        Directory Entry for an Entity
+        """
+
         # 1. 实体类型号
         self.Entity_Type_Number = int(etn)
 
@@ -252,11 +252,11 @@ class IGES_Directory:
 
 
 class IGES_Entity:
-    '''
-    General part for an Entity
-    '''
-
     def __init__(self, _etn):
+        """
+        General part for an Entity
+        """
+
         self.directory = IGES_Directory(_etn)
 
         self.directory_record = ""
@@ -349,9 +349,7 @@ class IGES_Model(object):
             model.write(self.comp[i].param_record)
 
         '''Write Terminate Section'''
-        model.write(
-            "{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt),
-                                   1))
+        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt), 1))
 
         '''Done'''
         model.close()
