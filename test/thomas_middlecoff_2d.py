@@ -2,7 +2,7 @@ import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
-from src.msh.elliptical import ThomasMiddlecoff2D
+from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.spacing import single_exponential, double_exponential
