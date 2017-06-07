@@ -5,7 +5,7 @@ from src.aircraft.wing import WingProfile
 from src.iges.iges_core import IGES_Model
 from src.msh.spacing import linear_expand, single_exponential, double_exponential
 from src.msh.tfi import Linear_TFI_2D
-from src.msh.elliptical import Laplace2D, ThomasMiddlecoff2D
+from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
@@ -154,20 +154,20 @@ msh = PLOT3D()
 msh.add_block(PLOT3D_Block.build_from_2d(tfi_grid.get_grid()))
 msh.write(airfoil + "_TFI.xyz")
 
-'''Laplace Grid'''
+'''Laplace Grid
 laplace_grid = Laplace2D(tfi_grid.get_grid())
 laplace_grid.calc_grid()
 msh = PLOT3D()
 msh.add_block(PLOT3D_Block.build_from_2d(laplace_grid.get_grid()))
 msh.write(airfoil + "_Laplace.xyz")
+'''
 
-'''ThomasMiddlecoff Grid
-tm_grid = ThomasMiddlecoff2D(tfi_grid)
+'''ThomasMiddlecoff Grid'''
+tm_grid = ThomasMiddlecoff2D(tfi_grid.get_grid())
 tm_grid.calc_grid()
 msh = PLOT3D()
 msh.add_block(PLOT3D_Block.build_from_2d(tm_grid.get_grid()))
 msh.write(airfoil + "_TM.xyz")
-'''
 
 '''Build Model
 model = IGES_Model('frame.igs')

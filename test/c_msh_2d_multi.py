@@ -3,7 +3,7 @@ import math
 from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
-from src.msh.elliptical import Laplace2D, ThomasMiddlecoff2D
+from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 

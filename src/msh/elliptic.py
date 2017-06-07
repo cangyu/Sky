@@ -1,6 +1,9 @@
 import sys
 import numpy as np
 from abc import abstractmethod
+import pyamg
+from scipy import sparse
+from scipy.sparse.linalg import dsolve
 
 '''
 统一约定：
@@ -21,14 +24,15 @@ class EllipticGrid2D(object):
             raise AssertionError("Invalid input grid!")
 
         self.I, self.J, self.Dim = grid.shape
-        self.alpha = np.zeros((self.I, self.J))
-        self.beta = np.zeros((self.I, self.J))
-        self.gamma = np.zeros((self.I, self.J))
         self.r = np.zeros((self.I, self.J, 3))  # 不论输入数组中每个元素是(X, Y)还是(X, Y, Z)，均转换成3维存储
         for i in range(self.I):
             for j in range(self.J):
                 for d in range(self.Dim):
                     self.r[i][j][d] = grid[i][j][d]
+
+        self.alpha = np.zeros((self.I, self.J))
+        self.beta = np.zeros((self.I, self.J))
+        self.gamma = np.zeros((self.I, self.J))
 
         self.I -= 1  # 网格点在第1维度的最大下标
         self.J -= 1  # 网格点在第2维度的最大下标
@@ -39,6 +43,48 @@ class EllipticGrid2D(object):
     def set_step(self, xi, eta):
         self.delta_xi = xi
         self.delta_eta = eta
+
+    @abstractmethod
+    def coefficient_list(self, i, j):
+        pass
+
+    @classmethod
+    def coordinate_around(cls, i, j):
+        """
+        (i,j)周围的9个点的坐标
+        """
+
+        return np.array([(i, j),
+                         (i + 1, j),
+                         (i, j + 1),
+                         (i - 1, j),
+                         (i, j - 1),
+                         (i + 1, j + 1),
+                         (i - 1, j + 1),
+                         (i - 1, j - 1),
+                         (i + 1, j - 1)])
+
+    def index_around(self, k):
+        """
+        第k个点周围9个点的序号 
+        """
+
+        return np.array([k,
+                         k + 1,
+                         k + self.I - 1,
+                         k - 1,
+                         k - self.I + 1,
+                         k + self.I,
+                         k + self.I - 2,
+                         k - self.I,
+                         k - self.I + 2])
+
+    def is_special(self, i, j):
+        """
+        判断坐标是否在边界上
+        """
+
+        return True if i in (0, self.I) or j in (0, self.J) else False
 
     def pder(self, i, j, comp, dir1, dir2=None):
         """
@@ -51,12 +97,14 @@ class EllipticGrid2D(object):
         :return: 在(i,j)处的偏导数
         """
 
+        '''
         if comp not in ('x', 'y'):
             raise AssertionError("Invalid component!")
         if dir1 not in ('xi', 'eta'):
             raise AssertionError("Invalid first direction!")
         if (dir2 is not None) and (dir2 not in ('xi', 'eta')):
             raise AssertionError("Invalid second direction!")
+        '''
 
         comp = ord(comp) - ord('x')
 
@@ -75,6 +123,39 @@ class EllipticGrid2D(object):
                 return (self.r[i + 1][j + 1][comp] + self.r[i - 1][j - 1][comp] - self.r[i + 1][j - 1][comp] - self.r[i - 1][j + 1][comp]) / (
                     4 * self.delta_xi * self.delta_eta)
 
+    def pvec(self, i, j, dir1, dir2=None):
+        """
+        中心差分偏导矢
+        :param i: 网格点在第1维度的下标
+        :param j: 网格点在第2维度的下标
+        :param dir1: 偏导数方向
+        :param dir2: 偏导数方向
+        :return: 在(i,j)处的偏导数
+        """
+
+        '''
+        if comp not in ('x', 'y'):
+            raise AssertionError("Invalid component!")
+        if dir1 not in ('xi', 'eta'):
+            raise AssertionError("Invalid first direction!")
+        if (dir2 is not None) and (dir2 not in ('xi', 'eta')):
+            raise AssertionError("Invalid second direction!")
+        '''
+
+        if dir2 is None:
+            if dir1 == 'xi':
+                return (self.r[i + 1][j] - self.r[i - 1][j]) / (2 * self.delta_xi)
+            else:
+                return (self.r[i][j + 1] - self.r[i][j - 1]) / (2 * self.delta_eta)
+        else:
+            if dir1 == dir2:
+                if dir1 == 'xi':
+                    return (self.r[i + 1][j] - 2 * self.r[i][j] + self.r[i - 1][j]) / (self.delta_xi ** 2)
+                else:
+                    return (self.r[i][j + 1] - 2 * self.r[i][j] + self.r[i][j - 1]) / (self.delta_eta ** 2)
+            else:
+                return (self.r[i + 1][j + 1] - self.r[i + 1][j - 1] - self.r[i - 1][j + 1] + self.r[i - 1][j - 1]) / (4 * self.delta_xi * self.delta_eta)
+
     def calc_alpha_beta_gamma(self):
         """
         计算所有网格点上的alpha，beta, gamma
@@ -87,6 +168,39 @@ class EllipticGrid2D(object):
                 self.beta[i][j] = c[0] * c[1] + c[2] * c[3]
                 self.gamma[i][j] = c[0] ** 2 + c[2] ** 2
 
+    def calc_coefficient_matrix(self):
+        """
+        Calculate the coefficient matrix for the 9 point stencil
+        :return: None
+        """
+
+        var_cnt = (self.I - 1) * (self.J - 1)
+        b = np.zeros((2, var_cnt))
+        rows = []
+        cols = []
+        val = []
+        ck = 0
+        for i in range(1, self.I):
+            for j in range(1, self.J):
+                a = self.coefficient_list(i, j)
+                coord = self.coordinate_around(i, j)
+                index = self.index_around(ck)
+                for k in range(0, 9):
+                    ii, jj = coord[k]
+                    if self.is_special(ii, jj):
+                        b[0][ck] -= a[k] * self.r[ii][jj][0]
+                        b[1][ck] -= a[k] * self.r[ii][jj][1]
+                    else:
+                        rows.append(ck)
+                        cols.append(index[k])
+                        val.append(a[k])
+
+                ck += 1
+
+        A = sparse.coo_matrix((val, (rows, cols)), shape=(var_cnt, var_cnt), dtype=float)
+        AA = A.tocsr()
+        return AA, b
+
     @abstractmethod
     def calc_grid(self):
         pass
@@ -97,8 +211,10 @@ class EllipticGrid2D(object):
         计算两套网格间差值 
         """
 
+        '''
         if grid1.shape != grid2.shape:
             raise AssertionError("Grid shape do not match!")
+        '''
 
         tmp = grid1 - grid2
         ans = 0.0
@@ -187,10 +303,14 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
             for i in range(1, self.I):
                 self.psi[i][j] = dist[i]
 
-    def calc_grid(self, eps=1e-4, w=1.0):
+    def lhs(self, i, j):
+        return self.alpha[i][j] * (self.pvec(i, j, 'xi', 'xi') + self.phi[i][j] * self.pvec(i, j, 'xi')) - \
+               2 * self.beta[i][j] * self.pvec(i, j, 'xi', 'eta') + \
+               self.gamma[i][j] * (self.pvec(i, j, 'eta', 'eta') + self.psi[i][j] * self.pvec(i, j, 'eta'))
+
+    def calc_grid_sor(self, eps, w):
         """
-        迭代计算内部网格点
-        :return: 内部网格点坐标
+        SOR迭代计算内部网格点
         :param eps: 残差限
         :param w: 松弛因子
         :return: None
@@ -206,15 +326,56 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
             for i in range(1, self.I):
                 for j in range(1, self.J):
                     t0 = 2 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
-                    t1 = self.alpha[i][j] * (1.0 / (self.delta_xi ** 2) + self.phi[i][j] / (2 * self.delta_xi)) * self.r[i + 1][j]
-                    t2 = self.alpha[i][j] * (1.0 / (self.delta_xi ** 2) - self.phi[i][j] / (2 * self.delta_xi)) * self.r[i - 1][j]
-                    t3 = 2 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta'), 0])
-                    t4 = self.gamma[i][j] * (1.0 / (self.delta_eta ** 2) + self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j + 1]
-                    t5 = self.gamma[i][j] * (1.0 / (self.delta_eta ** 2) - self.psi[i][j] / (2 * self.delta_eta)) * self.r[i][j - 1]
-                    t = (t1 + t2 - t3 + t4 + t5) / t0
+                    t = self.r[i][j] + self.lhs(i, j) / t0
                     new_grid[i][j] = w * t + (1 - w) * self.r[i][j]
 
             iteration_cnt += 1
             residual = EllipticGrid2D.calc_diff(self.r, new_grid)
             print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
+
+    def coefficient_list(self, i, j):
+        cross_item = self.beta[i][j] / (2 * self.delta_xi * self.delta_eta)
+        return np.array([-2 * (self.alpha[i][j] / self.delta_xi ** 2 + self.gamma[i][j] / self.delta_eta ** 2),
+                         self.alpha[i][j] * (1 / self.delta_xi ** 2 + self.phi[i][j] / (2 * self.delta_xi)),
+                         self.gamma[i][j] * (1 / self.delta_eta ** 2 + self.psi[i][j] / (2 * self.delta_eta)),
+                         self.alpha[i][j] * (1 / self.delta_xi ** 2 - self.phi[i][j] / (2 * self.delta_xi)),
+                         self.gamma[i][j] * (1 / self.delta_eta ** 2 - self.psi[i][j] / (2 * self.delta_eta)),
+                         -cross_item, cross_item, -cross_item, cross_item])
+
+    def calc_grid_matrix(self):
+        """
+        9点格式矩阵迭代计算内部网格点
+        """
+
+        u = np.zeros((2, (self.I - 1) * (self.J - 1)))
+
+        self.calc_alpha_beta_gamma()
+        self.calc_phi_psi()
+        A, b = self.calc_coefficient_matrix()
+
+        '''solve'''
+        u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+        u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+
+        # ml = pyamg.ruge_stuben_solver(A)
+        # u[0] = ml.solve(b[0], tol=1e-10)
+        # u[1] = ml.solve(b[1], tol=1e-10)
+
+        cnt = 0
+        for i in range(1, self.I):
+            for j in range(1, self.J):
+                self.r[i][j][0] = u[0][cnt]
+                self.r[i][j][1] = u[1][cnt]
+                cnt += 1
+
+    def calc_grid(self, eps=1e-4, w=1.0):
+        """
+        迭代计算内部网格点
+        :param eps: 残差限
+        :param w: 松弛因子
+        :return: None
+        """
+
+        self.calc_grid_sor(eps, w)
+        # self.calc_grid_matrix()
