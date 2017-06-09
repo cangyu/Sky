@@ -98,11 +98,33 @@ class XF_Cell(XF_Section):
 
 
 class XF_Face(XF_Section):
-    def __init__(self):
+    def __init__(self, zone, first, last, face_type, elem_type, face_info=None):
         super(XF_Face, self).__init__(13)
+        self.zone_id = zone
+        self.first_index = first
+        self.last_index = last
+        self.face_type = face_type
+        self.elem_type = elem_type
+        self.face_info = None if face_info is None else np.copy(face_info)
 
     def build_content(self):
-        pass
+        self.formatted_content = "({} ({} {} {} {} {})".format(self.index,
+                                                               hex(self.zone_id)[2:],
+                                                               hex(self.first_index)[2:],
+                                                               hex(self.last_index)[2:],
+                                                               self.face_type,
+                                                               self.elem_type)
+
+        if self.face_info is not None:
+            self.formatted_content += '(\n'
+            for fc in self.face_info:
+                for cfi in fc:  # current face info
+                    self.formatted_content += "{} ".format(cfi)
+                self.formatted_content += '\n'
+
+            self.formatted_content += ')'
+
+        self.formatted_content += ')'
 
 
 class XF_MSH(object):
@@ -112,7 +134,7 @@ class XF_MSH(object):
     def add_section(self, section: XF_Section):
         self.section_list.append(section)
 
-    def write(self, fn):
+    def save(self, fn):
         msh = open(fn, 'w')
         for i in range(len(self.section_list)):
             self.section_list[i].build_content()
