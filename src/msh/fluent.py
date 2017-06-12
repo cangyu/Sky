@@ -242,7 +242,7 @@ class XF_MSH(object):
 
     @staticmethod
     def pnt_index(i: int, j: int, U: int):
-        return i * U + j + 1
+        return j * U + i + 1
 
     @staticmethod
     def cell_index(i: int, j: int, d: int, U: int, V: int):
@@ -257,38 +257,134 @@ class XF_MSH(object):
         else:
             raise ValueError("Invalid direction!")
 
+    @staticmethod
+    def intersect(p1, p2, U: int, V: int):
+        i, j = p1
+        ii, jj = p2
+        di = ii - i
+        dj = jj - j
+
+        if di == 0:
+            if dj == 1:
+                return XF_MSH.cell_index(i, j, 2, U, V), XF_MSH.cell_index(i, j, 1, U, V)
+            elif dj == -1:
+                return XF_MSH.cell_index(i, j, 4, U, V), XF_MSH.cell_index(i, j, 3, U, V)
+            else:
+                raise ValueError("Invalid coordinates!")
+        elif dj == 0:
+            if di == 1:
+                return XF_MSH.cell_index(i, j, 1, U, V), XF_MSH.cell_index(i, j, 4, U, V)
+            elif di == -1:
+                return XF_MSH.cell_index(i, j, 3, U, V), XF_MSH.cell_index(i, j, 2, U, V)
+            else:
+                raise ValueError("Invalid coordinates!")
+        else:
+            raise ValueError("Invalid coordinates!")
+
     @classmethod
-    def build_from_2d(cls, grid):
+    def build_from_2d(cls, grid, bc=(3, 10, 3, 36)):
         """
         从2维结构网格构建Fluent msh文件
         :param grid: 2D structural grid
+        :param bc: Boundary ID
         :return: XF_MSH object
         """
 
+        msh = cls()
         U, V, Dim = grid.shape
         Dim = 2
+
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(Dim))
 
         NodeCnt = U * V
         EdgeCnt = 2 * U * V - U - V
         CellCnt = (U - 1) * (V - 1)
 
+        msh.add_section(XF_Comment("Declaration:"))
+        msh.add_section(XF_Cell.declaration(CellCnt))
+        msh.add_section(XF_Face.declaration(EdgeCnt))
+        msh.add_section(XF_Node.declaration(NodeCnt, Dim))
+
+        '''Cell'''
+        msh.add_section(XF_Comment("Grid:"))
+        msh.add_section(XF_Cell(2, 1, CellCnt, 1, 3))
+
+        '''Face-C1'''
+        fcs = 1
+        fc = U - 1
+        Face1 = np.empty((fc, 4), int)
+        for i in range(fc):
+            Face1[i][0] = XF_MSH.pnt_index(i, 0, U)
+            Face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
+            Face1[i][3], Face1[i][2] = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
+
+        msh.add_section(XF_Face(3, fcs, fcs + fc - 1, bc[0], 2, Face1))
+
+        '''Face-C2'''
+        fcs = 1
+        fc = V - 1
+        Face2 = np.empty((fc, 4), int)
+        for j in range(fc):
+            Face2[j][0] = XF_MSH.pnt_index(0, j, U)
+            Face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
+            Face2[j][3], Face2[j][2] = XF_MSH.intersect((0, j), (0, j + 1), U, V)
+
+        msh.add_section(XF_Face(4, fcs, fcs + fc - 1, bc[1], 2, Face2))
+
+        '''Face-C3'''
+        fcs = 1
+        fc = U - 1
+        Face3 = np.empty((fc, 4), int)
+        for i in range(fc):
+            Face3[i][0] = XF_MSH.pnt_index(i, V - 1, U)
+            Face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
+            Face3[i][3], Face3[i][2] = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
+
+        msh.add_section(XF_Face(5, fcs, fcs + fc - 1, bc[2], 2, Face3))
+
+        '''Face-C4'''
+        fcs = 1
+        fc = V - 1
+        Face4 = np.empty((fc, 4), int)
+        for j in range(fc):
+            Face4[j][0] = XF_MSH.pnt_index(U - 1, j, U)
+            Face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
+            Face4[j][3], Face4[j][2] = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
+
+        msh.add_section(XF_Face(6, fcs, fcs + fc - 1, bc[3], 2, Face4))
+
+        '''Interior'''
+        fcs = 1
+        Face5 = []
+        for i in range(1, U - 1):
+            for j in range(V - 1):
+                n1 = XF_MSH.pnt_index(i, j, U)
+                n2 = XF_MSH.pnt_index(i, j + 1, U)
+                cl, cr = XF_MSH.intersect((i, j), (i, j + 1), U, V)
+                Face5.append(np.array([n1, n2, cr, cl], int))
+
+        for j in range(1, V - 1):
+            for i in range(U - 1):
+                n1 = XF_MSH.pnt_index(i, j, U)
+                n2 = XF_MSH.pnt_index(i + 1, j, U)
+                cl, cr = XF_MSH.intersect((i, j), (i + 1, j), U, V)
+                Face5.append(np.array([n1, n2, cr, cl], int))
+
+        fc = len(Face5)
+        Face5 = np.copy(Face5)
+
+        msh.add_section(XF_Face(7, fcs, fc, 2, 2, Face5))
+
+        '''Node'''
         k = 0
-        NodeList = np.empty((U * V, Dim), float)
+        NodeList = np.empty((NodeCnt, Dim), float)
         for i in range(U):
             for j in range(V):
                 for d in range(Dim):
                     NodeList[k][d] = grid[i][j][d]
                 k += 1
 
-        msh = cls()
-        msh.add_section(XF_Header())
-        msh.add_section(XF_Comment("Dimension:"))
-        msh.add_section(XF_Dimension(Dim))
-        msh.add_section(XF_Comment("Declaration:"))
-        msh.add_section(XF_Node.declaration(NodeCnt, Dim))
-        msh.add_section(XF_Face.declaration(EdgeCnt))
-        msh.add_section(XF_Cell.declaration(CellCnt))
-        msh.add_section(XF_Comment("Grid:"))
         msh.add_section(XF_Node(1, 1, NodeCnt, 1, Dim, NodeList))
-        msh.add_section(XF_Cell(2, 1, CellCnt, 1, 3))
+
         return msh
