@@ -3,6 +3,7 @@ __pycache__
 *.stl
 *.igs
 *.xyz
+*.msh
 *.iges
 *.nb
 XFOIL6.99/
