@@ -136,7 +136,7 @@ class PLOT3D_Block(object):
                         p3d[i][j][k][d] = pts[i][j][d]
                     p3d[i][j][k][-1] = 1  # 默认均设为正常点
 
-        ret = PLOT3D_Block(p3d)
+        ret = cls(p3d)
         if close:
             ret.set_boundary_iblank(2)
         return ret
@@ -160,7 +160,7 @@ class PLOT3D_Block(object):
                         p3d[i][j][k][d] = pts[i][j][k][d]
                     p3d[i][j][k][-1] = 1  # 默认均设为正常点
 
-        ret = PLOT3D_Block(p3d)
+        ret = cls(p3d)
         if close:
             ret.set_boundary_iblank(2)
         return ret
