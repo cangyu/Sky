@@ -1,5 +1,6 @@
 import numpy as np
 from src.msh.tfi import Linear_TFI_2D
+from src.msh.fluent import XF_MSH
 
 
 def rectangular(L: float, W: float):
@@ -20,4 +21,5 @@ if __name__ == '__main__':
     ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
     msh = rectangular(L, W)
     msh.calc_grid(ppu, ppv)
-    print(msh.grid)
+    fmsh = XF_MSH.build_from_2d(msh.get_grid())
+    fmsh.save('test.msh')
