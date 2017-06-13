@@ -215,16 +215,16 @@ class XF_Cell(XF_Section):
 
     def build_content(self):
         if self.cell_info is not None:
-            self.formatted_content = "({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
-            self.formatted_content += "\n{}".format(self.cell_info[0])
+            self.formatted_content = "({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:], hex(self.elem_type)[2:])
+            self.formatted_content += "\n{}".format(hex(self.cell_info[0])[2:])
             for ci in range(1, len(self.cell_info)):
-                self.formatted_content += " {}".format(self.cell_info[ci])
+                self.formatted_content += " {}".format(hex(self.cell_info[ci])[2:])
             self.formatted_content += "))"
         else:
             if self.cell_type == 0:
-                self.formatted_content = "({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type)  # declaration
+                self.formatted_content = "({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:])  # declaration
             else:
-                self.formatted_content = "({} ({} {} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
+                self.formatted_content = "({} ({} {} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:], hex(self.elem_type)[2:])
 
     @classmethod
     def declaration(cls, num):
@@ -352,7 +352,9 @@ class XF_MSH(object):
         for i in range(face1_num):
             face1[i][0] = XF_MSH.pnt_index(i, 0, U)
             face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
-            face1[i][3], face1[i][2] = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
+            cl, cr = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
+            face1[i][2] = cl
+            face1[i][3] = cr
 
         '''Face-C2'''
         face2_num = V - 1
@@ -362,7 +364,9 @@ class XF_MSH(object):
         for j in range(face2_num):
             face2[j][0] = XF_MSH.pnt_index(0, j, U)
             face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
-            face2[j][3], face2[j][2] = XF_MSH.intersect((0, j), (0, j + 1), U, V)
+            cl, cr = XF_MSH.intersect((0, j), (0, j + 1), U, V)
+            face2[j][2] = cl
+            face2[j][3] = cr
 
         '''Face-C3'''
         face3_num = U - 1
@@ -372,7 +376,9 @@ class XF_MSH(object):
         for i in range(face3_num):
             face3[i][0] = XF_MSH.pnt_index(i, V - 1, U)
             face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
-            face3[i][3], face3[i][2] = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
+            cl, cr = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
+            face3[i][2] = cl
+            face3[i][3] = cr
 
         '''Face-C4'''
         face4_num = V - 1
@@ -382,7 +388,9 @@ class XF_MSH(object):
         for j in range(face4_num):
             face4[j][0] = XF_MSH.pnt_index(U - 1, j, U)
             face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
-            face4[j][3], face4[j][2] = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
+            cl, cr = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
+            face4[j][2] = cl
+            face4[j][3] = cr
 
         '''Interior'''
         face5 = []
@@ -391,14 +399,14 @@ class XF_MSH(object):
                 n1 = XF_MSH.pnt_index(i, j, U)
                 n2 = XF_MSH.pnt_index(i, j + 1, U)
                 cl, cr = XF_MSH.intersect((i, j), (i, j + 1), U, V)
-                face5.append(np.array([n1, n2, cr, cl], int))
+                face5.append(np.array([n1, n2, cl, cr], int))
 
         for j in range(1, V - 1):
             for i in range(U - 1):
                 n1 = XF_MSH.pnt_index(i, j, U)
                 n2 = XF_MSH.pnt_index(i + 1, j, U)
                 cl, cr = XF_MSH.intersect((i, j), (i + 1, j), U, V)
-                face5.append(np.array([n1, n2, cr, cl], int))
+                face5.append(np.array([n1, n2, cl, cr], int))
 
         face5_num = len(face5)
         face5 = np.copy(face5)
@@ -418,18 +426,18 @@ class XF_MSH(object):
         msh.add_section(XF_Node.declaration(NodeCnt, Dim))
         msh.add_blank()
         msh.add_section(XF_Comment("Grid:"))
+        msh.add_section(XF_Cell(7, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_blank()
+        msh.add_section(XF_Face(2, face1_first, face1_last, bc[0], FaceType.Linear, face1))
+        msh.add_blank()
+        msh.add_section(XF_Face(3, face2_first, face2_last, bc[1], FaceType.Linear, face2))
+        msh.add_blank()
+        msh.add_section(XF_Face(4, face3_first, face3_last, bc[2], FaceType.Linear, face3))
+        msh.add_blank()
+        msh.add_section(XF_Face(5, face4_first, face4_last, bc[3], FaceType.Linear, face4))
+        msh.add_blank()
+        msh.add_section(XF_Face(6, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
+        msh.add_blank()
         msh.add_section(XF_Node(1, 1, NodeCnt, NodeType.Any, Dim, NodeList))
-        msh.add_blank()
-        msh.add_section(XF_Cell(2, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
-        msh.add_blank()
-        msh.add_section(XF_Face(3, face1_first, face1_last, bc[0], FaceType.Linear, face1))
-        msh.add_blank()
-        msh.add_section(XF_Face(4, face2_first, face2_last, bc[1], FaceType.Linear, face2))
-        msh.add_blank()
-        msh.add_section(XF_Face(5, face3_first, face3_last, bc[2], FaceType.Linear, face3))
-        msh.add_blank()
-        msh.add_section(XF_Face(6, face4_first, face4_last, bc[3], FaceType.Linear, face4))
-        msh.add_blank()
-        msh.add_section(XF_Face(7, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
 
         return msh

@@ -10,10 +10,10 @@ def rectangular(L: float, W: float):
                          lambda v: np.array([L, W * v, 0]))
 
 
-U = 20
-V = 30
-L = 5
-W = 2
+U = 30
+V = 10
+L = 3
+W = 1
 
 if __name__ == '__main__':
     u_list = np.linspace(0, 1.0, U + 1)
