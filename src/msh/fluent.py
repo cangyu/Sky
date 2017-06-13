@@ -90,12 +90,7 @@ class XF_Node(XF_Section):
         self.pts = None if pts is None else np.copy(pts)
 
     def build_content(self):
-        self.formatted_content = "({} ({} {} {} {} {})".format(self.index,
-                                                               hex(self.zone_id)[2:],
-                                                               hex(self.first_index)[2:],
-                                                               hex(self.last_index)[2:],
-                                                               hex(self.node_type)[2:],
-                                                               self.ND)
+        self.formatted_content = "({} ({} {} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:], self.ND)
         if self.pts is not None:
             n, dim = self.pts.shape
             self.formatted_content += "("
@@ -165,26 +160,14 @@ class XF_Face(XF_Section):
         self.face_info = None if face_info is None else np.copy(face_info)
 
     def build_content(self):
-        if self.face_info is None:
-            self.formatted_content = "({} ({} {} {} {})".format(self.index,
-                                                                hex(self.zone_id)[2:],
-                                                                hex(self.first_index)[2:],
-                                                                hex(self.last_index)[2:],
-                                                                hex(self.face_type)[2:])
-        else:
-            self.formatted_content = "({} ({} {} {} {} {})".format(self.index,
-                                                                   hex(self.zone_id)[2:],
-                                                                   hex(self.first_index)[2:],
-                                                                   hex(self.last_index)[2:],
-                                                                   hex(self.bc_type)[2:],
-                                                                   hex(self.face_type)[2:])
-            self.formatted_content += '('
+        if self.face_info is not None:
+            self.formatted_content = "({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.bc_type)[2:], hex(self.face_type)[2:])
             for fc in self.face_info:
                 for cfi in range(len(fc)):  # current face info
-                    self.formatted_content += "{}{}".format('\n' if cfi == 0 else ' ', fc[cfi])
-            self.formatted_content += ')'
-
-        self.formatted_content += ')'
+                    self.formatted_content += "{}{}".format('\n' if cfi == 0 else ' ', hex(fc[cfi])[2:])
+            self.formatted_content += '))'
+        else:
+            self.formatted_content = "({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.face_type)[2:])
 
     @classmethod
     def declaration(cls, num):
@@ -196,7 +179,6 @@ class CellType(Enum):
     Dead = 0
     Fluid = 1
     Solid = 17
-    Inactive = 32
 
 
 @unique
@@ -233,18 +215,16 @@ class XF_Cell(XF_Section):
 
     def build_content(self):
         if self.cell_info is not None:
-            self.formatted_content = "({} ({} {} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
-            self.formatted_content += '(\n'
-            for ci in self.cell_info:
-                self.formatted_content += "{} ".format(ci)
-            self.formatted_content += '\n)'
+            self.formatted_content = "({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
+            self.formatted_content += "\n{}".format(self.cell_info[0])
+            for ci in range(1, len(self.cell_info)):
+                self.formatted_content += " {}".format(self.cell_info[ci])
+            self.formatted_content += "))"
         else:
             if self.cell_type == 0:
-                self.formatted_content = "({} ({} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type)  # declaration
+                self.formatted_content = "({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type)  # declaration
             else:
-                self.formatted_content = "({} ({} {} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
-
-        self.formatted_content += ')'
+                self.formatted_content = "({} ({} {} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], self.cell_type, self.elem_type)
 
     @classmethod
     def declaration(cls, num):
@@ -253,6 +233,10 @@ class XF_Cell(XF_Section):
 
 class XF_MSH(object):
     def __init__(self):
+        """
+        ANSYS Fluent MSH文件
+        """
+
         self.section_list = []
         self.content = ''
 
@@ -271,10 +255,28 @@ class XF_MSH(object):
 
     @staticmethod
     def pnt_index(i: int, j: int, U: int):
+        """
+        坐标对应的序号，序号从1开始
+        :param i: 列号(Starting from 0)，与x方向对应
+        :param j: 行号(Starting from 0)，与y方向对应
+        :param U: 每行节点数
+        :return: (i,j)节点所对应的序号 
+        """
+
         return j * U + i + 1
 
     @staticmethod
     def cell_index(i: int, j: int, d: int, U: int, V: int):
+        """
+        由节点坐标及象限编号确定单元序号
+        :param i: 列号(Starting from 0)，与x方向对应
+        :param j: 行号(Starting from 0)，与y方向对应
+        :param d: 象限号(Range from 1 to 4)
+        :param U: 每行节点数
+        :param V: 每列节点数
+        :return: 以(i,j)为原点，位于第d象限的Cell的序号(Starting from 1)，若不存在则为0
+        """
+
         if d == 1:
             return 0 if i == U - 1 or j == V - 1 else j * (U - 1) + i + 1
         elif d == 2:
@@ -288,6 +290,15 @@ class XF_MSH(object):
 
     @staticmethod
     def intersect(p1, p2, U: int, V: int):
+        """
+        求两个相邻的节点连结成的线段左右两个Cell
+        :param p1: 起始点坐标
+        :param p2: 终止点坐标
+        :param U: 每行节点数
+        :param V: 每列节点数
+        :return: 从p1到p2的向量左右两个Cell的序号: cl, cr
+        """
+
         i, j = p1
         ii, jj = p2
         di = ii - i
@@ -319,111 +330,106 @@ class XF_MSH(object):
         :return: XF_MSH object
         """
 
-        msh = cls()
         U, V, Dim = grid.shape
         Dim = 2
-
-        msh.add_section(XF_Header())
-        msh.add_blank()
-        msh.add_section(XF_Comment("Dimension:"))
-        msh.add_section(XF_Dimension(Dim))
-        msh.add_blank()
-
         NodeCnt = U * V
         EdgeCnt = 2 * U * V - U - V
         CellCnt = (U - 1) * (V - 1)
 
-        msh.add_section(XF_Comment("Declaration:"))
-        msh.add_section(XF_Cell.declaration(CellCnt))
-        msh.add_section(XF_Face.declaration(EdgeCnt))
-        msh.add_section(XF_Node.declaration(NodeCnt, Dim))
-        msh.add_blank()
-
-        '''Node'''
         k = 0
         NodeList = np.empty((NodeCnt, Dim), float)
-        for i in range(U):
-            for j in range(V):
+        for j in range(V):
+            for i in range(U):
                 for d in range(Dim):
-                    NodeList[k][d] = grid[i][j][d]
+                    NodeList[k][d] = grid[i][j][d]  # 节点序号规定为沿x方向优先，依次递增
                 k += 1
 
-        msh.add_section(XF_Comment("Grid:"))
-        msh.add_section(XF_Node(1, 1, NodeCnt, NodeType.Any, Dim, NodeList))
-        msh.add_blank()
-
-        '''Cell'''
-        msh.add_section(XF_Cell(2, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
-        msh.add_blank()
-
         '''Face-C1'''
-        fcs = 1
-        fc = U - 1
-        Face1 = np.empty((fc, 4), int)
-        for i in range(fc):
-            Face1[i][0] = XF_MSH.pnt_index(i, 0, U)
-            Face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
-            Face1[i][3], Face1[i][2] = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
-
-        msh.add_section(XF_Face(3, fcs, fcs + fc - 1, bc[0], FaceType.Linear, Face1))
-        msh.add_blank()
+        face1_num = U - 1
+        face1 = np.empty((face1_num, 4), int)
+        face1_first = 1
+        face1_last = face1_first + face1_num - 1
+        for i in range(face1_num):
+            face1[i][0] = XF_MSH.pnt_index(i, 0, U)
+            face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
+            face1[i][3], face1[i][2] = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
 
         '''Face-C2'''
-        fcs = 1
-        fc = V - 1
-        Face2 = np.empty((fc, 4), int)
-        for j in range(fc):
-            Face2[j][0] = XF_MSH.pnt_index(0, j, U)
-            Face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
-            Face2[j][3], Face2[j][2] = XF_MSH.intersect((0, j), (0, j + 1), U, V)
-
-        msh.add_section(XF_Face(4, fcs, fcs + fc - 1, bc[1], FaceType.Linear, Face2))
-        msh.add_blank()
+        face2_num = V - 1
+        face2 = np.empty((face2_num, 4), int)
+        face2_first = face1_last + 1
+        face2_last = face2_first + face2_num - 1
+        for j in range(face2_num):
+            face2[j][0] = XF_MSH.pnt_index(0, j, U)
+            face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
+            face2[j][3], face2[j][2] = XF_MSH.intersect((0, j), (0, j + 1), U, V)
 
         '''Face-C3'''
-        fcs = 1
-        fc = U - 1
-        Face3 = np.empty((fc, 4), int)
-        for i in range(fc):
-            Face3[i][0] = XF_MSH.pnt_index(i, V - 1, U)
-            Face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
-            Face3[i][3], Face3[i][2] = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
-
-        msh.add_section(XF_Face(5, fcs, fcs + fc - 1, bc[2], FaceType.Linear, Face3))
-        msh.add_blank()
+        face3_num = U - 1
+        face3 = np.empty((face3_num, 4), int)
+        face3_first = face2_last + 1
+        face3_last = face3_first + face3_num - 1
+        for i in range(face3_num):
+            face3[i][0] = XF_MSH.pnt_index(i, V - 1, U)
+            face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
+            face3[i][3], face3[i][2] = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
 
         '''Face-C4'''
-        fcs = 1
-        fc = V - 1
-        Face4 = np.empty((fc, 4), int)
-        for j in range(fc):
-            Face4[j][0] = XF_MSH.pnt_index(U - 1, j, U)
-            Face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
-            Face4[j][3], Face4[j][2] = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
-
-        msh.add_section(XF_Face(6, fcs, fcs + fc - 1, bc[3], FaceType.Linear, Face4))
-        msh.add_blank()
+        face4_num = V - 1
+        face4 = np.empty((face4_num, 4), int)
+        face4_first = face3_last + 1
+        face4_last = face4_first + face4_num - 1
+        for j in range(face4_num):
+            face4[j][0] = XF_MSH.pnt_index(U - 1, j, U)
+            face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
+            face4[j][3], face4[j][2] = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
 
         '''Interior'''
-        fcs = 1
-        Face5 = []
+        face5 = []
         for i in range(1, U - 1):
             for j in range(V - 1):
                 n1 = XF_MSH.pnt_index(i, j, U)
                 n2 = XF_MSH.pnt_index(i, j + 1, U)
                 cl, cr = XF_MSH.intersect((i, j), (i, j + 1), U, V)
-                Face5.append(np.array([n1, n2, cr, cl], int))
+                face5.append(np.array([n1, n2, cr, cl], int))
 
         for j in range(1, V - 1):
             for i in range(U - 1):
                 n1 = XF_MSH.pnt_index(i, j, U)
                 n2 = XF_MSH.pnt_index(i + 1, j, U)
                 cl, cr = XF_MSH.intersect((i, j), (i + 1, j), U, V)
-                Face5.append(np.array([n1, n2, cr, cl], int))
+                face5.append(np.array([n1, n2, cr, cl], int))
 
-        fc = len(Face5)
-        Face5 = np.copy(Face5)
+        face5_num = len(face5)
+        face5 = np.copy(face5)
+        face5_first = face4_last + 1
+        face5_last = face5_first + face5_num - 1
 
-        msh.add_section(XF_Face(7, fcs, fc, BCType.Interior, FaceType.Linear, Face5))
+        '''MSH File'''
+        msh = cls()
+        msh.add_section(XF_Header())
+        msh.add_blank()
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(Dim))
+        msh.add_blank()
+        msh.add_section(XF_Comment("Declaration:"))
+        msh.add_section(XF_Cell.declaration(CellCnt))
+        msh.add_section(XF_Face.declaration(EdgeCnt))
+        msh.add_section(XF_Node.declaration(NodeCnt, Dim))
+        msh.add_blank()
+        msh.add_section(XF_Comment("Grid:"))
+        msh.add_section(XF_Node(1, 1, NodeCnt, NodeType.Any, Dim, NodeList))
+        msh.add_blank()
+        msh.add_section(XF_Cell(2, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_blank()
+        msh.add_section(XF_Face(3, face1_first, face1_last, bc[0], FaceType.Linear, face1))
+        msh.add_blank()
+        msh.add_section(XF_Face(4, face2_first, face2_last, bc[1], FaceType.Linear, face2))
+        msh.add_blank()
+        msh.add_section(XF_Face(5, face3_first, face3_last, bc[2], FaceType.Linear, face3))
+        msh.add_blank()
+        msh.add_section(XF_Face(6, face4_first, face4_last, bc[3], FaceType.Linear, face4))
+        msh.add_blank()
+        msh.add_section(XF_Face(7, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
 
         return msh

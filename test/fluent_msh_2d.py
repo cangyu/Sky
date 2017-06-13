@@ -10,15 +10,15 @@ def rectangular(L: float, W: float):
                          lambda v: np.array([L, W * v, 0]))
 
 
-U = 2
-V = 2
+U = 20
+V = 30
 L = 5
 W = 2
 
 if __name__ == '__main__':
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='xy')
+    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
     msh = rectangular(L, W)
     msh.calc_grid(ppu, ppv)
     fmsh = XF_MSH.from_str2d(msh.get_grid())
