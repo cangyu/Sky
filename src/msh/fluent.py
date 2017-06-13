@@ -1,9 +1,10 @@
 import numpy as np
 from abc import abstractmethod
+from enum import Enum, unique
 
 
 class XF_Section(object):
-    def __init__(self, index):
+    def __init__(self, index: int):
         """
         Fluent MSH文件中每个Section的抽象类
         :param index: 该Section的类别
@@ -36,7 +37,7 @@ class XF_Comment(XF_Section):
 
 
 class XF_Header(XF_Section):
-    def __init__(self, info='Python 3.x'):
+    def __init__(self, info='Grid generated with Python 3.x'):
         """
         To identify the program that wrote the file.
         :param info: Header info.
@@ -63,18 +64,20 @@ class XF_Dimension(XF_Section):
         self.formatted_content = "({} {})".format(self.index, self.ND)
 
 
+@unique
+class NodeType(Enum):
+    Virtual, Any, Boundary = range(3)
+
+
 class XF_Node(XF_Section):
-    def __init__(self, zone, first, last, node_type, ND, pts=None):
+    def __init__(self, zone: int, first: int, last: int, tp: NodeType, dim: int, pts=None):
         """
         网格点
         :param zone: 区域号 
         :param first: 网格点起始序号(Starting from 1)
         :param last:  网格点终止序号
-        :param node_type: 网格点类型(TGrid usage)
-            0 - Virtual nodes
-            1 - Any type
-            2 - Boundary nodes
-        :param ND: Indicate the dimensionality of the node data.
+        :param tp: 网格点类型(TGrid usage)
+        :param dim: Indicate the dimensionality of the node data.
         :param pts: 网格点数组，(last-first+1)个元素
         """
 
@@ -82,8 +85,8 @@ class XF_Node(XF_Section):
         self.zone_id = zone
         self.first_index = first
         self.last_index = last
-        self.node_type = node_type
-        self.ND = ND
+        self.node_type = tp.value
+        self.ND = dim
         self.pts = None if pts is None else np.copy(pts)
 
     def build_content(self):
@@ -95,47 +98,61 @@ class XF_Node(XF_Section):
                                                                self.ND)
         if self.pts is not None:
             n, dim = self.pts.shape
-            self.formatted_content += "(\n"
+            self.formatted_content += "("
             for i in range(n):
                 for d in range(self.ND):
-                    self.formatted_content += "{} ".format(self.pts[i][d])
-                self.formatted_content += '\n'
+                    self.formatted_content += "{}{}".format('\n' if d == 0 else ' ', self.pts[i][d])
             self.formatted_content += ")"
         self.formatted_content += ")"
 
     @classmethod
     def declaration(cls, num, dim):
-        return cls(0, 1, num, 0, dim)
+        return cls(0, 1, num, NodeType.Virtual, dim)
+
+
+class BCType(Enum):
+    Inactive = 0
+    Interior = 2
+    Wall = 3
+    PressureInlet = 4
+    InletVent = 4
+    IntakeFan = 4
+    PressureOutlet = 5
+    OutletVent = 5
+    ExhaustFan = 5
+    Symmetry = 7
+    PeriodicShadow = 8
+    PressureFarField = 9
+    VelocityInlet = 10
+    Periodic = 12
+    Fan = 14
+    PorousJump = 14
+    Radiator = 14
+    MassFlowInlet = 20
+    Interface = 24
+    Parent = 31  # hanging node
+    Outflow = 36
+    Axis = 37
+
+
+@unique
+class FaceType(Enum):
+    Mixed = 0
+    Linear = 2
+    Triangular = 3
+    Quadrilateral = 4
+    Polygonal = 5
 
 
 class XF_Face(XF_Section):
-    def __init__(self, zone, first, last, face_type, elem_type, face_info=None):
+    def __init__(self, zone: int, first: int, last: int, bct: BCType, ft: FaceType, face_info=None):
         """
         边界
         :param zone: 区域号
         :param first: 起始序号(Starting from 1)
         :param last: 终止序号
-        :param face_type: 边界属性(十进制)
-            2  - interior
-            3  - wall
-            4  - pressure-inlet, inlet-vent, intake-fan
-            5  - pressure-outlet, outlet-vent, exhaust-fan
-            7  - symmetry
-            8  - periodic-shadow
-            9  - pressure-far-field
-            10 - velocity-inlet
-            12 - periodic
-            14 - fan, porous-jump, radiator
-            20 - mass-flow-inlet
-            24 - interface
-            31 - parent(hanging node)
-            36 - outflow
-            37 - axis
-        :param elem_type: 形状类别
-            0 - mixed
-            2 - linear
-            3 - triangular
-            4 - quadrilateral
+        :param bct: 边界属性
+        :param ft: 形状类别
         :param face_info: 边界信息，一维数组(last-first+1)个元素，每个元素中包含了邻接关系
         """
 
@@ -143,8 +160,8 @@ class XF_Face(XF_Section):
         self.zone_id = zone
         self.first_index = first
         self.last_index = last
-        self.face_type = face_type
-        self.elem_type = elem_type
+        self.bc_type = bct.value
+        self.face_type = ft.value
         self.face_info = None if face_info is None else np.copy(face_info)
 
     def build_content(self):
@@ -153,47 +170,56 @@ class XF_Face(XF_Section):
                                                                 hex(self.zone_id)[2:],
                                                                 hex(self.first_index)[2:],
                                                                 hex(self.last_index)[2:],
-                                                                hex(self.elem_type)[2:])
+                                                                hex(self.face_type)[2:])
         else:
             self.formatted_content = "({} ({} {} {} {} {})".format(self.index,
                                                                    hex(self.zone_id)[2:],
                                                                    hex(self.first_index)[2:],
                                                                    hex(self.last_index)[2:],
-                                                                   hex(self.face_type)[2:],
-                                                                   hex(self.elem_type)[2:])
-            self.formatted_content += '(\n'
+                                                                   hex(self.bc_type)[2:],
+                                                                   hex(self.face_type)[2:])
+            self.formatted_content += '('
             for fc in self.face_info:
-                for cfi in fc:  # current face info
-                    self.formatted_content += "{} ".format(cfi)
-                self.formatted_content += '\n'
+                for cfi in range(len(fc)):  # current face info
+                    self.formatted_content += "{}{}".format('\n' if cfi == 0 else ' ', fc[cfi])
             self.formatted_content += ')'
 
         self.formatted_content += ')'
 
     @classmethod
     def declaration(cls, num):
-        return cls(0, 1, num, 0, 0)
+        return cls(0, 1, num, BCType.Inactive, FaceType.Mixed)
+
+
+@unique
+class CellType(Enum):
+    Dead = 0
+    Fluid = 1
+    Solid = 17
+    Inactive = 32
+
+
+@unique
+class CellElement(Enum):
+    Mixed = 0
+    Triangular = 1
+    Tetrahedral = 2
+    Quadrilateral = 3
+    Hexahedra = 4
+    Pyramid = 5
+    Wedge = 6
+    Polyhedral = 7
 
 
 class XF_Cell(XF_Section):
-    def __init__(self, zone, first, last, cell_type, elem_type, cell_info=None):
+    def __init__(self, zone: int, first: int, last: int, ct: CellType, ce: CellElement, cell_info=None):
         """
         单元
         :param zone: 区域号
         :param first: 起始序号(Starting from 1)
         :param last: 终止序号
-        :param cell_type: Active or not.
-            0  - Dead zone.
-            1  - Active zone(fluid or solid).
-            32 - Inactive zone.
-        :param elem_type: Type of all cell.
-            0 - mixed
-            1 - triangular
-            2 - tetrahedral
-            3 - quadrilateral
-            4 - hexahedral
-            5 - pyramid
-            6 - wedge
+        :param ct: Cell type.
+        :param ce: Cell element.
         :param cell_info: 单元类型信息，一维数组，(last-first+1)个元素
         """
 
@@ -201,8 +227,8 @@ class XF_Cell(XF_Section):
         self.zone_id = zone
         self.first_index = first
         self.last_index = last
-        self.cell_type = cell_type
-        self.elem_type = elem_type
+        self.cell_type = ct.value
+        self.elem_type = ce.value
         self.cell_info = None if cell_info is None else np.copy(cell_info)
 
     def build_content(self):
@@ -222,22 +248,25 @@ class XF_Cell(XF_Section):
 
     @classmethod
     def declaration(cls, num):
-        return cls(0, 1, num, 0, 0)
+        return cls(0, 1, num, CellType.Dead, CellElement.Mixed)
 
 
 class XF_MSH(object):
     def __init__(self):
         self.section_list = []
+        self.content = ''
 
     def add_section(self, section: XF_Section):
         self.section_list.append(section)
+        section.build_content()
+        self.content += "{}\n".format(section.content)
+
+    def add_blank(self):
+        self.content += '\n'
 
     def save(self, fn):
         msh = open(fn, 'w')
-        for i in range(len(self.section_list)):
-            self.section_list[i].build_content()
-            msh.write("{}\n".format(self.section_list[i].content))
-
+        msh.write(self.content)
         msh.close()
 
     @staticmethod
@@ -282,7 +311,7 @@ class XF_MSH(object):
             raise ValueError("Invalid coordinates!")
 
     @classmethod
-    def build_from_2d(cls, grid, bc=(3, 10, 3, 36)):
+    def from_str2d(cls, grid, bc=(BCType.Wall, BCType.VelocityInlet, BCType.Wall, BCType.Outflow)):
         """
         从2维结构网格构建Fluent msh文件
         :param grid: 2D structural grid
@@ -294,8 +323,11 @@ class XF_MSH(object):
         U, V, Dim = grid.shape
         Dim = 2
 
+        msh.add_section(XF_Header())
+        msh.add_blank()
         msh.add_section(XF_Comment("Dimension:"))
         msh.add_section(XF_Dimension(Dim))
+        msh.add_blank()
 
         NodeCnt = U * V
         EdgeCnt = 2 * U * V - U - V
@@ -305,10 +337,24 @@ class XF_MSH(object):
         msh.add_section(XF_Cell.declaration(CellCnt))
         msh.add_section(XF_Face.declaration(EdgeCnt))
         msh.add_section(XF_Node.declaration(NodeCnt, Dim))
+        msh.add_blank()
+
+        '''Node'''
+        k = 0
+        NodeList = np.empty((NodeCnt, Dim), float)
+        for i in range(U):
+            for j in range(V):
+                for d in range(Dim):
+                    NodeList[k][d] = grid[i][j][d]
+                k += 1
+
+        msh.add_section(XF_Comment("Grid:"))
+        msh.add_section(XF_Node(1, 1, NodeCnt, NodeType.Any, Dim, NodeList))
+        msh.add_blank()
 
         '''Cell'''
-        msh.add_section(XF_Comment("Grid:"))
-        msh.add_section(XF_Cell(2, 1, CellCnt, 1, 3))
+        msh.add_section(XF_Cell(2, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_blank()
 
         '''Face-C1'''
         fcs = 1
@@ -319,7 +365,8 @@ class XF_MSH(object):
             Face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
             Face1[i][3], Face1[i][2] = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
 
-        msh.add_section(XF_Face(3, fcs, fcs + fc - 1, bc[0], 2, Face1))
+        msh.add_section(XF_Face(3, fcs, fcs + fc - 1, bc[0], FaceType.Linear, Face1))
+        msh.add_blank()
 
         '''Face-C2'''
         fcs = 1
@@ -330,7 +377,8 @@ class XF_MSH(object):
             Face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
             Face2[j][3], Face2[j][2] = XF_MSH.intersect((0, j), (0, j + 1), U, V)
 
-        msh.add_section(XF_Face(4, fcs, fcs + fc - 1, bc[1], 2, Face2))
+        msh.add_section(XF_Face(4, fcs, fcs + fc - 1, bc[1], FaceType.Linear, Face2))
+        msh.add_blank()
 
         '''Face-C3'''
         fcs = 1
@@ -341,7 +389,8 @@ class XF_MSH(object):
             Face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
             Face3[i][3], Face3[i][2] = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
 
-        msh.add_section(XF_Face(5, fcs, fcs + fc - 1, bc[2], 2, Face3))
+        msh.add_section(XF_Face(5, fcs, fcs + fc - 1, bc[2], FaceType.Linear, Face3))
+        msh.add_blank()
 
         '''Face-C4'''
         fcs = 1
@@ -352,7 +401,8 @@ class XF_MSH(object):
             Face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
             Face4[j][3], Face4[j][2] = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
 
-        msh.add_section(XF_Face(6, fcs, fcs + fc - 1, bc[3], 2, Face4))
+        msh.add_section(XF_Face(6, fcs, fcs + fc - 1, bc[3], FaceType.Linear, Face4))
+        msh.add_blank()
 
         '''Interior'''
         fcs = 1
@@ -374,17 +424,6 @@ class XF_MSH(object):
         fc = len(Face5)
         Face5 = np.copy(Face5)
 
-        msh.add_section(XF_Face(7, fcs, fc, 2, 2, Face5))
-
-        '''Node'''
-        k = 0
-        NodeList = np.empty((NodeCnt, Dim), float)
-        for i in range(U):
-            for j in range(V):
-                for d in range(Dim):
-                    NodeList[k][d] = grid[i][j][d]
-                k += 1
-
-        msh.add_section(XF_Node(1, 1, NodeCnt, 1, Dim, NodeList))
+        msh.add_section(XF_Face(7, fcs, fc, BCType.Interior, FaceType.Linear, Face5))
 
         return msh
