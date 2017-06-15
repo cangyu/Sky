@@ -154,6 +154,7 @@ def line_intersection(p0, t0, p2, t2, with_ratio=False):
         u[i] = t0[i] - p0[i]
         v[i] = t2[i] - p2[i]
 
+    # TODO 判断是否共面
     cp = np.cross(u, v)
     if not cp.any():
         raise AssertionError("No intersection!")
