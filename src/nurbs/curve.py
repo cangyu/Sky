@@ -205,21 +205,24 @@ class Line(NURBS_Curve):
     def __init__(self, a, b):
         """
         两点间直线段
-        :param s: 起始点坐标
-        :param t: 终点坐标
+        :param a: 起始点坐标
+        :param b: 终点坐标
         """
 
-        self.begin = np.copy(a)
-        self.end = np.copy(b)
         U = np.array([0, 0, 1, 1])
-        Pw = np.array([[a[0], a[1], a[2], 1], [b[0], b[1], b[2], 1]])
+        Pw = np.array([[0, 0, 0, 1], [0, 0, 0, 1]], float)
+
+        for i in range(min(3, len(a))):
+            Pw[0][i] = a[i]
+        for i in range(min(3, len(b))):
+            Pw[1][i] = b[i]
 
         super(Line, self).__init__(U, Pw)
 
     def to_iges(self):
-        return IGES_Entity110(self.begin, self.end)
+        return IGES_Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
 
 
 class Arc(NURBS_Curve):
-    def __init__(self, radius=1., center=None, sang=0., eang=2 * math.pi):
+    def __init__(self, sp, ep, ang, n=np.array([0, 0, 1.0])):
         pass
