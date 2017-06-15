@@ -153,9 +153,10 @@ class ExtrudeSurf(NURBS_Surface):
         n = len(crv.cpt)
         Pw = np.zeros((n, 2, 4))
         for i in range(n):
-            Pw[i][0] = np.copy(crv.Pw[i])
-            Pw[i][1] = Pw[i][0] + to_homogeneous(dir, Pw[i][0][3])
-            Pw[i][1][3] /= 2
+            Pw[i][0] = Pw[i][1] = np.copy(crv.Pw[i])
+            wdir = to_homogeneous(dir, Pw[i][0][3])
+            for d in range(3):
+                Pw[i][1][d] += wdir[d]
 
         super(ExtrudeSurf, self).__init__(U, V, Pw)
 
