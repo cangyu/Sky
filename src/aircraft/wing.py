@@ -106,6 +106,60 @@ class Wing(object):
         self.xt = xt_list
         self.yt = yt_list
 
+        self.surf = None
+        self.root = None
+        self.tip = None
+        self.front = None
+        self.tail_up = None
+        self.tail_down = None
+
+    def build_sketch(self, p=5, q=5):
+        """
+        构建机翼轮廓曲线、曲面
+        :param p: U方向次数
+        :param q: V方向次数
+        :return: None
+        """
+
+        '''剖面'''
+        profile = []
+        for i in range(0, self.n):
+            epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
+                             [self.xt[i], self.yt[i], self.z[i]]])
+            wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
+            profile.append(wp)
+
+        self.root = profile[0].nurbs_rep
+        self.tip = profile[-1].nurbs_rep
+
+        '''曲面全局插值'''
+        nn = len(profile[0].pts)
+        mm = self.n
+        surf_pts = np.zeros((nn, mm, 3))
+        for i in range(0, nn):
+            for j in range(0, mm):
+                surf_pts[i][j] = np.copy(profile[j].pts[i])
+        self.surf = GlobalInterpolatedSurf(surf_pts, p, q)
+
+        '''前后缘采样点'''
+        front_pts = np.zeros((self.n, 3))
+        tail_up_pts = np.zeros((self.n, 3))
+        tail_down_pts = np.zeros((self.n, 3))
+        for i in range(self.n):
+            front_pts[i][0] = self.xf[i]
+            front_pts[i][1] = self.yf[i]
+            front_pts[i][2] = self.z[i]
+            tail_up_pts[i] = np.copy(profile[i].pts[0])
+            tail_down_pts[i] = np.copy(profile[i].pts[-1])
+
+        self.front = GlobalInterpolatedCrv(front_pts, q, 'chord')
+        self.tail_up = GlobalInterpolatedCrv(tail_up_pts, q, 'chord')
+        self.tail_down = GlobalInterpolatedCrv(tail_down_pts, q, 'chord')
+
+    @property
+    def geom(self):
+        return self.surf, self.root, self.tip, self.front, self.tail_up, self.tail_down
+
     def write(self, fn, p=5, q=5, mirror=True, farfield_box=False, H=80, L=600, W=250):
         wing_model = IGES_Model(fn)
 
@@ -151,8 +205,8 @@ class Wing(object):
         for i in range(0, nn):
             for j in range(0, mm):
                 surf_pts[i][j] = np.copy(profile[j].pts[i])
-        surf = GlobalInterpolatedSurf(surf_pts, p, q)
-        wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
+        self.surf = GlobalInterpolatedSurf(surf_pts, p, q)
+        wing_model.add_entity(self.surf.to_iges(0, 0, 0, 0))
 
         if mirror:
             for i in range(nn):
