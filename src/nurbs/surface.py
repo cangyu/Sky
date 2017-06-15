@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import BSpline
 from src.nurbs.utility import equal, to_homogeneous, to_cartesian
-from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts
+from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts, NURBS_Curve
 from src.iges.iges_entity128 import IGES_Entity128
 
 
@@ -39,12 +39,12 @@ class NURBS_Surface(object):
 
     def __call__(self, u, v, k=0, l=0):
         R = []
-        for i in range(0, self.n):
+        for i in range(0, self.n + 1):
             spl = BSpline(self.V, self.Pw[i], self.q)
             R.append(spl(v, l))
         Rw = np.copy(R)
         spl = BSpline(self.U, Rw, self.p)
-        pw = spl(u, self.p)
+        pw = spl(u, k)
         return to_cartesian(pw)
 
     def to_iges(self, closed_u, closed_v, periodic_u, periodic_v, form=0):
@@ -138,6 +138,26 @@ class BilinearSurf(NURBS_Surface):
     def to_iges(self):
         return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
                               0, 0, (1 if self.isPoly else 0), 0, 0, self.U[0], self.U[-1], self.V[0], self.V[-1], 0)
+
+
+class ExtrudeSurf(NURBS_Surface):
+    def __init__(self, crv: NURBS_Curve, dir):
+        """
+        拉伸曲面
+        :param crv: Curve to be extruded.
+        :param dir: Direction vector.
+        """
+
+        U = np.copy(crv.U)
+        V = np.array([0, 0, 1, 1], float)
+        n = len(crv.cpt)
+        Pw = np.zeros((n, 2, 4))
+        for i in range(n):
+            Pw[i][0] = np.copy(crv.Pw[i])
+            Pw[i][1] = Pw[i][0] + to_homogeneous(dir, Pw[i][0][3])
+            Pw[i][1][3] /= 2
+
+        super(ExtrudeSurf, self).__init__(U, V, Pw)
 
 
 class RuledSurf(NURBS_Surface):
