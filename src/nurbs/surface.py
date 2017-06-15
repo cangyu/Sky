@@ -114,11 +114,42 @@ class GlobalInterpolatedSurf(NURBS_Surface):
         super(GlobalInterpolatedSurf, self).__init__(uknot, vknot, Pw)
 
 
-class Skinning(NURBS_Surface):
+class BilinearSurf(NURBS_Surface):
+    def __init__(self, P):
+        """
+        双线性曲面
+        :param P:4个角点, 2x2
+        """
+
+        U = np.array([0, 0, 1, 1], float)
+        V = np.array([0, 0, 1, 1], float)
+
+        ul, vl, dim = P.shape
+        assert ul == 2 and vl == 2
+
+        Pw = np.ones((ul, vl, 4), float)
+        for i in range(ul):
+            for j in range(vl):
+                for d in range(dim):
+                    Pw[i][j][d] = P[i][j][d]
+
+        super(BilinearSurf, self).__init__(U, V, Pw)
+
+    def to_iges(self):
+        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
+                              0, 0, (1 if self.isPoly else 0), 0, 0, self.U[0], self.U[-1], self.V[0], self.V[-1], 0)
+
+
+class RuledSurf(NURBS_Surface):
     def __init__(self):
         pass
 
 
 class Coons(NURBS_Surface):
+    def __init__(self):
+        pass
+
+
+class Skinning(NURBS_Surface):
     def __init__(self):
         pass
