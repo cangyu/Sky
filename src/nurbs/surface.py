@@ -140,7 +140,7 @@ class BilinearSurf(NURBS_Surface):
                               0, 0, (1 if self.isPoly else 0), 0, 0, self.U[0], self.U[-1], self.V[0], self.V[-1], 0)
 
 
-class ExtrudeSurf(NURBS_Surface):
+class ExtrudedSurf(NURBS_Surface):
     def __init__(self, crv: NURBS_Curve, dir):
         """
         拉伸曲面
@@ -158,7 +158,7 @@ class ExtrudeSurf(NURBS_Surface):
             for d in range(3):
                 Pw[i][1][d] += wdir[d]
 
-        super(ExtrudeSurf, self).__init__(U, V, Pw)
+        super(ExtrudedSurf, self).__init__(U, V, Pw)
 
 
 class RuledSurf(NURBS_Surface):
