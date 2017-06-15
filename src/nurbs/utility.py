@@ -129,3 +129,48 @@ def all_basis_val(u, p, U):
         ans[k] = N[k - (i - p)]
 
     return ans
+
+
+def line_intersection(p0, t0, p2, t2, with_ratio=False):
+    """
+    求两条空间直线交点
+    :param p0: 第1条直线上的第1点
+    :param t0: 第1条直线上的第2点
+    :param p2: 第2条直线上的第1点
+    :param t2: 第2条直线上的第2点
+    :param with_ratio: 是否返回交点在各条直线上的参数位置alpha0与alpha2
+    :return: 若with_ratio=True, 返回alpha0, alpha2, I, s.t. I = p0+alpha0(t0-p0) = p2+alpha2(t2-p2),否则只返回交点I
+    """
+
+    dim = len(p0)
+    if len(p0) != len(t0) != len(p2) != len(t2):
+        raise ValueError("Inconsistent dimension!")
+    if dim not in (2, 3):
+        raise ValueError("Invalid dimension!")
+
+    u = np.empty(dim)
+    v = np.empty(dim)
+    for i in range(dim):
+        u[i] = t0[i] - p0[i]
+        v[i] = t2[i] - p2[i]
+
+    cp = np.cross(u, v)
+    if not cp.any():
+        raise AssertionError("No intersection!")
+
+    u9 = np.zeros(dim)
+    v9 = np.zeros(dim)
+    u9[0] = -u[1]
+    u9[1] = u[0]
+    v9[0] = -v[1]
+    v9[1] = v[0]
+
+    dp = np.empty(dim)
+    for i in range(dim):
+        dp[i] = p2[i] - p0[i]
+
+    alpha0 = np.dot(dp, v9) / np.dot(u, v9)
+    alpha2 = -np.dot(dp, u9) / np.dot(v, u9)
+    I = p0 + alpha0 * u
+
+    return (alpha0, alpha2, I) if with_ratio else I
