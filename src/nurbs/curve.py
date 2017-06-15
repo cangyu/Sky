@@ -218,3 +218,8 @@ class Line(NURBS_Curve):
 
     def to_iges(self):
         return IGES_Entity110(self.begin, self.end)
+
+
+class Arc(NURBS_Curve):
+    def __init__(self, radius=1., center=None, sang=0., eang=2 * math.pi):
+        pass
