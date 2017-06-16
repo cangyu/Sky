@@ -148,6 +148,7 @@ class NURBS_Curve(object):
         '''Update'''
         self.update(nU, nPw)
 
+
 class GlobalInterpolatedCrv(NURBS_Curve):
     def __init__(self, pts, p=3, method='centripetal'):
         """
@@ -294,5 +295,19 @@ class Line(NURBS_Curve):
 
 
 class Arc(NURBS_Curve):
-    def __init__(self, sp, ep, ang, n=np.array([0, 0, 1.0])):
-        pass
+    def __init__(self, start_pnt, end_pnt, theta):
+        theta = np.deg2rad(np.remainder(theta, 360))
+        radius = 0.5 * pnt_dist(start_pnt, end_pnt) / np.sin(theta / 2)
+        arc_num = int(np.ceil(theta / (np.pi / 2)))
+        knot_num = 2 * arc_num + 4
+        knot = np.zeros(knot_num)
+        knot[-1] = knot[-2] = knot[-3] = 1.0
+        knot_base = 1.0 / arc_num
+        for i in range(1, arc_num):
+            cur_index = 1 + 2 * i
+            knot[cur_index] = knot[cur_index + 1] = i * knot_base
+        ctrl_pnt_num = 2 * arc_num
+        P = np.zeros((ctrl_pnt_num, 3))
+        Pw = np.zeros((ctrl_pnt_num, 4))
+
+        # TODO Calculate Control Points
