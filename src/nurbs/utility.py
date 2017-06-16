@@ -154,9 +154,14 @@ def line_intersection(p0, t0, p2, t2, with_ratio=False):
         u[i] = t0[i] - p0[i]
         v[i] = t2[i] - p2[i]
 
-    # TODO 判断是否共面
-    cp = np.cross(u, v)
-    if not cp.any():
+    dp = np.empty(dim)
+    for i in range(dim):
+        dp[i] = p2[i] - p0[i]
+
+    if dim == 3 and np.inner(dp, np.cross(u, v + dp)).any():
+        raise AssertionError("Two lines are non-coplanar!")
+
+    if not np.cross(u, v).any():
         raise AssertionError("No intersection!")
 
     u9 = np.zeros(dim)
@@ -166,12 +171,12 @@ def line_intersection(p0, t0, p2, t2, with_ratio=False):
     v9[0] = -v[1]
     v9[1] = v[0]
 
-    dp = np.empty(dim)
-    for i in range(dim):
-        dp[i] = p2[i] - p0[i]
-
     alpha0 = np.dot(dp, v9) / np.dot(u, v9)
     alpha2 = -np.dot(dp, u9) / np.dot(v, u9)
     I = p0 + alpha0 * u
 
     return (alpha0, alpha2, I) if with_ratio else I
+
+
+if __name__ == '__main__':
+    print(line_intersection([0, 0, 0], [5, 0, 0], [0, 5, 10], [0, 5, -10]))
