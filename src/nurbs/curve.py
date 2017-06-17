@@ -30,11 +30,11 @@ class NURBS_Curve(object):
         self.isPoly = True
         self.isClosed = (self.__call__(self.U[0]) == self.__call__(self.U[-1])).all()
 
-        for i in range(0, self.n + 1):
+        for i in range(self.n + 1):
             self.weight[i] = self.Pw[i][3]
             if self.isPoly and (not equal(self.weight[i], 1.0)):
                 self.isPoly = False
-            for j in range(0, 3):
+            for j in range(3):
                 self.cpt[i][j] = Pw[i][j] / self.weight[i]
 
     def __call__(self, u, d=0):
@@ -78,6 +78,52 @@ class NURBS_Curve(object):
         kappa = dividend / divisor
 
         return kappa
+
+    def reset(self, U, Pw):
+        self.n = len(Pw) - 1
+        self.m = len(U) - 1
+        self.p = self.m - self.n - 1
+        self.U = np.copy(U)
+        self.Pw = np.copy(Pw)
+        self.spl = BSpline(self.U, self.Pw, self.p)
+        self.weight = np.zeros(self.n + 1)
+        self.cpt = np.zeros((self.n + 1, 3))
+        self.isPoly = True
+        self.isClosed = (self.__call__(self.U[0]) == self.__call__(self.U[-1])).all()
+        for i in range(self.n + 1):
+            self.weight[i] = self.Pw[i][3]
+            if self.isPoly and (not equal(self.weight[i], 1.0)):
+                self.isPoly = False
+            for j in range(3):
+                self.cpt[i][j] = Pw[i][j] / self.weight[i]
+
+    def reverse(self):
+        """
+        曲线反向
+        """
+
+        nPw = self.Pw[::-1, :]
+        nU = np.ones(self.m + 1) - self.U[::-1]
+        self.reset(nU, nPw)
+
+    def pan(self, delta):
+        """
+        平移
+        :param delta: 偏移矢量
+        :return: None
+        """
+
+        dv = np.zeros(3)
+        array_smart_copy(delta, dv)
+        nU = np.copy(self.U)
+        nP = np.copy(self.cpt)
+        nPw = np.empty(np.asarray(self.Pw))
+
+        for i in range(self.n + 1):
+            nP[i] += dv
+            nPw[i] = to_homogeneous(nP[i], self.weight[i])
+
+        self.reset(nU, nPw)
 
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
@@ -280,42 +326,29 @@ class Line(NURBS_Curve):
         :param b: 终点坐标
         """
 
-        self.start = np.copy(a)
-        self.end = np.copy(b)
-
         U = np.array([0, 0, 1, 1])
         Pw = np.array([[0, 0, 0, 1], [0, 0, 0, 1]], float)
-
-        for i in range(min(3, len(a))):
-            Pw[0][i] = a[i]
-        for i in range(min(3, len(b))):
-            Pw[1][i] = b[i]
+        array_smart_copy(a, Pw[0])
+        array_smart_copy(b, Pw[1])
 
         super(Line, self).__init__(U, Pw)
 
-    def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
-        return IGES_Entity110(self.start, self.end)
+    def length(self):
+        return pnt_dist(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
+
+    def curvature(self, u):
+        return 0.0
+
+    def to_iges(self):
+        return IGES_Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
 
 
 class Arc(NURBS_Curve):
-    def __init__(self, start_pnt, end_pnt, theta, norm_vector=np.array([0.0, 0.0, 1.0])):
-        self.radius = 0.5 * pnt_dist(start_pnt, end_pnt) / np.sin(theta / 2)
-        self.start_angle = 0.0
-        self.end_angle = 180.0
-
-    def curvature(self, u):
-        return 1.0 / self.radius
-
-    def length(self):
-        return self.radius * np.deg2rad(self.end_angle - self.start_angle)
-
-    @staticmethod
-    def build_simplified_arc(r, theta):
+    def __init__(self, r, theta):
         """
         XY平面内简化圆弧，以原点为圆心，起始点为(r,0),法向量为(0,0,1)
         :param r: 半径
-        :param theta: 圆心角, in range(0,360]
-        :return: NURBS representation of the simplified arc.
+        :param theta: 圆心角, will be fitted into range (0,360]
         """
 
         while theta <= 0:
@@ -323,9 +356,11 @@ class Arc(NURBS_Curve):
         while theta > 360:
             theta -= 360
 
+        self.radius = r
+        self.theta = theta
+
         narcs = int(np.ceil(theta / 90))
         theta = np.deg2rad(theta)
-
         dtheta = theta / narcs
         w1 = np.cos(dtheta / 2)
         dknot = 1.0 / narcs
@@ -344,7 +379,7 @@ class Arc(NURBS_Curve):
             U[cur_index] = U[cur_index + 1] = i * dknot
 
         '''Control Points'''
-        P[0] = np.array([r, 0, 0], float)
+        self.sp = P[0] = np.array([r, 0, 0], float)
         Pw[0] = to_homogeneous(P[0], 1.0)
         T0 = np.array([0.0, 1.0, 0.0])
 
@@ -361,4 +396,34 @@ class Arc(NURBS_Curve):
             if i < narcs:
                 T0 = T2
 
-        return U, Pw
+        self.ep = P[-1]
+        super(Arc, self).__init__(U, Pw)
+
+    def curvature(self, u):
+        return 1.0 / self.radius
+
+    def length(self):
+        return self.radius * np.deg2rad(self.theta)
+
+    @classmethod
+    def from_2pnt(cls, start_pnt, end_pnt, theta, norm_vector):
+        """
+        空间圆弧
+        :param start_pnt: 起始点坐标
+        :param end_pnt: 终止点坐标
+        :param theta: 圆心角
+        :param norm_vector: 所在平面的法向量，按右手定则， 四指依次扫过start_pnt和end_pnt
+        """
+
+        '''Basic Variables'''
+        sp = np.copy(start_pnt)
+        ep = np.copy(end_pnt)
+        theta = np.deg2rad(theta)
+        radius = 0.5 * pnt_dist(sp, ep) / np.sin(theta / 2)
+        w = radius * np.cos(theta / 2)
+        cdir = np.cross(norm_vector, ep - sp)
+        cdir /= norm(cdir)
+        origin = 0.5 * (sp + ep) + cdir * w
+
+        arc = cls(radius, np.rad2deg(theta))
+        arc.pan(origin)
