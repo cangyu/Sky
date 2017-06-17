@@ -15,8 +15,9 @@ def build_nurbs_crv_2D(U, w, P, z=0):
     return NURBS_Curve(U, Pw)
 
 
-class nurbs_curve_test(unittest.TestCase):
-    def test_circle1(self):
+class CurveTest(unittest.TestCase):
+    @staticmethod
+    def test_circle1():
         U = np.array([0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1])
         w = np.array([1, 1 / math.sqrt(2), 1, 1 / math.sqrt(2), 1, 1 / math.sqrt(2), 1, 1 / math.sqrt(2), 1])
         P = np.array([[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]])
@@ -26,7 +27,8 @@ class nurbs_curve_test(unittest.TestCase):
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
         iges_file.write()
 
-    def test_circle2(self):
+    @staticmethod
+    def test_circle2():
         U = np.array([0, 0, 0, 0.5, 1, 1, 1])
         w = np.array([1, 0.5, 0.5, 1])
         P = np.array([[1, 0], [1, 1], [-1, 1], [-1, 0]])
@@ -36,7 +38,8 @@ class nurbs_curve_test(unittest.TestCase):
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
         iges_file.write()
 
-    def test_circle3(self):
+    @staticmethod
+    def test_circle3():
         U = np.array([0, 0, 0, 0, 1, 1, 1, 1])
         w = np.array([1, 1 / 3, 1 / 3, 1])
         P = np.array([[1, 0], [1, 2], [-1, 2], [-1, 0]])
@@ -46,7 +49,8 @@ class nurbs_curve_test(unittest.TestCase):
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
         iges_file.write()
 
-    def test_circle4(self):
+    @staticmethod
+    def test_circle4():
         a = math.sqrt(3) / 2
         U = np.array([0, 0, 0, 0, 1, 1, 1, 1])
         w = np.array([1, 1 / 6, 1 / 6, 1])
@@ -57,7 +61,8 @@ class nurbs_curve_test(unittest.TestCase):
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
         iges_file.write()
 
-    def test_line(self):
+    @staticmethod
+    def test_line():
         U = np.array([0, 0, 1, 1])
         w = np.array([1, 1])
         P = np.array([[10, 10], [100, 100]])

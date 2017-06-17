@@ -5,7 +5,7 @@ from src.iges.iges_core import IGES_Model
 
 
 def build_airfoil(fn):
-    fn = '../airfoil/' + fn + '.dat'
+    fn = '../../airfoil/' + fn + '.dat'
     fin = open(fn)
     pnt_list = []
     for pnt in fin:
@@ -29,7 +29,9 @@ def write_airfoil(airfoil):
     model_file.write()
 
 
-class spline_test(unittest.TestCase):
-    def test_airfoil(self):
+class SplineInterpolationTest(unittest.TestCase):
+    @staticmethod
+    def test_airfoil():
         write_airfoil('M6')
         write_airfoil('NACA0012')
+        write_airfoil('RAE2822')
