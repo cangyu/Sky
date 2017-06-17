@@ -4,7 +4,7 @@ from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline
 from scipy.integrate import romberg
-from src.nurbs.utility import to_cartesian, to_homogeneous, pnt_dist, equal, all_basis_val
+from src.nurbs.utility import *
 from src.iges.iges_entity126 import IGES_Entity126
 from src.iges.iges_entity110 import IGES_Entity110
 
@@ -280,6 +280,9 @@ class Line(NURBS_Curve):
         :param b: 终点坐标
         """
 
+        self.start = np.copy(a)
+        self.end = np.copy(b)
+
         U = np.array([0, 0, 1, 1])
         Pw = np.array([[0, 0, 0, 1], [0, 0, 0, 1]], float)
 
@@ -290,24 +293,72 @@ class Line(NURBS_Curve):
 
         super(Line, self).__init__(U, Pw)
 
-    def to_iges(self):
-        return IGES_Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
+    def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
+        return IGES_Entity110(self.start, self.end)
 
 
 class Arc(NURBS_Curve):
-    def __init__(self, start_pnt, end_pnt, theta):
-        theta = np.deg2rad(np.remainder(theta, 360))
-        radius = 0.5 * pnt_dist(start_pnt, end_pnt) / np.sin(theta / 2)
-        arc_num = int(np.ceil(theta / (np.pi / 2)))
-        knot_num = 2 * arc_num + 4
-        knot = np.zeros(knot_num)
-        knot[-1] = knot[-2] = knot[-3] = 1.0
-        knot_base = 1.0 / arc_num
-        for i in range(1, arc_num):
-            cur_index = 1 + 2 * i
-            knot[cur_index] = knot[cur_index + 1] = i * knot_base
-        ctrl_pnt_num = 2 * arc_num
-        P = np.zeros((ctrl_pnt_num, 3))
-        Pw = np.zeros((ctrl_pnt_num, 4))
+    def __init__(self, start_pnt, end_pnt, theta, norm_vector=np.array([0.0, 0.0, 1.0])):
+        self.radius = 0.5 * pnt_dist(start_pnt, end_pnt) / np.sin(theta / 2)
+        self.start_angle = 0.0
+        self.end_angle = 180.0
 
-        # TODO Calculate Control Points
+    def curvature(self, u):
+        return 1.0 / self.radius
+
+    def length(self):
+        return self.radius * np.deg2rad(self.end_angle - self.start_angle)
+
+    @staticmethod
+    def build_simplified_arc(r, theta):
+        """
+        XY平面内简化圆弧，以原点为圆心，起始点为(r,0),法向量为(0,0,1)
+        :param r: 半径
+        :param theta: 圆心角, in range(0,360]
+        :return: NURBS representation of the simplified arc.
+        """
+
+        while theta <= 0:
+            theta += 360
+        while theta > 360:
+            theta -= 360
+
+        narcs = int(np.ceil(theta / 90))
+        theta = np.deg2rad(theta)
+
+        dtheta = theta / narcs
+        w1 = np.cos(dtheta / 2)
+        dknot = 1.0 / narcs
+
+        m = 2 * narcs + 3  # 最后一个节点下标
+        n = 2 * narcs  # 最后一个控制点下标
+
+        U = np.zeros(m + 1)
+        P = np.zeros((n + 1, 3))
+        Pw = np.zeros((n + 1, 4))
+
+        '''Knot Vector'''
+        U[-1] = U[-2] = U[-3] = 1.0
+        for i in range(1, narcs):
+            cur_index = 1 + 2 * i
+            U[cur_index] = U[cur_index + 1] = i * dknot
+
+        '''Control Points'''
+        P[0] = np.array([r, 0, 0], float)
+        Pw[0] = to_homogeneous(P[0], 1.0)
+        T0 = np.array([0.0, 1.0, 0.0])
+
+        index = 0
+        angle = 0.0
+        for i in range(1, narcs + 1):
+            angle += dtheta
+            P[index + 2] = np.array([r * np.cos(angle), r * np.sin(angle), 0.0])
+            Pw[index + 2] = to_homogeneous(P[index + 2], 1.0)
+            T2 = np.array([-np.sin(angle), np.cos(angle), 0.0])
+            P[index + 1] = line_intersection(P[index], T0, P[index + 2], T2)
+            Pw[index + 1] = to_homogeneous(P[index + 1], w1)
+            index += 2
+            if i < narcs:
+                T0 = T2
+
+        return U, Pw

@@ -131,52 +131,54 @@ def all_basis_val(u, p, U):
     return ans
 
 
-def line_intersection(p0, t0, p2, t2, with_ratio=False):
+def array_smart_copy(src, dst):
+    for i in range(min(len(src), len(dst))):
+        dst[i] = src[i]
+
+
+def line_intersection(p1, u, p2, v, with_ratio=False):
     """
-    求两条空间直线交点
-    :param p0: 第1条直线上的第1点
-    :param t0: 第1条直线上的第2点
-    :param p2: 第2条直线上的第1点
-    :param t2: 第2条直线上的第2点
-    :param with_ratio: 是否返回交点在各条直线上的参数位置alpha0与alpha2
-    :return: 若with_ratio=True, 返回alpha0, alpha2, I, s.t. I = p0+alpha0(t0-p0) = p2+alpha2(t2-p2),否则只返回交点I
+    Calculate the intersection of 2 straight lines.
+    :param p1: Point on the first line.
+    :param u: Direction vector of the first line.
+    :param p2: Point on the second line.
+    :param v: Direction vector of the second line.
+    :param with_ratio: To indicate if additional parameters are returned or not.
+    :return:
+        If with_ratio=True, then return (alpha1, alpha2, P), such that P = p1 + alpha1 * u = p2 + alpha2 * v,
+        otherwise, only the intersection point P is returned.
     """
 
-    dim = len(p0)
-    if len(p0) != len(t0) != len(p2) != len(t2):
+    dim = len(p1)
+    if len(p1) != len(u) != len(p2) != len(v):
         raise ValueError("Inconsistent dimension!")
     if dim not in (2, 3):
         raise ValueError("Invalid dimension!")
 
-    u = np.empty(dim)
-    v = np.empty(dim)
-    for i in range(dim):
-        u[i] = t0[i] - p0[i]
-        v[i] = t2[i] - p2[i]
+    P1 = np.copy(p1)
+    U = np.copy(u)
+    P2 = np.copy(p2)
+    V = np.copy(v)
+    dP = P2 - P1
 
-    dp = np.empty(dim)
-    for i in range(dim):
-        dp[i] = p2[i] - p0[i]
-
-    if dim == 3 and np.inner(dp, np.cross(u, v + dp)).any():
+    if not U.any():
+        raise AssertionError("Invalid U direction vector!")
+    if not V.any():
+        raise AssertionError("Invalid V direction vector!")
+    if dim == 3 and np.inner(dP, np.cross(U, V + dP)).any():
         raise AssertionError("Two lines are non-coplanar!")
-
-    if not np.cross(u, v).any():
+    if not np.cross(U, V).any():
         raise AssertionError("No intersection!")
 
-    u9 = np.zeros(dim)
-    v9 = np.zeros(dim)
-    u9[0] = -u[1]
-    u9[1] = u[0]
-    v9[0] = -v[1]
-    v9[1] = v[0]
+    U90 = np.zeros(dim)
+    V90 = np.zeros(dim)
+    U90[0] = -U[1]
+    U90[1] = U[0]
+    V90[0] = -V[1]
+    V90[1] = V[0]
 
-    alpha0 = np.dot(dp, v9) / np.dot(u, v9)
-    alpha2 = -np.dot(dp, u9) / np.dot(v, u9)
-    I = p0 + alpha0 * u
+    alpha1 = np.inner(dP, V90) / np.inner(U, V90)
+    alpha2 = -np.inner(dP, U90) / np.inner(V, U90)
+    P = P1 + alpha1 * U
 
-    return (alpha0, alpha2, I) if with_ratio else I
-
-
-if __name__ == '__main__':
-    print(line_intersection([0, 0, 0], [5, 0, 0], [0, 5, 10], [0, 5, -10]))
+    return (alpha1, alpha2, P) if with_ratio else P
