@@ -76,7 +76,6 @@ class NURBS_Curve(object):
         divisor = math.pow(np.sum(dv), 3 / 2)
 
         kappa = dividend / divisor
-
         return kappa
 
     def reset(self, U, Pw):
@@ -124,6 +123,9 @@ class NURBS_Curve(object):
             nPw[i] = to_homogeneous(nP[i], self.weight[i])
 
         self.reset(nU, nPw)
+
+    def rotate(self):
+        pass
 
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
@@ -427,3 +429,5 @@ class Arc(NURBS_Curve):
 
         arc = cls(radius, np.rad2deg(theta))
         arc.pan(origin)
+        arc.rotate()
+        return arc
