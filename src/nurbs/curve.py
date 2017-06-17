@@ -125,11 +125,42 @@ class NURBS_Curve(object):
         self.reset(nU, nPw)
 
     def rotate(self):
+        # TODO
         pass
 
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
+
+    def insert_one_knot(self, u):
+        """
+        插入一个节点
+        :param u: 待插入节点
+        :return: None
+        """
+
+        '''Insert'''
+        k = find_span(self.n, self.p, u, self.U)
+        nU = np.insert(self.U, k, u)
+
+        '''Calculate new CtrlPts'''
+        n, dim = self.Pw.shape
+        nPw = np.zeros((n + 1, dim))
+        for i in range(n + 1):
+            alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
+            if equal(alpha, 1.0):
+                nPw[i] = self.Pw[i]
+            elif equal(alpha, 0.0):
+                nPw[i] = self.Pw[i - 1]
+            else:
+                nPw[i] = alpha * self.Pw[i] + (1 - alpha) * self.Pw[i - 1]
+
+        '''Update'''
+        self.reset(nU, nPw)
+
+    def insert_knots(self, knot_list):
+        # TODO
+        pass
 
     def elevate(self, t: int):
         """
@@ -166,35 +197,9 @@ class NURBS_Curve(object):
             Qw = calc_ctrl_pts(nU, self.p + 1, PPw, us)
 
             '''Update'''
-            self.update(nU, Qw)
+            self.reset(nU, Qw)
         else:
             self.elevate(t - 1)
-
-    def insert_knot(self, u):
-        """
-        插入一个节点
-        :param u: 待插入节点
-        :return: None
-        """
-
-        '''Insert'''
-        k = find_span(self.U, u)
-        nU = np.insert(self.U, k, u)
-
-        '''Calculate new CtrlPts'''
-        n, dim = self.Pw.shape
-        nPw = np.zeros((n + 1, dim))
-        for i in range(0, n + 1):
-            alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
-            if equal(alpha, 1.0):
-                nPw[i] = self.Pw[i]
-            elif equal(alpha, 0.0):
-                nPw[i] = self.Pw[i - 1]
-            else:
-                nPw[i] = alpha * self.Pw[i] + (1 - alpha) * self.Pw[i - 1]
-
-        '''Update'''
-        self.update(nU, nPw)
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
