@@ -139,18 +139,24 @@ class Quaternion(object):
         """
 
         a1 = self.real
-        a2 = other.real
         v1 = self.img
-        v2 = -other.img
+
+        tmp = reduce(lambda u: u ** 2, other.comp)
+        a2 = other.real / tmp
+        v2 = -other.img / tmp
+
         a = a1 * a2 - np.inner(v1, v2)
         t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
         return Quaternion.from_real_img(a, t)
 
     def __itruediv__(self, other):
         a1 = self.real
-        a2 = other.real
         v1 = self.img
-        v2 = -other.img
+
+        tmp = reduce(lambda u: u ** 2, other.comp)
+        a2 = other.real / tmp
+        v2 = -other.img / tmp
+
         a = a1 * a2 - np.inner(v1, v2)
         t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
         self.comp = np.array([a, t[0], t[1], t[2]])
@@ -178,7 +184,7 @@ class Quaternion(object):
         1: Lq(x+y) = Lq(x) + Lq(y) , Lq(a * x) = a * Lq(x) 其中x,y为3维向量，a为实数，该性质表明这是一个线性变换
         2：若q为单位4元数，则 ||Lq(x)|| = ||x||
         3：若q为单位4元数 且x平行于q的虚部, 则 Lq(x) = x 
-        特别地，若q为单位四元数，Lq(x)为Rodriguez旋转公式，结果为x绕u逆时针旋转theta后的向量x'
+        特别地，若q为单位4元数，Lq(x)为Rodriguez旋转公式，结果为x绕u逆时针旋转theta后的向量x'
         """
 
         if self.isUnit:
