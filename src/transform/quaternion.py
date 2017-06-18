@@ -4,10 +4,6 @@ from src.nurbs.utility import equal
 from functools import reduce
 
 
-def square(u: float):
-    return u ** 2
-
-
 class Quaternion(object):
     symbol = ['', 'i', 'j', 'k']
 
@@ -66,12 +62,12 @@ class Quaternion(object):
 
     @property
     def norm(self):
-        return np.sqrt(reduce(square, self.comp))
+        return np.sqrt(reduce(lambda u: u ** 2, self.comp))
 
     @property
     def inv(self):
         t = self.conj
-        t.comp /= reduce(square, self.comp)
+        t.comp /= reduce(lambda u: u ** 2, self.comp)
         return t
 
     @classmethod
@@ -177,9 +173,12 @@ class Quaternion(object):
 
     def rotate(self, x):
         """
-        定义一个3维空间中的线性变换: Lq(x) = q * x * q'
-        其中'*'按照四元数的乘法定义，将x看成一个纯四元数，q'是q的共轭
-        特别地，若q为单位四元数，Lq(x)为Rodriguez旋转公式，表示将3维向量x绕u逆时针旋转theta
+        定义一个3维空间中的线性变换: Lq(x) = q * x * q', 其中'*'按照四元数的乘法定义，将x看成一个纯四元数，q'是q的共轭
+        有3个性质：
+        1: Lq(x+y) = Lq(x) + Lq(y) , Lq(a * x) = a * Lq(x) 其中x,y为3维向量，a为实数，该性质表明这是一个线性变换
+        2：若q为单位4元数，则 ||Lq(x)|| = ||x||
+        3：若q为单位4元数 且x平行于q的虚部, 则 Lq(x) = x 
+        特别地，若q为单位四元数，Lq(x)为Rodriguez旋转公式，结果为x绕u逆时针旋转theta后的向量x'
         """
 
         if self.isUnit:
@@ -190,7 +189,7 @@ class Quaternion(object):
         else:
             a = self.real
             v = self.img
-            return (a ** 2 - reduce(square, v)) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
+            return (a ** 2 - reduce(lambda val: val ** 2, v)) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
 
     @property
     def rot_matrix(self):
@@ -215,4 +214,4 @@ class Quaternion(object):
         b = 0.25 * (r[2][1] - r[1][2]) / a
         c = 0.25 * (r[0][2] - r[2][0]) / a
         d = 0.25 * (r[1][0] - r[0][1]) / a
-        return Quaternion(a, b, c, d)
+        return cls(a, b, c, d)
