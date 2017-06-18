@@ -9,10 +9,7 @@ def equal(a: float, b: float):
     判断两个浮点数是否相等
     """
 
-    if math.fabs(a - b) < EPS:
-        return True
-    else:
-        return False
+    return math.fabs(a - b) < EPS
 
 
 def pnt_dist(lhs, rhs):
