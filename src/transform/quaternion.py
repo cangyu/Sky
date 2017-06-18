@@ -1,7 +1,6 @@
 import numpy as np
 from math import cos, sin, acos, sqrt
 from src.nurbs.utility import equal
-from functools import reduce
 
 
 class Quaternion(object):
@@ -62,7 +61,7 @@ class Quaternion(object):
 
     @property
     def norm(self):
-        return np.sqrt(reduce(lambda u: u ** 2, self.comp))
+        return sqrt(sum(map(lambda _t: _t ** 2, self.comp)))
 
     @property
     def inv(self):
@@ -70,7 +69,7 @@ class Quaternion(object):
         q^-1 = q' / |q|^2
         """
 
-        return self.conj / reduce(lambda u: u ** 2, self.comp)
+        return self.conj / sum(map(lambda _t: _t ** 2, self.comp))
 
     @classmethod
     def from_array(cls, _v):
@@ -202,7 +201,7 @@ class Quaternion(object):
         else:
             a = self.real
             v = self.img
-            return (a ** 2 - reduce(lambda val: val ** 2, v)) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
+            return (a ** 2 - sum(map(lambda _t: _t ** 2, v))) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
 
     @property
     def rot_matrix(self):
