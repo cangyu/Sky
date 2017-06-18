@@ -66,9 +66,11 @@ class Quaternion(object):
 
     @property
     def inv(self):
-        t = self.conj
-        t.comp /= reduce(lambda u: u ** 2, self.comp)
-        return t
+        """
+        q^-1 = q' / |q|^2
+        """
+
+        return self.conj / reduce(lambda u: u ** 2, self.comp)
 
     @classmethod
     def from_array(cls, _v):
@@ -116,50 +118,55 @@ class Quaternion(object):
         self.comp -= other.comp
 
     def __mul__(self, other):
-        a1 = self.real
-        a2 = other.real
-        v1 = self.img
-        v2 = other.img
-        a = a1 * a2 - np.inner(v1, v2)
-        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
-        return Quaternion.from_real_img(a, t)
+        if isinstance(other, Quaternion):
+            a1 = self.real
+            a2 = other.real
+            v1 = self.img
+            v2 = other.img
+            a = a1 * a2 - np.inner(v1, v2)
+            t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+            return Quaternion.from_real_img(a, t)
+        elif isinstance(other, (float, int)):
+            return Quaternion.from_array(self.comp * other)
+        else:
+            raise TypeError('Invalid type!')
 
     def __imul__(self, other):
-        a1 = self.real
-        a2 = other.real
-        v1 = self.img
-        v2 = other.img
-        a = a1 * a2 - np.inner(v1, v2)
-        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
-        self.comp = np.array([a, t[0], t[1], t[2]])
+        if isinstance(other, Quaternion):
+            a1 = self.real
+            a2 = other.real
+            v1 = self.img
+            v2 = other.img
+            a = a1 * a2 - np.inner(v1, v2)
+            t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+            self.__init__(a, t[0], t[1], t[2])
+        elif isinstance(other, (float, int)):
+            tmp = self.comp * other
+            self.__init__(tmp[0], tmp[1], tmp[2], tmp[3])
+        else:
+            raise TypeError('Invalid type!')
 
     def __truediv__(self, other):
         """
         a / b = a * b.inv
         """
 
-        a1 = self.real
-        v1 = self.img
-
-        tmp = reduce(lambda u: u ** 2, other.comp)
-        a2 = other.real / tmp
-        v2 = -other.img / tmp
-
-        a = a1 * a2 - np.inner(v1, v2)
-        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
-        return Quaternion.from_real_img(a, t)
+        if isinstance(other, Quaternion):
+            return self * other.inv
+        elif isinstance(other, (float, int)):
+            return Quaternion.from_array(self.comp / other)
+        else:
+            raise TypeError('Invalid type!')
 
     def __itruediv__(self, other):
-        a1 = self.real
-        v1 = self.img
-
-        tmp = reduce(lambda u: u ** 2, other.comp)
-        a2 = other.real / tmp
-        v2 = -other.img / tmp
-
-        a = a1 * a2 - np.inner(v1, v2)
-        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
-        self.comp = np.array([a, t[0], t[1], t[2]])
+        if isinstance(other, Quaternion):
+            tmp = self * other.inv
+            self.__init__(tmp.comp[0], tmp.comp[1], tmp.comp[2], tmp.comp[3])
+        elif isinstance(other, (float, int)):
+            tmp = self.comp / other
+            self.__init__(tmp[0], tmp[1], tmp[2], tmp[3])
+        else:
+            raise TypeError('Invalid type!')
 
     def is_unit(self):
         return equal(self.norm, 1.0)
