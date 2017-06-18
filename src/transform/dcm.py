@@ -1,14 +1,9 @@
 import numpy as np
-from math import sin, cos
-from functools import reduce
-
-
-def square(x):
-    return x ** 2
 
 
 def normalize(vector):
-    return vector / reduce(square, vector)
+    tmp = np.sqrt(sum(map(lambda a: a ** 2, vector)))
+    return vector / tmp
 
 
 class DCM(object):

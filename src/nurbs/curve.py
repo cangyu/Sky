@@ -125,10 +125,6 @@ class NURBS_Curve(object):
 
         self.reset(nU, nPw)
 
-    def rotate(self):
-        # TODO
-        pass
-
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
@@ -429,8 +425,12 @@ class Arc(NURBS_Curve):
         theta = np.deg2rad(theta)
         radius = 0.5 * pnt_dist(sp, ep) / np.sin(theta / 2)
         w = radius * np.cos(theta / 2)
+
         cdir = np.cross(norm_vector, ep - sp)
-        cdir /= norm(cdir)
+        tmp = math.sqrt(sum(map(lambda u: u ** 2, cdir)))
+        for i in range(len(cdir)):
+            cdir[i] /= tmp
+
         center = 0.5 * (sp + ep) + cdir * w
 
         '''Rotate and pan'''
@@ -444,7 +444,7 @@ class Arc(NURBS_Curve):
                           np.cross(norm_vector, xdir),
                           norm_vector])
 
-        mrot = DCM(base1, base2).rot_matrix()
+        mrot = DCM(base1, base2).rot_matrix
         mrot_trans = np.transpose(mrot)
         pts = np.copy(arc.cpt)
         wg = np.copy(arc.weight)
