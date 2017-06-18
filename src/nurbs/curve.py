@@ -5,6 +5,7 @@ from scipy.linalg import solve
 from scipy.interpolate import BSpline
 from scipy.integrate import romberg
 from src.nurbs.utility import *
+from src.transform.dcm import DCM
 from src.iges.iges_entity126 import IGES_Entity126
 from src.iges.iges_entity110 import IGES_Entity110
 
@@ -430,9 +431,35 @@ class Arc(NURBS_Curve):
         w = radius * np.cos(theta / 2)
         cdir = np.cross(norm_vector, ep - sp)
         cdir /= norm(cdir)
-        origin = 0.5 * (sp + ep) + cdir * w
+        center = 0.5 * (sp + ep) + cdir * w
 
+        '''Rotate and pan'''
         arc = cls(radius, np.rad2deg(theta))
-        arc.pan(origin)
-        arc.rotate()
+        base1 = np.array([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]])
+
+        xdir = sp - center
+        base2 = np.array([xdir,
+                          np.cross(norm_vector, xdir),
+                          norm_vector])
+
+        mrot = DCM(base1, base2).rot_matrix()
+        mrot_trans = np.transpose(mrot)
+        pts = np.copy(arc.cpt)
+        wg = np.copy(arc.weight)
+        pw = np.empty((len(pts), 4))
+        for i in range(len(pts)):
+            for d in range(3):
+                pts[i][d] -= center[d]
+
+            pts[i] = pts[i] * mrot_trans
+
+            for d in range(3):
+                pts[i][d] += center[d]
+
+            pw[i] = to_homogeneous(pts[i], wg[i])
+
+        '''Reconstruct'''
+        arc.reset(arc.U, pw)
         return arc
