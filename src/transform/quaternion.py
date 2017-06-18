@@ -1,4 +1,5 @@
 import numpy as np
+from math import cos, sin, acos, sqrt
 from src.nurbs.utility import equal
 from functools import reduce
 
@@ -13,9 +14,11 @@ class Quaternion(object):
     def __init__(self, w: float, x: float, y: float, z: float):
         """
         四元数 q = w + x*i + y*j + z*k
+        单位4元数: q = w + xi + yj + zk = cos(theta/2) + sin(theta/2) * u
         """
 
         self.comp = np.array([w, x, y, z], float)
+        self.isUnit = self.is_unit()
 
     @property
     def w(self):
@@ -134,24 +137,82 @@ class Quaternion(object):
         t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
         self.comp = np.array([a, t[0], t[1], t[2]])
 
+    def __truediv__(self, other):
+        """
+        a / b = a * b.inv
+        """
+
+        a1 = self.real
+        a2 = other.real
+        v1 = self.img
+        v2 = -other.img
+        a = a1 * a2 - np.inner(v1, v2)
+        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+        return Quaternion.from_real_img(a, t)
+
+    def __itruediv__(self, other):
+        a1 = self.real
+        a2 = other.real
+        v1 = self.img
+        v2 = -other.img
+        a = a1 * a2 - np.inner(v1, v2)
+        t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+        self.comp = np.array([a, t[0], t[1], t[2]])
+
+    def is_unit(self):
+        return equal(self.norm, 1.0)
+
     def normalize(self):
-        """
-        单位化 
-        """
+        self.comp /= self.norm
+        self.isUnit = True
 
-        self.comp /= reduce(square, self.comp)
+    @property
+    def theta(self):
+        return 2 * acos(self.comp[0])
 
-    def linear_transform(self, x):
+    @property
+    def u(self):
+        st2 = sin(self.theta / 2)
+        return np.array([self.comp[1] / st2, self.comp[2] / st2, self.comp[3] / st2])
+
+    def rotate(self, x):
         """
         定义一个3维空间中的线性变换: Lq(x) = q * x * q'
         其中'*'按照四元数的乘法定义，将x看成一个纯四元数，q'是q的共轭
-        :param x: 待变换空间向量
-        :return: 变换后的空间向量
+        特别地，若q为单位四元数，Lq(x)为Rodriguez旋转公式，表示将3维向量x绕u逆时针旋转theta
         """
 
-        a = self.real
-        v = self.img
-        t1 = (a ** 2 - reduce(square, v)) * x
-        t2 = 2 * np.dot(v, x) * v
-        t3 = 2 * a * np.cross(v, x)
-        return t1 + t2 + t3
+        if self.isUnit:
+            ct = cos(self.theta)
+            st = sin(self.theta)
+            u = self.u
+            return ct * x + (1 - ct) * np.dot(u, x) * self.u + st * np.cross(u, x)
+        else:
+            a = self.real
+            v = self.img
+            return (a ** 2 - reduce(square, v)) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
+
+    @property
+    def rot_matrix(self):
+        s, a, b, c = self.comp
+        a2 = a ** 2
+        b2 = b ** 2
+        c2 = c ** 2
+        ab = a * b
+        sc = s * c
+        ac = a * c
+        sb = s * b
+        bc = b * c
+        sa = s * a
+
+        return np.array([[1 - 2 * (b2 + c2), 2 * (ab - sc), 2 * (ac + sb)],
+                         [2 * (ab + sc), 1 - 2 * (a2 + c2), 2 * (bc - sa)],
+                         [2 * (ac - sb), 2 * (bc + sa), 1 - 2 * (a2 + b2)]])
+
+    @classmethod
+    def from_rot_matrix(cls, r, positive=True):
+        a = 0.5 * sqrt(1 + r[0][0] + r[1][1] + r[2][2]) * (1.0 if positive else -1.0)
+        b = 0.25 * (r[2][1] - r[1][2]) / a
+        c = 0.25 * (r[0][2] - r[2][0]) / a
+        d = 0.25 * (r[1][0] - r[0][1]) / a
+        return Quaternion(a, b, c, d)
