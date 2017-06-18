@@ -186,7 +186,7 @@ class Quaternion(object):
             ct = cos(self.theta)
             st = sin(self.theta)
             u = self.u
-            return ct * x + (1 - ct) * np.dot(u, x) * self.u + st * np.cross(u, x)
+            return ct * x + (1 - ct) * np.dot(u, x) * u + st * np.cross(u, x)
         else:
             a = self.real
             v = self.img
