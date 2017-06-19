@@ -273,7 +273,7 @@ class NURBS_Curve(object):
         mm = sum(cnt) - 1
         pp = self.p + t
         nn = mm - pp - 1
-        pp2 = pp // 2
+        pp2 = int(pp / 2)
 
         '''New knot vector and control points'''
         nU = np.zeros(mm + 1)
@@ -281,9 +281,9 @@ class NURBS_Curve(object):
 
         '''Local arrays'''
         bezalfs = np.zeros((pp + 1, self.p + 1))
-        bpts = np.zeros(self.p + 1)
-        ebpts = np.zeros(pp + 1)
-        Nextbpts = np.zeros(self.p - 1)
+        bpts = np.zeros((self.p + 1, 4))
+        ebpts = np.zeros((pp + 1, 4))
+        Nextbpts = np.zeros((self.p, 4))
         alfs = np.zeros(self.p - 1)
 
         # 计算升阶的次数
@@ -291,7 +291,7 @@ class NURBS_Curve(object):
 
         for i in range(1, pp2 + 1):
             inv = 1.0 / comb(pp, i)
-            mpi = np.amin([self.p, i])
+            mpi = min(self.p, i)
             for j in range(max(0, i - t), mpi + 1):
                 bezalfs[i][j] = inv * comb(self.p, j) * comb(t, i - j)
 
@@ -327,8 +327,8 @@ class NURBS_Curve(object):
             r = self.p - mul
 
             # 插入节点u(b) r次
-            lbz = (oldr + 2) / 2 if oldr > 0 else 1
-            rbz = pp - (r + 1) / 2 if r > 0 else pp
+            lbz = int((oldr + 2) / 2) if oldr > 0 else 1
+            rbz = int(pp - (r + 1) / 2) if r > 0 else pp
 
             if r > 0:
                 # 插入节点以获得bezier曲线段
@@ -400,6 +400,54 @@ class NURBS_Curve(object):
 
         '''Update'''
         self.reset(nU, Qw)
+
+
+'''
+def DecomposeCurve(n, p, U, Pw, nb, Qw):
+    """
+    将NURBS曲线分解为Bezier曲线段
+    :param n: 
+    :param p: 
+    :param U: 
+    :param Pw: 
+    :param nb: 
+    :param Qw: 
+    :return: None
+    """
+    
+    m = n + p + 1
+    a = p
+    b = p + 1
+    nb = 0
+    for i in range(p + 1):
+        Qw[nb][i] = Pw[i]
+
+    while b < m:
+        i = b
+        while b < m and U[b + 1] == U[b]:
+            b += 1
+        mult = b - i + 1
+        if mult < p:
+            numer = U[b] - U[a]
+            for j in range(p, mult, -1):
+                alphas[j - mult - 1] = numer / (U[a + j] - U[a])
+            r = p - mult
+            for j in range(1, r + 1):
+                save = r - j
+                s = mult + j
+                for k in range(p, s - 1, -1):
+                    alpha = alphas[k - s]
+                    Qw[nb][k] = alpha * Qw[nb][k] + (1.0 - alpha) * Qw[nb][k - 1]
+                if b < m:
+                    Qw[nb + 1][save] = Qw[nb][p]
+
+        nb += 1
+        if b < m:
+            for i in range(p - mult, p + 1):
+                Qw[nb][i] = Pw[b - p + i]
+            a = b
+            b += 1
+'''
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
