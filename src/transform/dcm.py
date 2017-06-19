@@ -3,7 +3,11 @@ import numpy as np
 
 def normalize(vector):
     tmp = np.sqrt(sum(map(lambda a: a ** 2, vector)))
-    return vector / tmp
+    factor = 1.0 / tmp
+    va = np.empty(len(vector), float)
+    for i in range(len(vector)):
+        va[i] = factor * vector[i]
+    return va
 
 
 class DCM(object):
