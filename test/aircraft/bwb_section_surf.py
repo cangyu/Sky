@@ -5,6 +5,8 @@ from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
 from src.com.catia import view
 
+auto_view = True
+
 
 def chebshev_dist(start, end, n):
     """
@@ -63,7 +65,9 @@ def view_bwb(n, airfoil, frame_param):
 
 class bwb_section_surf_test(unittest.TestCase):
     def test(self):
-        write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
-        # view_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
-        write_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
-        # view_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
+        if auto_view:
+            view_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
+            view_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
+        else:
+            write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
+            write_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
