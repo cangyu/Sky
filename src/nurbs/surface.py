@@ -172,5 +172,136 @@ class Coons(NURBS_Surface):
 
 
 class Skinning(NURBS_Surface):
-    def __init__(self):
-        pass
+    def __init__(self, crv, p, q, vmethod='chord'):
+        """
+        蒙皮曲面，非有理
+        :param crv: 非有理曲线集合
+        :param p: 目标曲面u方向次数(曲线方向)
+        :param q: 目标曲面v方向次数(展向)
+        :param vmethod: v方向插值方法
+        """
+
+        '''Promote all curve to p order'''
+        self.crv = []
+        for i in range(0, len(crv)):
+            self.crv.append(crv[i])
+
+        for i in range(0, len(self.crv)):
+            self.crv[i].elevate(p - self.crv[i].p)
+
+        '''Merge all knot vectors in U direction'''
+        uknot = np.copy(self.crv[0].U)
+        for i in range(1, len(self.crv)):
+            ck = np.copy(self.crv[i].U)
+            uknot = merge_knot(uknot, ck)
+
+        '''Unify all curve knot vector'''
+        for i in range(0, len(self.crv)):
+            X = different_knot(uknot, self.crv[i].U)
+            for u in X:
+                self.crv[i].insert_knot(u)
+
+        '''Knot vector in V direction'''
+        n = len(uknot) - 1 - p - 1
+        m = len(self.crv) - 1
+        pnt = np.zeros((n + 1, m + 1, 3))
+        for j in range(0, m + 1):
+            for i in range(0, n + 1):
+                pnt[i][j] = to_cartesian(self.crv[j].Pw[i])
+
+        vparam = np.zeros((n + 1, m + 1))
+        vk = []
+        for i in range(0, n + 1):
+            vparam[i] = calc_pnt_param(pnt[i], vmethod)
+            vk.append(calc_knot_vector(vparam[i], q))
+
+        vknot = np.mean(vk, axis=0)
+
+        '''Calculate control points'''
+        Q = np.zeros((n + 1, m + 1, 3))
+        Qw = np.zeros((n + 1, m + 1, 4))
+
+        for i in range(0, n + 1):
+            Q[i] = calc_ctrl_pts(vknot, q, pnt[i], vparam[i])
+
+        for i in range(0, n + 1):
+            for j in range(0, m + 1):
+                Qw[i][j] = to_homogeneous(Q[i][j])
+
+        super(Skinning, self).__init__(uknot, vknot, Qw)
+
+
+def merge_knot(lhs, rhs):
+    """
+    合并两个节点矢量
+    :param lhs: 第1个节点矢量
+    :param rhs: 第2个节点矢量
+    :return: 合并后的节点矢量, lhs union rhs
+    """
+
+    lval, lcnt = np.unique(lhs, return_counts=True)
+    rval, rcnt = np.unique(rhs, return_counts=True)
+
+    val = np.concatenate((lval, rval))
+    val = np.unique(val)
+    ans = []
+
+    for v in val:
+        if v in lval and v in rval:
+            li = np.searchsorted(lval, v)
+            ri = np.searchsorted(rval, v)
+            cc = max(lcnt[li], rcnt[ri])
+            for i in range(0, cc):
+                ans.append(v)
+        else:
+            if v in lval:
+                li = np.searchsorted(lval, v)
+                for i in range(0, lcnt[li]):
+                    ans.append(v)
+            else:
+                ri = np.searchsorted(rval, v)
+                for i in range(0, rcnt[ri]):
+                    ans.append(v)
+
+    ret = np.zeros(len(ans), float)
+    for i in range(0, len(ret)):
+        ret[i] = ans[i]
+
+    return ret
+
+
+def different_knot(lhs, rhs):
+    """
+    求两个节点矢量中的不同部分
+    :param lhs: 第1个节点矢量
+    :param rhs: 第2个节点矢量
+    :return: lhs subtract rhs
+    """
+
+    lval, lcnt = np.unique(lhs, return_counts=True)
+    rval, rcnt = np.unique(rhs, return_counts=True)
+
+    '''Count each'''
+    val = []
+    cnt = []
+    for i in range(0, len(lval)):
+        if lval[i] in rval:
+            k = np.searchsorted(rval, lval[i])
+            lvc = lcnt[i]
+            rvc = rcnt[k]
+            if lvc > rvc:
+                val.append(lval[i])
+                cnt.append(lvc - rvc)
+        else:
+            val.append(lval[i])
+            cnt.append(lcnt[i])
+
+    '''Assemble'''
+    ans = np.zeros(int(sum(cnt)))
+    k = 0
+    for i in range(0, len(val)):
+        for j in range(0, cnt[i]):
+            ans[k] = val[i]
+            k += 1
+
+    return ans
