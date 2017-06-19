@@ -1,5 +1,3 @@
-import numpy as np
-import math
 from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline
@@ -29,7 +27,10 @@ class NURBS_Curve(object):
         self.weight = np.zeros(self.n + 1)
         self.cpt = np.zeros((self.n + 1, 3))
         self.isPoly = True
-        self.isClosed = (self.__call__(self.U[0]) == self.__call__(self.U[-1])).all()
+
+        sp = self.__call__(self.U[0])
+        ep = self.__call__(self.U[-1])
+        self.isClosed = (sp == ep).all()
 
         for i in range(self.n + 1):
             self.weight[i] = self.Pw[i][3]
@@ -159,12 +160,11 @@ class NURBS_Curve(object):
 
         k = find_span(self.n, self.p, u, self.U)
         nU = np.insert(self.U, k + 1, np.full(r, u, float))  # New knot vector
-        n, dim = self.Pw.shape
-        nPw = np.zeros((n + r, dim))  # New homogenous control points
+        nPw = np.zeros((self.n + r + 1, 4))  # New homogeneous control points
 
         '''Calculate new control points'''
         if r == 1:
-            for i in range(n + 1):
+            for i in range(self.n + 2):
                 alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
                 if equal(alpha, 1.0):
                     nPw[i] = self.Pw[i]
@@ -173,7 +173,7 @@ class NURBS_Curve(object):
                 else:
                     nPw[i] = alpha * self.Pw[i] + (1.0 - alpha) * self.Pw[i - 1]
         else:
-            Rw = np.zeros((self.p + 1, dim))  # Holding temporary points
+            Rw = np.zeros((self.p + 1, 4))  # Holding temporary points
 
             '''Store unchanged control points'''
             for i in range(k - self.p + 1):
@@ -200,12 +200,59 @@ class NURBS_Curve(object):
         '''Update'''
         self.reset(nU, nPw)
 
-    def refine_knot(self, knot_list):
+    def refine(self, X):
         """
-        节点细化
+        节点细化，插入额外的节点序列
+        :param X: 待插入节点序列(已按升序排好)
         """
 
-        pass
+        if len(X) == 0:
+            return
+
+        r = len(X) - 1
+        nU = np.empty(self.m + r + 2)  # New knot vector
+        nPw = np.empty((self.n + r + 2, 4), float)  # New homogeneous control points
+
+        '''Knot span'''
+        a = find_span(self.n, self.p, X[0], self.U)
+        b = find_span(self.n, self.p, X[r], self.U) + 1
+
+        '''Copy unchanged control points and knots'''
+        for j in range(a - self.p + 1):
+            nPw[j] = self.Pw[j]
+        for j in range(b - 1, self.n + 1):
+            nPw[j + r + 1] = self.Pw[j]
+
+        for j in range(a + 1):
+            nU[j] = self.U[j]
+        for j in range(b + self.p, self.m + 1):
+            nU[j + r + 1] = self.U[j]
+
+        '''Insert'''
+        i = b + self.p - 1
+        k = b + self.p + r
+        for j in range(r, -1, -1):
+            while X[j] <= self.U[i] and i > a:
+                nPw[k - self.p - 1] = self.Pw[i - self.p - 1]
+                nU[k] = self.U[i]
+                k -= 1
+                i -= 1
+
+            nPw[k - self.p - 1] = nPw[k - self.p]
+
+            for l in range(1, self.p + 1):
+                index = k - self.p + 1
+                alpha = nU[k + 1] - X[j]
+                if equal(alpha, 0.0):
+                    nPw[index - 1] = nPw[index]
+                else:
+                    alpha /= (nU[k + 1] - self.U[i - self.p + l])
+                    nPw[index - 1] = alpha * nPw[index - 1] + (1.0 - alpha) * nPw[index]
+
+            nU[k] = X[j]
+            k -= 1
+
+        self.reset(nU, nPw)
 
     def elevate(self, t: int):
         """
