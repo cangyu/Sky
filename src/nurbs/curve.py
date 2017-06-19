@@ -117,7 +117,7 @@ class NURBS_Curve(object):
         array_smart_copy(delta, dv)
         nU = np.copy(self.U)
         nP = np.copy(self.cpt)
-        nPw = np.empty(np.asarray(self.Pw))
+        nPw = np.empty(self.Pw.shape, float)
 
         for i in range(self.n + 1):
             nP[i] += dv
