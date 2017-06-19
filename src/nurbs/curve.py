@@ -54,7 +54,7 @@ class NURBS_Curve(object):
         近似计算曲线长度
         """
 
-        return romberg(lambda u: norm(self.__call__(u, 1)), 0.0, 1.0)
+        return romberg(lambda u: norm(self.__call__(u, 1)), self.U[0], self.U[-1])
 
     def curvature(self, u):
         """
@@ -140,34 +140,71 @@ class NURBS_Curve(object):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
 
-    def insert_one_knot(self, u):
+    def insert_knot(self, u, r=1):
         """
-        插入一个节点
+        插入一个节点若干次。
+        虽然在实现上插入n次包含了插入1次，但这里我们还是分开实现，以便于理解。
         :param u: 待插入节点
+        :param r: 插入的次数，要求s+r<=p, 其中s为u在原节点矢量中的重复度,p为曲线次数
         :return: None
         """
 
-        '''Insert'''
-        k = find_span(self.n, self.p, u, self.U)
-        nU = np.insert(self.U, k + 1, u)
+        if r <= 0:
+            raise ValueError('Invalid times!')
 
-        '''Calculate new CtrlPts'''
+        '''Insert'''
+        s = sum(x == u for x in self.U)  # Counts of duplicates
+        if s + r > self.p:
+            raise ValueError('Too many Knot: {}\nExisting: {}, Targeting: {} Max: {}'.format(u, s, s + r, self.p))
+
+        k = find_span(self.n, self.p, u, self.U)
+        nU = np.insert(self.U, k + 1, np.full(r, u, float))  # New knot vector
         n, dim = self.Pw.shape
-        nPw = np.zeros((n + 1, dim))
-        for i in range(n + 1):
-            alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
-            if equal(alpha, 1.0):
+        nPw = np.zeros((n + r, dim))  # New homogenous control points
+
+        '''Calculate new control points'''
+        if r == 1:
+            for i in range(n + 1):
+                alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
+                if equal(alpha, 1.0):
+                    nPw[i] = self.Pw[i]
+                elif equal(alpha, 0.0):
+                    nPw[i] = self.Pw[i - 1]
+                else:
+                    nPw[i] = alpha * self.Pw[i] + (1.0 - alpha) * self.Pw[i - 1]
+        else:
+            Rw = np.zeros((self.p + 1, dim))  # Holding temporary points
+
+            '''Store unchanged control points'''
+            for i in range(k - self.p + 1):
                 nPw[i] = self.Pw[i]
-            elif equal(alpha, 0.0):
-                nPw[i] = self.Pw[i - 1]
-            else:
-                nPw[i] = alpha * self.Pw[i] + (1 - alpha) * self.Pw[i - 1]
+            for i in range(k - s, self.n + 1):
+                nPw[i + r] = self.Pw[i]
+            for i in range(self.p - s + 1):
+                Rw[i] = self.Pw[k - self.p + i]
+
+            '''Insert target knot r times'''
+            L = 0
+            for j in range(1, r + 1):
+                L = k - self.p + j
+                for i in range(self.p - j - s + 1):
+                    alpha = (u - self.U[L + i]) / (self.U[i + k + 1] - self.U[L + i])
+                    Rw[i] = alpha * Rw[i + 1] + (1.0 - alpha) * Rw[i]
+                nPw[L] = Rw[0]
+                nPw[k + r - j - s] = Rw[self.p - j - s]
+
+            '''Load remaining control points'''
+            for i in range(L + 1, k - s):
+                nPw[i] = Rw[i - L]
 
         '''Update'''
         self.reset(nU, nPw)
 
-    def insert_knots(self, knot_list):
-        # TODO
+    def refine_knot(self, knot_list):
+        """
+        节点细化
+        """
+
         pass
 
     def elevate(self, t: int):
