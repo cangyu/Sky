@@ -24,7 +24,7 @@ model = IGES_Model('before.igs')
 model.add_entity(C0.to_iges())
 model.write()
 
-'''插入1个不在原节点矢量中的节点'''
+'''插入若干节点'''
 C1 = NURBS_Curve(U, Pw)
 C1.refine(X)
 model = IGES_Model('after.igs')
