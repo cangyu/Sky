@@ -125,6 +125,17 @@ class NURBS_Curve(object):
 
         self.reset(nU, nPw)
 
+    def rotate(self, ref, ax, ang):
+        """
+        将曲线绕过指定点的转轴旋转一定角度
+        :param ref: 参考点
+        :param ax: 旋转轴方向向量
+        :param ang: 旋转角
+        :return: None
+        """
+
+        pass
+
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
@@ -138,7 +149,7 @@ class NURBS_Curve(object):
 
         '''Insert'''
         k = find_span(self.n, self.p, u, self.U)
-        nU = np.insert(self.U, k, u)
+        nU = np.insert(self.U, k + 1, u)
 
         '''Calculate new CtrlPts'''
         n, dim = self.Pw.shape
