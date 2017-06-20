@@ -121,9 +121,11 @@ msh = PLOT3D()
 grid1 = Linear_TFI_2D(c0, c2, c1, c3)
 ppu1, ppv1 = np.meshgrid(pu[0], pu[1], indexing='ij')
 grid1.calc_grid(ppu1, ppv1)
-lgrid1 = Laplace2D(grid1.get_grid())
-lgrid1.calc_grid()
-g1blk = PLOT3D_Block.build_from_2d(lgrid1.get_grid())
+laplace_grid1 = Laplace2D(grid1.get_grid())
+laplace_grid1.calc_grid()
+tm_grid1 = ThomasMiddlecoff2D(grid1.get_grid())
+tm_grid1.calc_grid()
+g1blk = PLOT3D_Block.build_from_2d(tm_grid1.get_grid()) # It seems that Laplace grid is better than TM grid...
 g1blk.set_area_iblank([0, N[0] - 1], range(1, N[1] - 1), [0], -2)  # c2,c3
 msh.add_block(g1blk)
 
