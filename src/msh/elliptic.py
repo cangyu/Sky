@@ -39,10 +39,14 @@ class EllipticGrid2D(object):
 
         self.delta_xi = 1.0
         self.delta_eta = 1.0
+        self.eps = 1e-5
 
     def set_step(self, xi, eta):
         self.delta_xi = xi
         self.delta_eta = eta
+
+    def set_eps(self, eps):
+        self.eps = eps
 
     @abstractmethod
     def coefficient_list(self, i, j):
@@ -54,30 +58,14 @@ class EllipticGrid2D(object):
         (i,j)周围的9个点的坐标
         """
 
-        return np.array([(i, j),
-                         (i + 1, j),
-                         (i, j + 1),
-                         (i - 1, j),
-                         (i, j - 1),
-                         (i + 1, j + 1),
-                         (i - 1, j + 1),
-                         (i - 1, j - 1),
-                         (i + 1, j - 1)])
+        return np.array([(i, j), (i + 1, j), (i, j + 1), (i - 1, j), (i, j - 1), (i + 1, j + 1), (i - 1, j + 1), (i - 1, j - 1), (i + 1, j - 1)])
 
     def index_around(self, k):
         """
         第k个点周围9个点的序号 
         """
 
-        return np.array([k,
-                         k + 1,
-                         k + self.I - 1,
-                         k - 1,
-                         k - self.I + 1,
-                         k + self.I,
-                         k + self.I - 2,
-                         k - self.I,
-                         k - self.I + 2])
+        return np.array([k, k + 1, k + self.I - 1, k - 1, k - self.I + 1, k + self.I, k + self.I - 2, k - self.I, k - self.I + 2])
 
     def is_special(self, i, j):
         """
@@ -156,10 +144,13 @@ class EllipticGrid2D(object):
 
         for i in range(1, self.I):
             for j in range(1, self.J):
-                c = np.array([self.pder(i, j, 'x', 'xi'), self.pder(i, j, 'x', 'eta'), self.pder(i, j, 'y', 'xi'), self.pder(i, j, 'y', 'eta')])
-                self.alpha[i][j] = c[1] ** 2 + c[3] ** 2
-                self.beta[i][j] = c[0] * c[1] + c[2] * c[3]
-                self.gamma[i][j] = c[0] ** 2 + c[2] ** 2
+                xx = self.pder(i, j, 'x', 'xi')
+                xe = self.pder(i, j, 'x', 'eta')
+                yx = self.pder(i, j, 'y', 'xi')
+                ye = self.pder(i, j, 'y', 'eta')
+                self.alpha[i][j] = xe ** 2 + ye ** 2
+                self.beta[i][j] = xx * xe + yx * ye
+                self.gamma[i][j] = xx ** 2 + yx ** 2
 
     def calc_coefficient_matrix(self):
         """
@@ -171,13 +162,14 @@ class EllipticGrid2D(object):
         rows = []
         cols = []
         val = []
-        ck = 0
-        for i in range(1, self.I):
-            for j in range(1, self.J):
+        ck = 0  # equation counter
+
+        for j in range(1, self.J):
+            for i in range(1, self.I):
                 a = self.coefficient_list(i, j)
                 coord = self.coordinate_around(i, j)
                 index = self.index_around(ck)
-                for k in range(0, 9):
+                for k in range(9):
                     ii, jj = coord[k]
                     if self.is_special(ii, jj):
                         b[0][ck] -= a[k] * self.r[ii][jj][0]
@@ -240,7 +232,7 @@ class Laplace2D(EllipticGrid2D):
 
         super(Laplace2D, self).__init__(grid)
 
-    def sor_iteration(self, eps=1e-4, w=1.0):
+    def sor_iteration(self, w=1.0):
         """
         超松弛迭代(SOR)计算内部网格点
         :param eps: 残差限
@@ -250,7 +242,7 @@ class Laplace2D(EllipticGrid2D):
 
         iteration_cnt = 0
         residual = sys.float_info.max
-        while residual > eps:
+        while residual > self.eps:
             self.calc_alpha_beta_gamma()
             new_grid = np.copy(self.r)
 
@@ -267,27 +259,37 @@ class Laplace2D(EllipticGrid2D):
             residual = EllipticGrid2D.calc_diff(self.r, new_grid)
             print("{}: {}".format(iteration_cnt, residual))
             self.r = np.copy(new_grid)
+
+    def coefficient_list(self, i, j):
+        ax2 = self.alpha[i][j] / self.delta_xi ** 2
+        ge2 = self.gamma[i][j] / self.delta_eta ** 2
+        bxe2 = self.beta[i][j] / (2.0 * self.delta_xi * self.delta_eta)
+
+        return np.array([-2 * (ax2 + ge2), ax2, ge2, ax2, ge2, -bxe2, bxe2, -bxe2, bxe2], float)
 
     def picard_iteration(self):
         iteration_cnt = 0
         residual = sys.float_info.max
-        while residual > eps:
-            self.calc_alpha_beta_gamma()
-            new_grid = np.copy(self.r)
+        while residual > self.eps:
+            u = np.zeros((2, (self.I - 1) * (self.J - 1)))
+            old_grid = np.copy(self.r)
 
+            self.calc_alpha_beta_gamma()
+            A, b = self.calc_coefficient_matrix()
+
+            u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+            u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+
+            cnt = 0
             for i in range(1, self.I):
                 for j in range(1, self.J):
-                    t1 = self.alpha[i][j] / (self.delta_xi ** 2) * (self.r[i + 1][j] + self.r[i - 1][j])
-                    t2 = 2.0 * self.beta[i][j] * np.array([self.pder(i, j, 'x', 'xi', 'eta'), self.pder(i, j, 'y', 'xi', 'eta'), 0])
-                    t3 = self.gamma[i][j] / (self.delta_eta ** 2) * (self.r[i][j + 1] + self.r[i][j - 1])
-                    t0 = 2.0 * (self.alpha[i][j] / (self.delta_xi ** 2) + self.gamma[i][j] / (self.delta_eta ** 2))
-                    t = (t1 - t2 + t3) / t0
-                    new_grid[i][j] = w * t + (1.0 - w) * self.r[i][j]
+                    self.r[i][j][0] = u[0][cnt]
+                    self.r[i][j][1] = u[1][cnt]
+                    cnt += 1
 
             iteration_cnt += 1
-            residual = EllipticGrid2D.calc_diff(self.r, new_grid)
+            residual = EllipticGrid2D.calc_diff(self.r, old_grid)
             print("{}: {}".format(iteration_cnt, residual))
-            self.r = np.copy(new_grid)
 
 
 class ThomasMiddlecoff2D(EllipticGrid2D):
