@@ -281,8 +281,8 @@ class Laplace2D(EllipticGrid2D):
             u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
 
             cnt = 0
-            for i in range(1, self.I):
-                for j in range(1, self.J):
+            for j in range(1, self.J):
+                for i in range(1, self.I):
                     self.r[i][j][0] = u[0][cnt]
                     self.r[i][j][1] = u[1][cnt]
                     cnt += 1
