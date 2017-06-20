@@ -84,5 +84,5 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
 
 
 if __name__ == '__main__':
-    U, V = 60, 25
+    U, V = 400, 125
     write_airfoil_o_msh("NACA0012", 10, 50, U, V)
