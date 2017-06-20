@@ -6,10 +6,10 @@ from src.iges.iges_entity116 import IGES_Entity116
 from src.nurbs.utility import equal, pnt_dist
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.nurbs.surface import GlobalInterpolatedSurf
+from settings import AIRFOIL_DIR
 
 BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
 
-AIRFOIL_DIR = '../airfoil/'
 AIRFOIL_LIST = []
 
 
@@ -28,7 +28,7 @@ class Airfoil(object):
 
         '''Read input data'''
         pts = []
-        fin = open("{}{}.dat".format(AIRFOIL_DIR, name))
+        fin = open(os.path.join(AIRFOIL_DIR, name + '.dat'))
         for line in fin:
             (_x, _y, _z) = line.split()
             pts.append(np.array([_x, _y, _z]))
