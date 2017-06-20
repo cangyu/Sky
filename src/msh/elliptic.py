@@ -387,14 +387,14 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
         bxe2 = self.beta[i][j] / (2.0 * self.delta_xi * self.delta_eta)
         x21 = 1.0 / self.delta_xi ** 2
         e21 = 1.0 / self.delta_eta ** 2
-        phx2 = self.psi[i][j] / (2.0 * self.delta_eta)
+        phx2 = self.phi[i][j] / (2.0 * self.delta_xi)
         pse2 = self.psi[i][j] / (2.0 * self.delta_eta)
 
         return np.array([-2.0 * (ax2 + ge2),
                          self.alpha[i][j] * (x21 + phx2),
                          self.gamma[i][j] * (e21 + pse2),
                          self.alpha[i][j] * (x21 - phx2),
-                         self.gamma[i][j] * (e21 + pse2),
+                         self.gamma[i][j] * (e21 - pse2),
                          -bxe2, bxe2, -bxe2, bxe2])
 
     def picard_iteration(self, use_amg):
