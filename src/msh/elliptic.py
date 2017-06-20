@@ -267,7 +267,7 @@ class Laplace2D(EllipticGrid2D):
 
         return np.array([-2 * (ax2 + ge2), ax2, ge2, ax2, ge2, -bxe2, bxe2, -bxe2, bxe2], float)
 
-    def picard_iteration(self):
+    def picard_iteration(self, use_amg=False):
         iteration_cnt = 0
         residual = sys.float_info.max
         while residual > self.eps:
@@ -277,8 +277,13 @@ class Laplace2D(EllipticGrid2D):
             self.calc_alpha_beta_gamma()
             A, b = self.calc_coefficient_matrix()
 
-            u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
-            u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
+            if use_amg:
+                ml = pyamg.ruge_stuben_solver(A)
+                u[0] = ml.solve(b[0], tol=1e-10)
+                u[1] = ml.solve(b[1], tol=1e-10)
+            else:
+                u[0] = dsolve.spsolve(A, b[0], use_umfpack=True)
+                u[1] = dsolve.spsolve(A, b[1], use_umfpack=True)
 
             cnt = 0
             for j in range(1, self.J):
