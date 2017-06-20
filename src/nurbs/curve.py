@@ -91,7 +91,9 @@ class NURBS_Curve(object):
         self.weight = np.zeros(self.n + 1)
         self.cpt = np.zeros((self.n + 1, 3))
         self.isPoly = True
-        self.isClosed = (self.__call__(self.U[0]) == self.__call__(self.U[-1])).all()
+        sp = self.__call__(self.U[0])
+        ep = self.__call__(self.U[-1])
+        self.isClosed = (sp == ep).all()
         for i in range(self.n + 1):
             self.weight[i] = self.Pw[i][3]
             if self.isPoly and (not equal(self.weight[i], 1.0)):
@@ -268,7 +270,7 @@ class NURBS_Curve(object):
         '''Basic counting'''
         val, cnt = np.unique(self.U, return_counts=True)
         for i in range(len(cnt)):
-            cnt[i] += 1
+            cnt[i] += t
 
         mm = sum(cnt) - 1
         pp = self.p + t
@@ -283,7 +285,7 @@ class NURBS_Curve(object):
         bezalfs = np.zeros((pp + 1, self.p + 1))
         bpts = np.zeros((self.p + 1, 4))
         ebpts = np.zeros((pp + 1, 4))
-        Nextbpts = np.zeros((self.p, 4))
+        Nextbpts = np.zeros((self.p - 1, 4))
         alfs = np.zeros(self.p - 1)
 
         # 计算升阶的次数
@@ -296,7 +298,7 @@ class NURBS_Curve(object):
                 bezalfs[i][j] = inv * comb(self.p, j) * comb(t, i - j)
 
         for i in range(pp2 + 1, pp):
-            mpi = np.amin([self.p, i])
+            mpi = min(self.p, i)
             for j in range(max(0, i - t), mpi + 1):
                 bezalfs[i][j] = bezalfs[pp - i][self.p - j]
 
@@ -321,7 +323,7 @@ class NURBS_Curve(object):
             while b < self.m and self.U[b] == self.U[b + 1]:
                 b += 1
             mul = b - i + 1
-            mh += mul + t
+            mh += (mul + t)
             ub = self.U[b]
             oldr = r
             r = self.p - mul
@@ -344,7 +346,7 @@ class NURBS_Curve(object):
 
             # 对bezier曲线段升阶
             for i in range(lbz, pp + 1):
-                ebpts[i] = 0.0
+                ebpts[i].fill(0.0)
                 mpi = min(self.p, i)
                 for j in range(max(0, i - t), mpi + 1):
                     ebpts[i] += bezalfs[i][j] * bpts[j]
@@ -395,7 +397,7 @@ class NURBS_Curve(object):
                 b += 1
                 ua = ub
             else:
-                for i in range(0, pp + 1):
+                for i in range(pp + 1):
                     nU[kind + i] = ub
 
         '''Update'''
