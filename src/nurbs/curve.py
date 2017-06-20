@@ -320,7 +320,7 @@ class NURBS_Curve(object):
         # 沿节点矢量进行循环
         while b < self.m:
             i = b
-            while b < self.m and self.U[b] == self.U[b + 1]:
+            while b < self.m and equal(self.U[b], self.U[b + 1]):
                 b += 1
             mul = b - i + 1
             mh += (mul + t)
@@ -363,6 +363,8 @@ class NURBS_Curve(object):
                     while j - i > tr:
                         if i < cind:
                             alf = (ub - nU[i]) / (ua - nU[i])
+                            if i >= 9:
+                                print('debug')
                             Qw[i] = alf * Qw[i] + (1.0 - alf) * Qw[i - 1]
                         if j >= lbz:
                             if j - tr <= kind - pp + oldr:
@@ -384,6 +386,8 @@ class NURBS_Curve(object):
 
             # 将控制点存入Qw
             for j in range(lbz, rbz + 1):
+                if cind >= 9:
+                    print('debug')
                 Qw[cind] = ebpts[j]
                 cind += 1
 
