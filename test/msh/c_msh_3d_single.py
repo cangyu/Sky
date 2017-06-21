@@ -57,8 +57,18 @@ def bwb_geom(n, airfoil, frame_param):
     return wg.geom
 
 
+def write_uniform_p3d(msh: Linear_TFI_3D, U: int, V: int, W: int, fn="msh_p3d.xyz"):
+    u_list = np.linspace(0, 1.0, U + 1)
+    v_list = np.linspace(0, 1.0, V + 1)
+    w_list = np.linspace(0, 1.0, W + 1)
+    ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
+    msh.calc_grid(ppu, ppv, ppw)
+    grid = PLOT3D()
+    grid.add_block(PLOT3D_Block.build_from_3d(msh.get_grid()))
+    grid.write(fn)
+
+
 if __name__ == '__main__':
-    p3d_msh = PLOT3D()
     SectionNum = 10
     AirfoilName = 'M6'
     FrameParam = [100, 60, 20, 30, 105, 0, 45, 30]
@@ -101,13 +111,8 @@ if __name__ == '__main__':
     P[15] = np.copy(P[13])
     P[15][1] = P[7][1]
 
-    LineEnding = np.array([[0, 2], [2, 0], [1, 0], [3, 1],
-                           [8, 10], [10, 8], [9, 8], [11, 9],
-                           [3, 11], [2, 10], [2, 6], [0, 4],
-                           [1, 5], [3, 7], [10, 14], [8, 12],
-                           [9, 13], [11, 15], [4, 6], [5, 4],
-                           [7, 5], [12, 14], [13, 12], [15, 13],
-                           [6, 14], [4, 12], [5, 13], [7, 15]])
+    LineEnding = np.array([[2, 0], [1, 0], [3, 1], [10, 8], [9, 8], [11, 9], [3, 11], [2, 10], [2, 6], [0, 4],
+                           [1, 5], [3, 7], [10, 14], [8, 12], [9, 13], [11, 15], [4, 6], [5, 4], [7, 5], [12, 14], [13, 12], [15, 13], [6, 14], [4, 12], [5, 13], [7, 15]])
     LineName = []
     for i in range(len(LineEnding)):
         LineName.append("L{}{}".format(LineEnding[i][0], LineEnding[i][1]))
@@ -147,57 +152,11 @@ if __name__ == '__main__':
     S5 = Linear_TFI_2D(L[LineMap['L31']], C32, L[LineMap['L20']], C10)
     S6 = Linear_TFI_2D(L[LineMap['L119']], C1110, L[LineMap['L108']], C98)
 
-    blk0_tfi_grid = Linear_TFI_3D(lambda v, w: S1(v, w),
-                                  lambda v, w: sf(1.0 - v, w),
-                                  lambda w, u: S3(w, u),
-                                  lambda w, u: S4(w, u),
-                                  lambda u, v: S6(u, v),
-                                  lambda u, v: S6(u, v))
+    tfi_grid = Linear_TFI_3D(lambda v, w: S1(v, w),
+                             lambda v, w: sf(1.0 - v, w),
+                             lambda w, u: S3(w, u),
+                             lambda w, u: S4(w, u),
+                             lambda u, v: S6(u, v),
+                             lambda u, v: S6(u, v))
 
-    U, V, W = 18, 26, 12
-    u_list = np.linspace(0, 1.0, U + 1)
-    v_list = np.linspace(0, 1.0, V + 1)
-    w_list = np.linspace(0, 1.0, W + 1)
-    ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
-    blk0_tfi_grid.calc_grid(ppu, ppv, ppw)
-    p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk0_tfi_grid.get_grid()))
-
-    SS1 = Linear_TFI_2D(L[LineMap['L02']], C08, L[LineMap['L810']], L[LineMap['L210']])
-    SS2 = Linear_TFI_2D(L[LineMap['L46']], L[LineMap['L412']], L[LineMap['L1214']], L[LineMap['L614']])
-    SS3 = Linear_TFI_2D(C08, L[LineMap['L04']], L[LineMap['L412']], L[LineMap['L812']])
-    SS4 = Linear_TFI_2D(L[LineMap['L210']], L[LineMap['L26']], L[LineMap['L614']], L[LineMap['L1014']])
-    SS5 = Linear_TFI_2D(L[LineMap['L04']], L[LineMap['L02']], L[LineMap['L26']], L[LineMap['L46']])
-    SS6 = Linear_TFI_2D(L[LineMap['L812']], L[LineMap['L810']], L[LineMap['L1014']], L[LineMap['L1214']])
-
-    blk1_tfi_grid = Linear_TFI_3D(lambda v, w: SS1(v, w),
-                                  lambda v, w: SS2(v, w),
-                                  lambda w, u: SS3(w, u),
-                                  lambda w, u: SS4(w, u),
-                                  lambda u, v: SS6(u, v),
-                                  lambda u, v: SS6(u, v))
-
-    N = 15
-    n_list = np.linspace(0.0, 1.0, N + 1)
-    ppn, ppu, ppw = np.meshgrid(n_list, u_list, w_list, indexing='ij')
-    blk1_tfi_grid.calc_grid(ppn, ppu, ppw)
-    p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk1_tfi_grid.get_grid()))
-
-    SSS1 = Linear_TFI_2D(L[LineMap['L31']], L[LineMap['L311']], L[LineMap['L119']], C19)
-    SSS2 = Linear_TFI_2D(L[LineMap['L75']], L[LineMap['L715']], L[LineMap['L1513']], L[LineMap['L513']])
-    SSS3 = Linear_TFI_2D(L[LineMap['L311']], L[LineMap['L37']], L[LineMap['L715']], L[LineMap['L1115']])
-    SSS4 = Linear_TFI_2D(C19, L[LineMap['L15']], L[LineMap['L513']], L[LineMap['L913']])
-    SSS5 = Linear_TFI_2D(L[LineMap['L37']], L[LineMap['L31']], L[LineMap['L15']], L[LineMap['L75']])
-    SSS6 = Linear_TFI_2D(L[LineMap['L1115']], L[LineMap['L119']], L[LineMap['L913']], L[LineMap['L1513']])
-
-    blk2_tfi_grid = Linear_TFI_3D(lambda v, w: SSS1(v, w),
-                                  lambda v, w: SSS2(v, w),
-                                  lambda w, u: SSS3(w, u),
-                                  lambda w, u: SSS4(w, u),
-                                  lambda u, v: SSS6(u, v),
-                                  lambda u, v: SSS6(u, v))
-
-    ppn, ppu, ppw = np.meshgrid(n_list, u_list, w_list, indexing='ij')
-    blk2_tfi_grid.calc_grid(ppn, ppu, ppw)
-    p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk2_tfi_grid.get_grid()))
-
-    p3d_msh.write('{}_{}blks.xyz'.format(AirfoilName, 3))
+    write_uniform_p3d(tfi_grid, 60, 140, 50)

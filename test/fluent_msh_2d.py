@@ -29,6 +29,10 @@ def curve_rect(U: int, V: int, L: float, H1: float, H2: float, H3: float):
     fluent_grid.save('crv_rect_{}_{}.msh'.format(U, V))
 
 
+def airfoil():
+    pass
+
+
 if __name__ == '__main__':
-    # rectangular(30, 10, 3, 1)
+    rectangular(30, 10, 3, 1)
     curve_rect(50, 25, 100, 40, 60, 10)
