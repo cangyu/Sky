@@ -22,17 +22,17 @@ model = IGES_Model('before.igs')
 model.add_entity(C0.to_iges())
 model.write()
 
+print('Original Knot vector:')
+print(C0.U)
+print('Original Control points:')
+print(C0.Pw)
+
 '''提升2阶'''
 C1 = NURBS_Curve(U, Pw)
 C1.elevate(1)
 model = IGES_Model('after.igs')
 model.add_entity(C1.to_iges())
 model.write()
-
-print('Original Knot vector:')
-print(C0.U)
-print('Original Control points:')
-print(C0.Pw)
 
 print('New Knot vector:')
 print(C1.U)

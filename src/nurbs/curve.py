@@ -364,13 +364,13 @@ class NURBS_Curve(object):
         b = self.p + 1
         cind = 1
         ua = self.U[0]
-        Qw[0] = self.Pw[0]
+        Qw[0] = np.copy(self.Pw[0])
         for i in range(pp + 1):
             nU[i] = ua
 
         # 初始化第一个bezier段
         for i in range(self.p + 1):
-            bpts[i] = self.Pw[i]
+            bpts[i] = np.copy(self.Pw[i])
 
         # 沿节点矢量进行循环
         while b < self.m:
@@ -397,7 +397,7 @@ class NURBS_Curve(object):
                     s = mul + j
                     for k in range(self.p, s - 1, -1):
                         bpts[k] = alfs[k - s] * bpts[k] + (1.0 - alfs[k - s]) * bpts[k - 1]
-                    Nextbpts[save] = bpts[self.p]
+                    Nextbpts[save] = np.copy(bpts[self.p])
 
             # 对bezier曲线段升阶
             for i in range(lbz, pp + 1):
@@ -443,15 +443,15 @@ class NURBS_Curve(object):
             for j in range(lbz, rbz + 1):
                 if cind >= 9:
                     print('debug')
-                Qw[cind] = ebpts[j]
+                Qw[cind] = np.copy(ebpts[j])
                 cind += 1
 
             if b < self.m:
                 # 为下一次循环做准备
                 for j in range(r):
-                    bpts[j] = Nextbpts[j]
+                    bpts[j] = np.copy(Nextbpts[j])
                 for j in range(r, self.p + 1):
-                    bpts[j] = self.Pw[b - self.p + j]
+                    bpts[j] = np.copy(self.Pw[b - self.p + j])
                 a = b
                 b += 1
                 ua = ub
