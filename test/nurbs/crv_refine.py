@@ -4,7 +4,7 @@ from src.nurbs.curve import NURBS_Curve
 from src.iges.iges_core import IGES_Model
 from src.com.catia import view
 
-auto_view = False
+auto_view = True
 
 U = np.array([0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5], float)
 Pw = np.array([[0, 0, 0, 1],

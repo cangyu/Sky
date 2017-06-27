@@ -94,6 +94,11 @@ print(C5.U)
 print('Control points:')
 print(C5.Pw)
 
+if (C4.Pw == C5.Pw).all():
+    print('OK, C4 and C5 are identical!')
+else:
+    print('WTF?')
+
 '''插入1个不在原节点矢量中的节点4次'''
 C6 = NURBS_Curve(U, Pw)
 try:

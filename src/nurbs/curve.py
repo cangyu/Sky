@@ -147,7 +147,6 @@ class NURBS_Curve(object):
     def insert_knot(self, u, r=1):
         """
         插入一个节点若干次。
-        虽然在实现上插入n次包含了插入1次，但这里我们还是分开实现，以便于理解。
         :param u: 待插入节点
         :param r: 插入的次数，要求s+r<=p, 其中s为u在原节点矢量中的重复度,p为曲线次数
         :return: None
@@ -166,39 +165,29 @@ class NURBS_Curve(object):
         nPw = np.zeros((self.n + r + 1, 4))  # New homogeneous control points
 
         '''Calculate new control points'''
-        if r == 1:
-            for i in range(self.n + 2):
-                alpha = 1.0 if i <= k - self.p else (0.0 if i >= k + 1 else (u - self.U[i]) / (self.U[i + self.p] - self.U[i]))
-                if equal(alpha, 1.0):
-                    nPw[i] = self.Pw[i]
-                elif equal(alpha, 0.0):
-                    nPw[i] = self.Pw[i - 1]
-                else:
-                    nPw[i] = alpha * self.Pw[i] + (1.0 - alpha) * self.Pw[i - 1]
-        else:
-            Rw = np.zeros((self.p + 1, 4))  # Holding temporary points
+        Rw = np.zeros((self.p + 1, 4))  # Holding temporary points
 
-            '''Store unchanged control points'''
-            for i in range(k - self.p + 1):
-                nPw[i] = self.Pw[i]
-            for i in range(k - s, self.n + 1):
-                nPw[i + r] = self.Pw[i]
-            for i in range(self.p - s + 1):
-                Rw[i] = self.Pw[k - self.p + i]
+        '''Store unchanged control points'''
+        for i in range(k - self.p + 1):
+            nPw[i] = np.copy(self.Pw[i])
+        for i in range(k - s, self.n + 1):
+            nPw[i + r] = np.copy(self.Pw[i])
+        for i in range(self.p - s + 1):
+            Rw[i] = np.copy(self.Pw[k - self.p + i])
 
-            '''Insert target knot r times'''
-            L = 0
-            for j in range(1, r + 1):
-                L = k - self.p + j
-                for i in range(self.p - j - s + 1):
-                    alpha = (u - self.U[L + i]) / (self.U[i + k + 1] - self.U[L + i])
-                    Rw[i] = alpha * Rw[i + 1] + (1.0 - alpha) * Rw[i]
-                nPw[L] = Rw[0]
-                nPw[k + r - j - s] = Rw[self.p - j - s]
+        '''Insert target knot r times'''
+        L = 0
+        for j in range(1, r + 1):
+            L = k - self.p + j
+            for i in range(self.p - j - s + 1):
+                alpha = (u - self.U[L + i]) / (self.U[i + k + 1] - self.U[L + i])
+                Rw[i] = alpha * Rw[i + 1] + (1.0 - alpha) * Rw[i]
+            nPw[L] = np.copy(Rw[0])
+            nPw[k + r - j - s] = np.copy(Rw[self.p - j - s])
 
-            '''Load remaining control points'''
-            for i in range(L + 1, k - s):
-                nPw[i] = Rw[i - L]
+        '''Load remaining control points'''
+        for i in range(L + 1, k - s):
+            nPw[i] = np.copy(Rw[i - L])
 
         '''Update'''
         self.reset(nU, nPw)
@@ -213,8 +202,8 @@ class NURBS_Curve(object):
             return
 
         r = len(X) - 1
-        nU = np.empty(self.m + r + 2)  # New knot vector
-        nPw = np.empty((self.n + r + 2, 4), float)  # New homogeneous control points
+        nU = np.zeros(self.m + r + 2, float)  # New knot vector
+        nPw = np.zeros((self.n + r + 2, 4), float)  # New homogeneous control points
 
         '''Knot span'''
         a = find_span(self.n, self.p, X[0], self.U)
@@ -222,9 +211,9 @@ class NURBS_Curve(object):
 
         '''Copy unchanged control points and knots'''
         for j in range(a - self.p + 1):
-            nPw[j] = self.Pw[j]
+            nPw[j] = np.copy(self.Pw[j])
         for j in range(b - 1, self.n + 1):
-            nPw[j + r + 1] = self.Pw[j]
+            nPw[j + r + 1] = np.copy(self.Pw[j])
 
         for j in range(a + 1):
             nU[j] = self.U[j]
@@ -236,20 +225,20 @@ class NURBS_Curve(object):
         k = b + self.p + r
         for j in range(r, -1, -1):
             while X[j] <= self.U[i] and i > a:
-                nPw[k - self.p - 1] = self.Pw[i - self.p - 1]
+                nPw[k - self.p - 1] = np.copy(self.Pw[i - self.p - 1])
                 nU[k] = self.U[i]
                 k -= 1
                 i -= 1
 
-            nPw[k - self.p - 1] = nPw[k - self.p]
+            nPw[k - self.p - 1] = np.copy(nPw[k - self.p])
 
             for l in range(1, self.p + 1):
-                index = k - self.p + 1
-                alpha = nU[k + 1] - X[j]
+                index = k - self.p + l
+                alpha = nU[k + l] - X[j]
                 if equal(alpha, 0.0):
-                    nPw[index - 1] = nPw[index]
+                    nPw[index - 1] = np.copy(nPw[index])
                 else:
-                    alpha /= (nU[k + 1] - self.U[i - self.p + l])
+                    alpha /= (nU[k + l] - self.U[i - self.p + l])
                     nPw[index - 1] = alpha * nPw[index - 1] + (1.0 - alpha) * nPw[index]
 
             nU[k] = X[j]
