@@ -173,9 +173,11 @@ class Wing(object):
             tail_pts[i][1] = self.yt[i]
             tail_pts[i][2] = front_pts[i][2] = self.z[i]
 
+        '''
         for i in range(0, self.n):
             wing_model.add_entity(IGES_Entity116(self.xf[i], self.yf[i], self.z[i]))
             wing_model.add_entity(IGES_Entity116(self.xt[i], self.yt[i], self.z[i]))
+        '''
 
         '''前后缘曲线'''
         front_crv = GlobalInterpolatedCrv(front_pts, 5, 'chord')
@@ -184,8 +186,8 @@ class Wing(object):
         wing_model.add_entity(tail_crv.to_iges(0, 0, [0, 0, 0]))
 
         '''根梢弦线'''
-        wing_model.add_entity(IGES_Entity110([self.xf[0], self.yf[0], self.z[0]], [self.xt[0], self.yt[0], self.z[0]]))
-        wing_model.add_entity(IGES_Entity110([self.xf[- 1], self.yf[- 1], self.z[- 1]], [self.xt[- 1], self.yt[- 1], self.z[- 1]]))
+        # wing_model.add_entity(IGES_Entity110([self.xf[0], self.yf[0], self.z[0]], [self.xt[0], self.yt[0], self.z[0]]))
+        # wing_model.add_entity(IGES_Entity110([self.xf[- 1], self.yf[- 1], self.z[- 1]], [self.xt[- 1], self.yt[- 1], self.z[- 1]]))
 
         '''剖面'''
         profile = []
@@ -194,8 +196,8 @@ class Wing(object):
                              [self.xt[i], self.yt[i], self.z[i]]])
             wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
             wing_model.add_entity(wp.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
-            add_pnt(wing_model, wp.pts[0])
-            add_pnt(wing_model, wp.pts[-1])
+            # add_pnt(wing_model, wp.pts[0])
+            # add_pnt(wing_model, wp.pts[-1])
             profile.append(wp)
 
         '''全局插值'''
