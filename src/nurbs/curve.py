@@ -40,7 +40,7 @@ class NURBS_Curve(object):
             for j in range(3):
                 self.cpt[i][j] = Pw[i][j] / self.weight[i]
 
-    def __call__(self, u, d=0):
+    def __call__(self, u, d=0, return_cartesian=True):
         """
         计算曲线上的点
         :param u: 目标参数
@@ -49,7 +49,7 @@ class NURBS_Curve(object):
         """
 
         pw = self.spl(u, d)
-        return to_cartesian(pw)
+        return to_cartesian(pw) if return_cartesian else pw
 
     def length(self):
         """
@@ -246,6 +246,72 @@ class NURBS_Curve(object):
 
         self.reset(nU, nPw)
 
+    def decompose(self, self_update=False, return_raw=False):
+        """
+        将NURBS曲线分解为Bezier曲线段
+        :return: 分解后的节点矢量与控制点
+        """
+
+        '''New knot vector and control points'''
+        k = 0
+        val = np.unique(self.U)
+        nU = np.empty((self.p + 1) * len(val), float)
+        Qw = np.empty((len(val) - 1, self.p + 1, 4), float)
+
+        for v in val:
+            for j in range(self.p + 1):
+                nU[k] = v
+                k += 1
+
+        '''Calculate new control points'''
+        alphas = np.empty(self.p, float)
+        a = self.p
+        b = self.p + 1
+        nb = 0
+        for i in range(self.p + 1):
+            Qw[nb][i] = np.copy(self.Pw[i])
+
+        while b < self.m:
+            i = b
+            while b < self.m and equal(self.U[b + 1], self.U[b]):
+                b += 1
+            mult = b - i + 1
+            if mult < self.p:
+                numer = self.U[b] - self.U[a]
+                for j in range(self.p, mult, -1):
+                    alphas[j - mult - 1] = numer / (self.U[a + j] - self.U[a])
+                r = self.p - mult
+                for j in range(1, r + 1):
+                    save = r - j
+                    s = mult + j
+                    for k in range(self.p, s - 1, -1):
+                        alpha = alphas[k - s]
+                        Qw[nb][k] = alpha * Qw[nb][k] + (1.0 - alpha) * Qw[nb][k - 1]
+                    if b < self.m:
+                        Qw[nb + 1][save] = np.copy(Qw[nb][self.p])
+
+            nb += 1
+            if b < self.m:
+                for i in range(self.p - mult, self.p + 1):
+                    Qw[nb][i] = np.copy(self.Pw[b - self.p + i])
+                a = b
+                b += 1
+
+        nPw = np.empty((len(Qw) * (self.p + 1), 4), float)
+        k = 0
+        for i in range(len(Qw)):
+            for j in range(self.p + 1):
+                nPw[k] = np.copy(Qw[i][j])
+                k += 1
+
+        if self_update:
+            self.reset(nU, nPw)
+
+        if return_raw:
+            return nU, nPw
+        else:
+            return NURBS_Curve(nU, nPw)
+
     def elevate(self, t: int):
         """
         将曲线升阶t次
@@ -395,54 +461,6 @@ class NURBS_Curve(object):
 
         '''Update'''
         self.reset(nU, Qw)
-
-
-'''
-def DecomposeCurve(n, p, U, Pw, nb, Qw):
-    """
-    将NURBS曲线分解为Bezier曲线段
-    :param n: 
-    :param p: 
-    :param U: 
-    :param Pw: 
-    :param nb: 
-    :param Qw: 
-    :return: None
-    """
-    
-    m = n + p + 1
-    a = p
-    b = p + 1
-    nb = 0
-    for i in range(p + 1):
-        Qw[nb][i] = Pw[i]
-
-    while b < m:
-        i = b
-        while b < m and U[b + 1] == U[b]:
-            b += 1
-        mult = b - i + 1
-        if mult < p:
-            numer = U[b] - U[a]
-            for j in range(p, mult, -1):
-                alphas[j - mult - 1] = numer / (U[a + j] - U[a])
-            r = p - mult
-            for j in range(1, r + 1):
-                save = r - j
-                s = mult + j
-                for k in range(p, s - 1, -1):
-                    alpha = alphas[k - s]
-                    Qw[nb][k] = alpha * Qw[nb][k] + (1.0 - alpha) * Qw[nb][k - 1]
-                if b < m:
-                    Qw[nb + 1][save] = Qw[nb][p]
-
-        nb += 1
-        if b < m:
-            for i in range(p - mult, p + 1):
-                Qw[nb][i] = Pw[b - p + i]
-            a = b
-            b += 1
-'''
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
