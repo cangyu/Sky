@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
-from src.nurbs.spline import Spline
+from src.nurbs.curve import Spline
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.elliptic import Laplace2D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
