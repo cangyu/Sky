@@ -1,9 +1,9 @@
+from abc import abstractmethod
 from numpy.linalg import norm
 from scipy.linalg import solve
-from scipy.interpolate import BSpline
+from scipy.interpolate import BSpline, make_interp_spline
 from scipy.integrate import romberg
 from scipy.misc import comb
-from scipy import interpolate
 from scipy.special import factorial
 from src.nurbs.utility import *
 from src.transform.dcm import DCM, normalize
@@ -143,6 +143,7 @@ class NURBS_Curve(object):
 
         pass
 
+    @abstractmethod
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
@@ -325,145 +326,12 @@ class NURBS_Curve(object):
         if t <= 0:
             return
 
-        '''Basic counting'''
-        val, cnt = np.unique(self.U, return_counts=True)
-        for i in range(len(cnt)):
-            cnt[i] += t
+        '''Decompose'''
+        nU, nPw = self.decompose(return_raw=True)
 
-        mm = sum(cnt) - 1
-        pp = self.p + t
-        nn = mm - pp - 1
-        pp2 = int(pp / 2)
+        '''Elevate each bezier segment'''
 
-        '''New knot vector and control points'''
-        nU = np.zeros(mm + 1)
-        Qw = np.zeros((nn + 1, 4))
-
-        '''Local arrays'''
-        bezalfs = np.zeros((pp + 1, self.p + 1))
-        bpts = np.zeros((self.p + 1, 4))
-        ebpts = np.zeros((pp + 1, 4))
-        Nextbpts = np.zeros((self.p - 1, 4))
-        alfs = np.zeros(self.p - 1)
-
-        # 计算升阶的次数
-        bezalfs[0][0] = bezalfs[pp][self.p] = 1.0
-
-        for i in range(1, pp2 + 1):
-            inv = 1.0 / comb(pp, i)
-            mpi = min(self.p, i)
-            for j in range(max(0, i - t), mpi + 1):
-                bezalfs[i][j] = inv * comb(self.p, j) * comb(t, i - j)
-
-        for i in range(pp2 + 1, pp):
-            mpi = min(self.p, i)
-            for j in range(max(0, i - t), mpi + 1):
-                bezalfs[i][j] = bezalfs[pp - i][self.p - j]
-
-        mh = pp
-        kind = pp + 1
-        r = -1
-        a = self.p
-        b = self.p + 1
-        cind = 1
-        ua = self.U[0]
-        Qw[0] = np.copy(self.Pw[0])
-        for i in range(pp + 1):
-            nU[i] = ua
-
-        # 初始化第一个bezier段
-        for i in range(self.p + 1):
-            bpts[i] = np.copy(self.Pw[i])
-
-        # 沿节点矢量进行循环
-        while b < self.m:
-            i = b
-            while b < self.m and equal(self.U[b], self.U[b + 1]):
-                b += 1
-            mul = b - i + 1
-            mh += (mul + t)
-            ub = self.U[b]
-            oldr = r
-            r = self.p - mul
-
-            # 插入节点u(b) r次
-            lbz = int((oldr + 2) / 2) if oldr > 0 else 1
-            rbz = int(pp - (r + 1) / 2) if r > 0 else pp
-
-            if r > 0:
-                # 插入节点以获得bezier曲线段
-                numer = ub - ua
-                for k in range(self.p, mul, -1):
-                    alfs[k - mul - 1] = numer / (self.U[a + k] - ua)
-                for j in range(1, r + 1):
-                    save = r - j
-                    s = mul + j
-                    for k in range(self.p, s - 1, -1):
-                        bpts[k] = alfs[k - s] * bpts[k] + (1.0 - alfs[k - s]) * bpts[k - 1]
-                    Nextbpts[save] = np.copy(bpts[self.p])
-
-            # 对bezier曲线段升阶
-            for i in range(lbz, pp + 1):
-                ebpts[i].fill(0.0)
-                mpi = min(self.p, i)
-                for j in range(max(0, i - t), mpi + 1):
-                    ebpts[i] += bezalfs[i][j] * bpts[j]
-
-            if oldr > 1:
-                first = kind - 2
-                last = kind
-                den = ub - ua
-                bet = (ub - nU[kind - 1]) / den
-                for tr in range(1, oldr):
-                    i = first
-                    j = last
-                    kj = j - kind + 1
-                    while j - i > tr:
-                        if i < cind:
-                            alf = (ub - nU[i]) / (ua - nU[i])
-                            if i >= 9:
-                                print('debug')
-                            Qw[i] = alf * Qw[i] + (1.0 - alf) * Qw[i - 1]
-                        if j >= lbz:
-                            if j - tr <= kind - pp + oldr:
-                                gam = (ub - nU[j - tr]) / den
-                                ebpts[kj] = gam * ebpts[kj] + (1.0 - gam) * ebpts[kj + 1]
-                            else:
-                                ebpts[kj] = bet * ebpts[kj] + (1.0 - bet) * ebpts[kj + 1]
-                        i += 1
-                        j -= 1
-                        kj -= 1
-                    first -= 1
-                    last += 1
-
-            # 消去节点u=U[a]结束
-            if a != self.p:
-                for i in range(pp - oldr):
-                    nU[kind] = ua
-                    kind += 1
-
-            # 将控制点存入Qw
-            for j in range(lbz, rbz + 1):
-                if cind >= 9:
-                    print('debug')
-                Qw[cind] = np.copy(ebpts[j])
-                cind += 1
-
-            if b < self.m:
-                # 为下一次循环做准备
-                for j in range(r):
-                    bpts[j] = np.copy(Nextbpts[j])
-                for j in range(r, self.p + 1):
-                    bpts[j] = np.copy(self.Pw[b - self.p + j])
-                a = b
-                b += 1
-                ua = ub
-            else:
-                for i in range(pp + 1):
-                    nU[kind + i] = ub
-
-        '''Update'''
-        self.reset(nU, Qw)
+        '''Eliminate unnecessary knots'''
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
@@ -749,9 +617,9 @@ class Spline(object):
 
         '''Interpolation Function'''
         order = 3
-        fx = interpolate.make_interp_spline(self.u, xc, k=order, bc_type=bc_x)
-        fy = interpolate.make_interp_spline(self.u, yc, k=order, bc_type=bc_y)
-        fz = interpolate.make_interp_spline(self.u, zc, k=order, bc_type=bc_z)
+        fx = make_interp_spline(self.u, xc, k=order, bc_type=bc_x)
+        fy = make_interp_spline(self.u, yc, k=order, bc_type=bc_y)
+        fz = make_interp_spline(self.u, zc, k=order, bc_type=bc_z)
 
         '''Normalized representation of each dimension'''
         self.x = lambda u: fx(u * self.u[-1])
