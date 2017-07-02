@@ -20,28 +20,20 @@ class NURBS_Curve(object):
         :param Pw: 带权控制点
         """
 
-        self.n = len(Pw) - 1
-        self.m = len(U) - 1
-        self.p = self.m - self.n - 1
+        self.U = None
+        self.Pw = None
 
-        self.U = np.copy(U)
-        self.Pw = np.copy(Pw)
-        self.spl = BSpline(self.U, self.Pw, self.p)
+        self.n = int(-1)
+        self.m = int(-1)
+        self.p = int(-1)
 
-        self.weight = np.zeros(self.n + 1)
-        self.cpt = np.zeros((self.n + 1, 3))
+        self.spl = None
+        self.weight = None
+        self.cpt = None
         self.isPoly = True
+        self.isClosed = False
 
-        sp = self.__call__(self.U[0])
-        ep = self.__call__(self.U[-1])
-        self.isClosed = (sp == ep).all()
-
-        for i in range(self.n + 1):
-            self.weight[i] = self.Pw[i][3]
-            if self.isPoly and (not equal(self.weight[i], 1.0)):
-                self.isPoly = False
-            for j in range(3):
-                self.cpt[i][j] = Pw[i][j] / self.weight[i]
+        self.reset(U, Pw)
 
     def __call__(self, u, d=0, return_cartesian=True):
         """
@@ -143,7 +135,6 @@ class NURBS_Curve(object):
 
         pass
 
-    @abstractmethod
     def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
         return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
                               self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
@@ -257,11 +248,11 @@ class NURBS_Curve(object):
         """
 
         '''New knot vector and control points'''
-        k = 0
         val = np.unique(self.U)
         nU = np.empty((self.p + 1) * len(val), float)
         Qw = np.empty((len(val) - 1, self.p + 1, 4), float)
 
+        k = 0
         for v in val:
             for j in range(self.p + 1):
                 nU[k] = v
@@ -316,9 +307,9 @@ class NURBS_Curve(object):
         else:
             return NURBS_Curve(nU, nPw)
 
-    def elevate(self, t: int):
+    def elevate(self, t: int, self_update=False, return_raw=False):
         """
-        将曲线升阶t次
+        将NURBS曲线升阶t次
         :param t: 升阶次数
         :return: None.
         """
@@ -328,10 +319,97 @@ class NURBS_Curve(object):
 
         '''Decompose'''
         nU, nPw = self.decompose(return_raw=True)
+        pp1 = self.p + 1
+        k = 0
+        bezier_seg = []
+        while k + pp1 < len(nU):
+            cbs = BezierCrv(nU[k], nU[k + pp1], self.p, nPw[k:k + pp1])
+            bezier_seg.append(cbs)
+            k += pp1
 
         '''Elevate each bezier segment'''
+        bseg_num = len(bezier_seg)
+        for i in range(bseg_num):
+            bezier_seg[i].elevate(t)
 
         '''Eliminate unnecessary knots'''
+        ppt = self.p + t
+
+        nU = np.empty((bseg_num + 1) * ppt + 2, float)
+        nU[0] = bezier_seg[0].a
+        k = 1
+        for bsg in bezier_seg:
+            tmp = bsg.a
+            for i in range(ppt):
+                nU[k] = tmp
+                k += 1
+
+        tmp = bezier_seg[-1].b
+        for i in range(ppt + 1):
+            nU[k] = tmp
+            k += 1
+
+        nPw = np.empty((bseg_num * ppt + 1, 4), float)
+        k = 0
+        for bsg in bezier_seg:
+            for i in range(bsg.n):
+                nPw[k] = np.copy(bsg.Pw[i])
+                k += 1
+
+        nPw[-1] = np.copy(bezier_seg[-1].Pw[-1])
+
+        if self_update:
+            self.reset(nU, nPw)
+
+        if return_raw:
+            return nU, nPw
+        else:
+            return NURBS_Curve(nU, nPw)
+
+
+class BezierCrv(NURBS_Curve):
+    def __init__(self, a, b, p, pw):
+        kv = []
+        for i in range(p + 1):
+            kv.append(a)
+        for i in range(p + 1):
+            kv.append(b)
+
+        super(BezierCrv, self).__init__(kv, pw)
+
+    @property
+    def a(self):
+        return self.U[0]
+
+    @property
+    def b(self):
+        return self.U[-1]
+
+    def elevate(self, t: int):
+        """
+        将Bezier曲线升阶t次
+        :param t: 升阶次数
+        :return: None.
+        """
+
+        if t <= 0:
+            return
+
+        nh = self.p + t + 1
+        nPw = np.zeros((nh, 4))
+        for i in range(nh):
+            for j in range(max(0, i - t), min(self.p, i) + 1):
+                coef = comb(self.p, j, exact=True) * comb(t, i - j, exact=True) / comb(self.p + t, i, exact=True)
+                nPw[i] += coef * self.Pw[j]
+
+        kv = []
+        ph = self.p + t + 1
+        for i in range(ph):
+            kv.append(self.a)
+        for i in range(ph):
+            kv.append(self.b)
+
+        self.reset(kv, nPw)
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):

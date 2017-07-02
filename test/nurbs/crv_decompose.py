@@ -3,7 +3,11 @@ import numpy as np
 from src.nurbs.curve import NURBS_Curve
 from src.nurbs.utility import equal
 from src.iges.iges_core import IGES_Model
-from src.com.catia import view
+
+try:
+    from src.com.catia import view
+except ImportError:
+    print('Win32 required for CATIA usage!')
 
 auto_view = False
 
@@ -65,3 +69,14 @@ if wtf:
     print('WTF?')
 else:
     print('OK, all close!')
+
+C2 = C1.decompose(return_raw=False)
+print(C2.p)
+print(C1.p)
+
+print(C2.Pw)
+k = 0
+pp1 = C2.p + 1
+while k < len(C2.U):
+    print(C2.Pw[k:k + pp1])
+    k += pp1

@@ -1,8 +1,13 @@
 import math
 import numpy as np
+from src.nurbs.utility import equal
 from src.nurbs.curve import NURBS_Curve
 from src.iges.iges_core import IGES_Model
-from src.com.catia import view
+
+try:
+    from src.com.catia import view
+except ImportError:
+    print('Win32 required for CATIA usage!')
 
 auto_view = False
 
@@ -28,8 +33,7 @@ print('Original Control points:')
 print(C0.Pw)
 
 '''提升2阶'''
-C1 = NURBS_Curve(U, Pw)
-C1.elevate(1)
+C1 = C0.elevate(2, return_raw=False)
 model = IGES_Model('after.igs')
 model.add_entity(C1.to_iges())
 model.write()
@@ -42,3 +46,24 @@ print(C1.Pw)
 if auto_view:
     view('before.igs')
     view('after.igs')
+
+wtf = False
+N = 1000
+u = np.linspace(0.0, 1.0, N)
+v0 = np.empty((N, 3), float)
+v1 = np.empty((N, 3), float)
+for i in range(N):
+    v0[i] = np.copy(C0(u[i]))
+    v1[i] = np.copy(C1(u[i]))
+    tmp = v0[i] - v1[i]
+    if not equal(np.linalg.norm(tmp, 2), 0.0):
+        print(i)
+        print(v0[i])
+        print(v1[i])
+        if not wtf:
+            wtf = True
+
+if wtf:
+    print('WTF?')
+else:
+    print('OK, all close!')
