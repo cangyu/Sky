@@ -1,6 +1,6 @@
 import numpy as np
 from math import cos, sin, acos, sqrt
-from src.nurbs.utility import equal
+from src.nurbs.utility import equal, normalize
 
 
 class Quaternion(object):
@@ -9,7 +9,7 @@ class Quaternion(object):
     def __init__(self, w: float, x: float, y: float, z: float):
         """
         四元数 q = w + x*i + y*j + z*k
-        单位4元数: q = w + xi + yj + zk = cos(theta/2) + sin(theta/2) * u
+        单位4元数: q = w + x*i + y*j + z*k = cos(theta/2) + sin(theta/2) * u
         """
 
         self.comp = np.array([w, x, y, z], float)
@@ -61,7 +61,7 @@ class Quaternion(object):
 
     @property
     def norm(self):
-        return sqrt(sum(map(lambda _t: _t ** 2, self.comp)))
+        return sqrt(sum(map(lambda t: t ** 2, self.comp)))
 
     @property
     def inv(self):
@@ -69,7 +69,7 @@ class Quaternion(object):
         q^-1 = q' / |q|^2
         """
 
-        return self.conj / sum(map(lambda _t: _t ** 2, self.comp))
+        return self.conj / sum(map(lambda t: t ** 2, self.comp))
 
     @classmethod
     def from_array(cls, _v):
@@ -183,6 +183,13 @@ class Quaternion(object):
         st2 = sin(self.theta / 2)
         return np.array([self.comp[1] / st2, self.comp[2] / st2, self.comp[3] / st2])
 
+    @classmethod
+    def from_u_theta(cls, u, theta):
+        st = sin(theta)
+        ct = cos(theta)
+        nu = normalize(u)
+        return cls(ct, st * nu[0], st * nu[1], st * nu[2])
+
     def rotate(self, x):
         """
         定义一个3维空间中的线性变换: Lq(x) = q * x * q', 其中'*'按照四元数的乘法定义，将x看成一个纯四元数，q'是q的共轭
@@ -227,3 +234,110 @@ class Quaternion(object):
         c = 0.25 * (r[0][2] - r[2][0]) / a
         d = 0.25 * (r[1][0] - r[0][1]) / a
         return cls(a, b, c, d)
+
+
+class EulerAngle(object):
+    def __init__(self, a, b, g):
+        """
+        Intrinsic Rotation
+        :param a: rotation angle around z-axis
+        :param b: rotation angle around y-axis
+        :param g: rotation angle around x-axis
+        """
+
+        self.alpha = a
+        self.beta = b
+        self.gamma = g
+
+    @property
+    def roll(self):
+        return self.gamma
+
+    @roll.setter
+    def roll(self, val):
+        self.gamma = val
+
+    @property
+    def pitch(self):
+        return self.beta
+
+    @pitch.setter
+    def pitch(self, val):
+        self.beta = val
+
+    @property
+    def yaw(self):
+        return self.alpha
+
+    @yaw.setter
+    def yaw(self, val):
+        self.alpha = val
+
+    @property
+    def z_rot_matrix(self):
+        sa = sin(self.alpha)
+        ca = cos(self.alpha)
+
+        return np.matrix([ca, -sa, 0],
+                         [sa, ca, 0],
+                         [0, 0, 1])
+
+    @property
+    def y_rot_matrix(self):
+        sb = sin(self.beta)
+        cb = cos(self.beta)
+
+        return np.matrix([[cb, 0, sb],
+                          [0, 1, 0],
+                          [-sb, 0, cb]])
+
+    @property
+    def x_rot_matrix(self):
+        sg = sin(self.gamma)
+        cg = cos(self.gamma)
+
+        return np.matrix([[1, 0, 0],
+                          [0, cg, -sg],
+                          [0, sg, cg]])
+
+    @property
+    def rot_matrix(self):
+        """
+        R(alpha, beta, gamma) = Rz(alpha) * Ry(beta) * Rx(gamma)
+        :return: Rotation matrix
+        """
+
+        sa = sin(self.alpha)
+        ca = cos(self.alpha)
+        sb = sin(self.beta)
+        cb = cos(self.beta)
+        sg = sin(self.gamma)
+        cg = cos(self.gamma)
+
+        return np.matrix([[ca * cb, ca * sb * sg - sa * cg, ca * sb * cg + sa * sg],
+                          [sa * cb, sa * sb * sg + ca * cg, sa * sb * cg - ca * sg],
+                          [-sb, cb * sg, cb * cg]])
+
+
+class DCM(object):
+    def __init__(self, base1, base2):
+        """
+        方向余弦矩阵
+        :param base1: 起始坐标轴标架 
+        :param base2: 目标坐标轴标架
+        """
+
+        I = normalize(base1[0])
+        J = normalize(base1[1])
+        K = normalize(base1[2])
+        i = normalize(base2[0])
+        j = normalize(base2[1])
+        k = normalize(base2[2])
+
+        self.dcm = np.matrix([[np.dot(I, i), np.dot(I, j), np.dot(I, k)],
+                              [np.dot(J, i), np.dot(J, j), np.dot(J, k)],
+                              [np.dot(K, i), np.dot(K, j), np.dot(K, k)]])
+
+    @property
+    def rot_matrix(self):
+        return self.dcm

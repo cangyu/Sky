@@ -179,3 +179,15 @@ def line_intersection(p1, u, p2, v, with_ratio=False):
     P = P1 + alpha1 * U
 
     return (alpha1, alpha2, P) if with_ratio else P
+
+
+def normalize(vector):
+    tmp = np.sqrt(sum(map(lambda a: a ** 2, vector)))
+    if equal(tmp, 0.0):
+        return vector
+
+    factor = 1.0 / tmp
+    va = np.empty(len(vector), float)
+    for i in range(len(vector)):
+        va[i] = factor * vector[i]
+    return va

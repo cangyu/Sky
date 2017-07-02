@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline, make_interp_spline
@@ -6,40 +5,56 @@ from scipy.integrate import romberg
 from scipy.misc import comb
 from scipy.special import factorial
 from src.nurbs.utility import *
-from src.transform.dcm import DCM, normalize
-from src.iges.iges_entity126 import IGES_Entity126
+from src.nurbs.transform import DCM, Quaternion
 from src.iges.iges_entity110 import IGES_Entity110
 from src.iges.iges_entity112 import IGES_Entity112
+from src.iges.iges_entity126 import IGES_Entity126
 
 
 class NURBS_Curve(object):
-    def __init__(self, U, Pw):
+    def __init__(self, u, pw):
         """
         NURBS曲线
-        :param U:节点矢量 
-        :param Pw: 带权控制点
+        :param u:节点矢量 
+        :param pw: 带权控制点
         """
 
         self.U = None
         self.Pw = None
 
-        self.n = int(-1)
-        self.m = int(-1)
-        self.p = int(-1)
-
         self.spl = None
-        self.weight = None
-        self.cpt = None
-        self.isPoly = True
-        self.isClosed = False
+        self.reset(u, pw)
 
-        self.reset(U, Pw)
+    @property
+    def m(self):
+        """
+        最后一个节点下标
+        """
+
+        return len(self.U) - 1
+
+    @property
+    def n(self):
+        """
+        最后一个控制点下标
+        """
+
+        return len(self.Pw) - 1
+
+    @property
+    def p(self):
+        """
+        曲线次数
+        """
+
+        return self.m - self.n - 1
 
     def __call__(self, u, d=0, return_cartesian=True):
         """
         计算曲线上的点
         :param u: 目标参数
         :param d: 求导次数
+        :param return_cartesian: 返回结果是否带权
         :return: 曲线在u处的d阶导矢
         """
 
@@ -76,75 +91,99 @@ class NURBS_Curve(object):
         kappa = dividend / divisor
         return kappa
 
-    def reset(self, U, Pw):
-        self.n = len(Pw) - 1
-        self.m = len(U) - 1
-        self.p = self.m - self.n - 1
-        self.U = np.copy(U)
-        self.Pw = np.copy(Pw)
+    def reset(self, u, pw):
+        """
+        根据新的节点矢量和带权控制点重新初始化曲线
+        :param u: New Knot vector.
+        :param pw: New control points.
+        :return: None.
+        """
+
+        self.U = np.copy(u)
+        self.Pw = np.copy(pw)
         self.spl = BSpline(self.U, self.Pw, self.p)
-        self.weight = np.zeros(self.n + 1)
-        self.cpt = np.zeros((self.n + 1, 3))
-        self.isPoly = True
-        sp = self.__call__(self.U[0])
-        ep = self.__call__(self.U[-1])
-        self.isClosed = (sp == ep).all()
-        for i in range(self.n + 1):
-            self.weight[i] = self.Pw[i][3]
-            if self.isPoly and (not equal(self.weight[i], 1.0)):
-                self.isPoly = False
-            for j in range(3):
-                self.cpt[i][j] = Pw[i][j] / self.weight[i]
 
     def reverse(self):
         """
         曲线反向
         """
 
-        nPw = self.Pw[::-1, :]
-        nU = np.ones(self.m + 1) - self.U[::-1]
-        self.reset(nU, nPw)
+        npw = self.Pw[::-1, :]
+        nu = np.ones(self.m + 1) - self.U[::-1]
+        self.reset(nu, npw)
 
     def pan(self, delta):
         """
-        平移
+        曲线整体平移
         :param delta: 偏移矢量
-        :return: None
+        :return: None.
         """
 
         dv = np.zeros(3)
         array_smart_copy(delta, dv)
-        nU = np.copy(self.U)
-        nP = np.copy(self.cpt)
-        nPw = np.empty(self.Pw.shape, float)
+        npw = np.empty(self.Pw.shape, float)
 
         for i in range(self.n + 1):
-            nP[i] += dv
-            nPw[i] = to_homogeneous(nP[i], self.weight[i])
+            cv = to_cartesian(self.Pw[i])
+            cv += dv
+            npw[i] = to_homogeneous(cv, self.Pw[i][-1])
 
-        self.reset(nU, nPw)
+        self.reset(self.U, npw)
 
     def rotate(self, ref, ax, ang):
         """
         将曲线绕过指定点的转轴旋转一定角度
         :param ref: 参考点
-        :param ax: 旋转轴方向向量
-        :param ang: 旋转角
+        :param ax: 旋转轴方向向量，按右手定则确定角度的正方向
+        :param ang: 旋转角(Degree)
         :return: None
         """
 
-        pass
+        q = Quaternion.from_u_theta(ax, math.radians(ang))
+        npw = np.empty(self.Pw.shape, float)
+        for i in range(self.n + 1):
+            cv = to_cartesian(self.Pw[i])
+            cv -= ref
+            cv = ref + q.rotate(cv)
+            npw[i] = to_homogeneous(cv, self.Pw[i][-1])
 
-    def to_iges(self, planar=0, periodic=0, norm_vector=np.zeros(3), form=0):
-        return IGES_Entity126(self.p, self.n, planar, (1 if self.isClosed else 0), (1 if self.isPoly else 0), periodic,
-                              self.U, self.weight, self.cpt, self.U[0], self.U[-1], norm_vector, form)
+        self.reset(self.U, npw)
+
+    def to_iges(self, *args, **kwargs):
+        """
+        将曲线以IGES标准中的第126号实体呈现
+        :param args: 
+        :param kwargs: 
+        :return: 
+        """
+
+        planar = 0
+        periodic = 0
+        norm_vector = np.zeros(3)
+        form = 0
+
+        poly = True
+        weight = np.zeros(self.n + 1)
+        cpt = np.zeros((self.n + 1, 3))
+        closed = equal(norm(self.__call__(self.U[0]) - self.__call__(self.U[-1])), 0.0)
+
+        for i in range(self.n + 1):
+            weight[i] = self.Pw[i][-1]
+            if poly and (not equal(weight[i], 1.0)):
+                poly = False
+            for j in range(3):
+                cpt[i][j] = self.Pw[i][j] / weight[i]
+
+        return IGES_Entity126(self.p, self.n, planar, (1 if closed else 0),
+                              (1 if poly else 0), periodic, self.U, weight,
+                              cpt, self.U[0], self.U[-1], norm_vector, form)
 
     def insert_knot(self, u, r=1):
         """
-        插入一个节点若干次。
+        插入一个节点若干次
         :param u: 待插入节点
         :param r: 插入的次数，要求s+r<=p, 其中s为u在原节点矢量中的重复度,p为曲线次数
-        :return: None
+        :return: None.
         """
 
         if r <= 0:
@@ -187,59 +226,59 @@ class NURBS_Curve(object):
         '''Update'''
         self.reset(nU, nPw)
 
-    def refine(self, X):
+    def refine(self, extra_knots):
         """
         节点细化，插入额外的节点序列
-        :param X: 待插入节点序列(已按升序排好)
+        :param extra_knots: 待插入节点序列(已按升序排好)
         """
 
-        if len(X) == 0:
+        if len(extra_knots) == 0:
             return
 
-        r = len(X) - 1
-        nU = np.zeros(self.m + r + 2, float)  # New knot vector
-        nPw = np.zeros((self.n + r + 2, 4), float)  # New homogeneous control points
+        r = len(extra_knots) - 1
+        nu = np.zeros(self.m + r + 2, float)  # New knot vector
+        npw = np.zeros((self.n + r + 2, 4), float)  # New homogeneous control points
 
         '''Knot span'''
-        a = find_span(self.n, self.p, X[0], self.U)
-        b = find_span(self.n, self.p, X[r], self.U) + 1
+        a = find_span(self.n, self.p, extra_knots[0], self.U)
+        b = find_span(self.n, self.p, extra_knots[r], self.U) + 1
 
         '''Copy unchanged control points and knots'''
         for j in range(a - self.p + 1):
-            nPw[j] = np.copy(self.Pw[j])
+            npw[j] = np.copy(self.Pw[j])
         for j in range(b - 1, self.n + 1):
-            nPw[j + r + 1] = np.copy(self.Pw[j])
+            npw[j + r + 1] = np.copy(self.Pw[j])
 
         for j in range(a + 1):
-            nU[j] = self.U[j]
+            nu[j] = self.U[j]
         for j in range(b + self.p, self.m + 1):
-            nU[j + r + 1] = self.U[j]
+            nu[j + r + 1] = self.U[j]
 
         '''Insert'''
         i = b + self.p - 1
         k = b + self.p + r
         for j in range(r, -1, -1):
-            while X[j] <= self.U[i] and i > a:
-                nPw[k - self.p - 1] = np.copy(self.Pw[i - self.p - 1])
-                nU[k] = self.U[i]
+            while extra_knots[j] <= self.U[i] and i > a:
+                npw[k - self.p - 1] = np.copy(self.Pw[i - self.p - 1])
+                nu[k] = self.U[i]
                 k -= 1
                 i -= 1
 
-            nPw[k - self.p - 1] = np.copy(nPw[k - self.p])
+            npw[k - self.p - 1] = np.copy(npw[k - self.p])
 
             for l in range(1, self.p + 1):
                 index = k - self.p + l
-                alpha = nU[k + l] - X[j]
+                alpha = nu[k + l] - extra_knots[j]
                 if equal(alpha, 0.0):
-                    nPw[index - 1] = np.copy(nPw[index])
+                    npw[index - 1] = np.copy(npw[index])
                 else:
-                    alpha /= (nU[k + l] - self.U[i - self.p + l])
-                    nPw[index - 1] = alpha * nPw[index - 1] + (1.0 - alpha) * nPw[index]
+                    alpha /= (nu[k + l] - self.U[i - self.p + l])
+                    npw[index - 1] = alpha * npw[index - 1] + (1.0 - alpha) * npw[index]
 
-            nU[k] = X[j]
+            nu[k] = extra_knots[j]
             k -= 1
 
-        self.reset(nU, nPw)
+        self.reset(nu, npw)
 
     def decompose(self, self_update=False, return_raw=False):
         """
@@ -309,9 +348,11 @@ class NURBS_Curve(object):
 
     def elevate(self, t: int, self_update=False, return_raw=False):
         """
-        将NURBS曲线升阶t次
+        将曲线升阶t次
         :param t: 升阶次数
-        :return: None.
+        :param self_update: 是否更新自己
+        :param return_raw: 是否返回原始形式的数据(节点矢量与带权控制点)
+        :return 根据不同的选项返回不同形式的结果
         """
 
         if t <= 0:
@@ -543,12 +584,12 @@ class Line(NURBS_Curve):
         :param b: 终点坐标
         """
 
-        U = np.array([0, 0, 1, 1])
-        Pw = np.array([[0, 0, 0, 1], [0, 0, 0, 1]], float)
-        array_smart_copy(a, Pw[0])
-        array_smart_copy(b, Pw[1])
+        u = np.array([0, 0, 1, 1])
+        pw = np.array([[0, 0, 0, 1], [0, 0, 0, 1]], float)
+        array_smart_copy(a, pw[0])
+        array_smart_copy(b, pw[1])
 
-        super(Line, self).__init__(U, Pw)
+        super(Line, self).__init__(u, pw)
 
     def length(self):
         return pnt_dist(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
