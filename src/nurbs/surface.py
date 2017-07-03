@@ -1,23 +1,24 @@
 import numpy as np
 from numpy.linalg import norm
 from scipy.interpolate import BSpline
-from src.nurbs.utility import equal, to_homogeneous, to_cartesian
+from src.nurbs.utility import *
+from src.nurbs.transform import Quaternion
 from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts, NURBS_Curve
 from src.iges.iges_entity128 import IGES_Entity128
 
 
 class NURBS_Surface(object):
-    def __init__(self, U, V, Pw):
+    def __init__(self, u, v, pw):
         """
         NURBS曲面
-        :param U: u方向节点矢量, n+1个元素
-        :param V: v方向节点矢量，m+1个元素
-        :param Pw: 齐次坐标序列，(n+1)x(m+1)个元素
+        :param u: u方向节点矢量, n+1个元素
+        :param v: v方向节点矢量，m+1个元素
+        :param pw: 齐次坐标序列，(n+1)x(m+1)个元素
         """
 
-        self.U = np.copy(U)
-        self.V = np.copy(V)
-        self.Pw = np.copy(Pw)
+        self.U = np.copy(u)
+        self.V = np.copy(v)
+        self.Pw = np.copy(pw)
 
     @property
     def n(self):
@@ -74,14 +75,73 @@ class NURBS_Surface(object):
         :return: (u,v)处偏导矢量
         """
 
-        R = []
+        r = []
         for i in range(0, self.n + 1):
             spl = BSpline(self.V, self.Pw[i], self.q)
-            R.append(spl(v, l))
-        Rw = np.copy(R)
-        spl = BSpline(self.U, Rw, self.p)
+            r.append(spl(v, l))
+        rw = np.copy(r)
+        spl = BSpline(self.U, rw, self.p)
         pw = spl(u, k)
         return to_cartesian(pw) if return_cartesian else pw
+
+    def reset(self, u, v, pw):
+        """
+        重置曲面
+        :param u: u方向节点矢量, n+1个元素
+        :param v: v方向节点矢量，m+1个元素
+        :param pw: 齐次坐标序列，(n+1)x(m+1)个元素
+        """
+
+        self.U = np.copy(u)
+        self.V = np.copy(v)
+        self.Pw = np.copy(pw)
+
+    def reverse(self, direction):
+        """
+        曲面反向
+        """
+
+        if direction not in ['U', 'V', 'UV']:
+            raise ValueError('Invalid direction choice!')
+
+        if direction in ['U', 'UV']:
+            self.U = np.ones(self.U.shape) - self.U
+            self.Pw = self.Pw[::-1, :, :]
+
+        if direction in ['V', 'UV']:
+            self.V = np.ones(self.V.shape) - self.V
+            self.Pw = self.Pw[:, ::-1, :]
+
+    def pan(self, delta):
+        """
+        曲面整体平移
+        :param delta: 偏移矢量
+        :return: None.
+        """
+
+        dv = np.zeros(3)
+        array_smart_copy(delta, dv)
+
+        for i in range(self.n + 1):
+            for j in range(self.m + 1):
+                cv = to_cartesian(self.Pw[i][j]) + dv
+                self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
+
+    def rotate(self, ref, ax, ang):
+        """
+        将曲面绕过指定点的转轴旋转一定角度
+        :param ref: 参考点
+        :param ax: 旋转轴方向向量，按右手定则确定角度的正方向
+        :param ang: 旋转角(Degree)
+        :return: None.
+        """
+
+        q = Quaternion.from_u_theta(ax, math.radians(ang))
+        for i in range(self.n + 1):
+            for j in range(self.m + 1):
+                cv = to_cartesian(self.Pw[i][j]) - ref
+                cv = ref + q.rotate(cv)
+                self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
 
     def to_iges(self, closed_u=0, closed_v=0, periodic_u=0, periodic_v=0, form=0):
         """
@@ -104,17 +164,53 @@ class NURBS_Surface(object):
                               closed_u, closed_v, poly, periodic_u, periodic_v,
                               self.U[0], self.U[-1], self.V[0], self.V[-1], form)
 
+    def insert_knot(self, uv, r=1, direction='U'):
+        """
+        曲面插入节点
+        :param uv:
+        :param r:
+        :param direction:
+        :return:
+        """
+
+        if direction not in ['U', 'V']:
+            raise AssertionError('Invalid direction choice!')
+
+        if direction == 'U':
+            crv_list = []
+            npw = np.zeros((self.n + 2, self.m + 1, 4))
+            for j in range(self.m + 1):
+                cc = NURBS_Curve(self.U, self.Pw[:, j])
+                cc.insert_knot(uv, r)
+                crv_list.append(cc)
+                for i in range(self.n + 2):
+                    npw[i][j] = np.copy(cc.Pw[i])
+
+            self.reset(crv_list[0].U, self.V, npw)
+
+        else:
+            crv_list = []
+            npw = np.zeros((self.n + 1, self.m + 2, 4))
+            for i in range(self.n + 1):
+                cc = NURBS_Curve(self.V, self.Pw[i, :])
+                cc.insert_knot(uv, r)
+                crv_list.append(cc)
+                for j in range(self.m + 2):
+                    npw[i][j] = np.copy(cc.Pw[j])
+
+            self.reset(self.U, crv_list[0].V, npw)
+
 
 class GlobalInterpolatedSurf(NURBS_Surface):
-    def __init__(self, pts, p, q, umethod='centripetal', vmethod='chord'):
+    def __init__(self, pts, p, q, u_method='centripetal', v_method='chord'):
         """
         (n+1)x(m+1)个数据点全局插值，非有理
         不能很好处理局部数据点共面，需小心使用
         :param pts: 待插值数据点
         :param p: u方向次数
         :param q: v方向次数
-        :param umethod: u方向参数计算方法
-        :param vmethod: v方向参数计算方法 
+        :param u_method: u方向参数计算方法
+        :param v_method: v方向参数计算方法
         """
 
         n, m, dim = pts.shape
@@ -129,7 +225,7 @@ class GlobalInterpolatedSurf(NURBS_Surface):
         '''Parameters of U direction'''
         dist = np.zeros((n + 1, m + 1))
         for j in range(0, m + 1):
-            td = calc_pnt_param(pts[:, j], umethod)
+            td = calc_pnt_param(pts[:, j], u_method)
             for i in range(0, n + 1):
                 dist[i][j] = td[i]
         for i in range(0, n):
@@ -137,33 +233,33 @@ class GlobalInterpolatedSurf(NURBS_Surface):
 
         '''Parameters of V Direction'''
         for i in range(0, n + 1):
-            td = calc_pnt_param(pts[i], vmethod)
+            td = calc_pnt_param(pts[i], v_method)
             for j in range(0, m + 1):
                 dist[i][j] = td[j]
         for j in range(0, m):
             V[j] = np.mean(dist[:, j])
 
         '''Knot Vectors'''
-        uknot = calc_knot_vector(U, p)
-        vknot = calc_knot_vector(V, q)
+        u_knot = calc_knot_vector(U, p)
+        v_knot = calc_knot_vector(V, q)
 
         '''Control Points'''
         R = np.zeros((n + 1, m + 1, dim))
         for j in range(0, m + 1):
-            tp = calc_ctrl_pts(uknot, p, pts[:, j], U)
+            tp = calc_ctrl_pts(u_knot, p, pts[:, j], U)
             for i in range(0, n + 1):
                 R[i][j] = tp[i]
 
         P = np.zeros((n + 1, m + 1, dim))
         for i in range(0, n + 1):
-            P[i] = calc_ctrl_pts(vknot, q, R[i], V)
+            P[i] = calc_ctrl_pts(v_knot, q, R[i], V)
 
         Pw = np.zeros((n + 1, m + 1, dim + 1))
         for i in range(0, n + 1):
             for j in range(0, m + 1):
                 Pw[i][j] = to_homogeneous(P[i][j])
 
-        super(GlobalInterpolatedSurf, self).__init__(uknot, vknot, Pw)
+        super(GlobalInterpolatedSurf, self).__init__(u_knot, v_knot, Pw)
 
 
 class BilinearSurf(NURBS_Surface):
