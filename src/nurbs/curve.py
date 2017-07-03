@@ -185,21 +185,12 @@ class NURBS_Curve(object):
             periodic = args[1]
             norm_vector = args[2]
 
-        poly = True
-        weight = np.zeros(self.n + 1)
-        cpt = np.zeros((self.n + 1, 3))
-        closed = equal(norm(self.__call__(self.U[0]) - self.__call__(self.U[-1])), 0.0)
+        w = self.weight
+        cpt = self.cpt
+        poly = 0 if (w != np.ones(w.shape)).any() else 1
+        closed = 1 if equal(norm(self.__call__(self.U[0]) - self.__call__(self.U[-1])), 0.0) else 0
 
-        for i in range(self.n + 1):
-            weight[i] = self.Pw[i][-1]
-            if poly and (not equal(weight[i], 1.0)):
-                poly = False
-            for j in range(3):
-                cpt[i][j] = self.Pw[i][j] / weight[i]
-
-        return IGES_Entity126(self.p, self.n, planar, (1 if closed else 0),
-                              (1 if poly else 0), periodic, self.U, weight,
-                              cpt, self.U[0], self.U[-1], norm_vector, form)
+        return IGES_Entity126(self.p, self.n, planar, closed, poly, periodic, self.U, w, cpt, self.U[0], self.U[-1], norm_vector, form)
 
     def insert_knot(self, u, r=1):
         """
