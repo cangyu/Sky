@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import norm
 from scipy.interpolate import BSpline
 from src.nurbs.utility import equal, to_homogeneous, to_cartesian
 from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts, NURBS_Curve
@@ -18,13 +19,6 @@ class NURBS_Surface(object):
         self.V = np.copy(V)
         self.Pw = np.copy(Pw)
 
-        self.n, self.m, dim = Pw.shape
-        self.n -= 1
-        self.m -= 1
-
-        self.p = len(U) - 1 - self.n - 1
-        self.q = len(V) - 1 - self.m - 1
-
         self.weight = np.zeros((self.n + 1, self.m + 1))
         self.cpt = np.zeros((self.n + 1, self.m + 1, 3))
         self.isPoly = True
@@ -37,7 +31,39 @@ class NURBS_Surface(object):
                 for k in range(0, 3):
                     self.cpt[i][j][k] = self.Pw[i][j][k] / self.weight[i][j]
 
-    def __call__(self, u, v, k=0, l=0):
+    @property
+    def n(self):
+        """
+        U方向最后一个控制点下标
+        """
+
+        return self.Pw.shape[0] - 1
+
+    @property
+    def m(self):
+        """
+        V方向最后一个控制点下标
+        """
+
+        return self.Pw.shape[1] - 1
+
+    @property
+    def p(self):
+        """
+        U方向次数
+        """
+
+        return len(self.U) - self.n - 2
+
+    @property
+    def q(self):
+        """
+        V方向次数
+        """
+
+        return len(self.V) - self.m - 2
+
+    def __call__(self, u, v, k=0, l=0, return_cartesian=True):
         R = []
         for i in range(0, self.n + 1):
             spl = BSpline(self.V, self.Pw[i], self.q)
@@ -45,7 +71,7 @@ class NURBS_Surface(object):
         Rw = np.copy(R)
         spl = BSpline(self.U, Rw, self.p)
         pw = spl(u, k)
-        return to_cartesian(pw)
+        return to_cartesian(pw) if return_cartesian else pw
 
     def to_iges(self, closed_u, closed_v, periodic_u, periodic_v, form=0):
         return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
@@ -135,10 +161,6 @@ class BilinearSurf(NURBS_Surface):
 
         super(BilinearSurf, self).__init__(U, V, Pw)
 
-    def to_iges(self):
-        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
-                              0, 0, (1 if self.isPoly else 0), 0, 0, self.U[0], self.U[-1], self.V[0], self.V[-1], 0)
-
 
 class ExtrudedSurf(NURBS_Surface):
     def __init__(self, crv: NURBS_Curve, dir):
@@ -162,8 +184,43 @@ class ExtrudedSurf(NURBS_Surface):
 
 
 class RuledSurf(NURBS_Surface):
-    def __init__(self):
-        pass
+    def __init__(self, c1, c2):
+        """
+        生成V方向的直纹面,即两条曲线之间的线性插值
+        :param c1: 第1条曲线
+        :type c1: NURBS_Curve
+        :param c2: 第2条曲线
+        :type c2:NURBS_Curve
+        """
+
+        '''Check'''
+        if not equal(c1.U[0], c2.U[0]):
+            raise ValueError('Incompatible starting knot!')
+        if not equal(c1.U[-1], c2.U[-1]):
+            raise ValueError('Incompatible ending knot!')
+
+        '''Knot vector'''
+        p = max(c1.p, c2.p)
+        c1.elevate(p - c1.p, self_update=True, return_raw=True)
+        c2.elevate(p - c2.p, self_update=True, return_raw=True)
+
+        if not equal(norm(c1.U - c2.U), 0):
+            all_knot = merge_knot(c1.U, c2.U)
+            x1 = different_knot(c1.U, all_knot)
+            x2 = different_knot(c2.U, all_knot)
+            c1.refine(x1)
+            c2.refine(x2)
+
+        uknot = c1.U
+        vknot = np.array([0, 0, 1, 1], float)
+
+        '''Control points'''
+        pw = np.zeros((len(c1.Pw), 2, 4))
+        for i in range(len(c1.Pw)):
+            pw[i][0] = np.copy(c1.Pw[i])
+            pw[i][1] = np.copy(c2.Pw[i])
+
+        super(RuledSurf, self).__init__(uknot, vknot, pw)
 
 
 class Coons(NURBS_Surface):
