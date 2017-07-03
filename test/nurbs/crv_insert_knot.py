@@ -2,7 +2,11 @@ import math
 import numpy as np
 from src.nurbs.curve import NURBS_Curve
 from src.iges.iges_core import IGES_Model
-from src.com.catia import view
+
+try:
+    from src.com.catia import view
+except ImportError:
+    print('Win32 required for CATIA usage!')
 
 auto_view = False
 
