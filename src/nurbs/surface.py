@@ -19,18 +19,6 @@ class NURBS_Surface(object):
         self.V = np.copy(V)
         self.Pw = np.copy(Pw)
 
-        self.weight = np.zeros((self.n + 1, self.m + 1))
-        self.cpt = np.zeros((self.n + 1, self.m + 1, 3))
-        self.isPoly = True
-
-        for i in range(0, self.n + 1):
-            for j in range(0, self.m + 1):
-                self.weight[i][j] = self.Pw[i][j][3]
-                if self.isPoly and (not equal(self.weight[i][j], 1.0)):
-                    self.isPoly = False
-                for k in range(0, 3):
-                    self.cpt[i][j][k] = self.Pw[i][j][k] / self.weight[i][j]
-
     @property
     def n(self):
         """
@@ -63,7 +51,29 @@ class NURBS_Surface(object):
 
         return len(self.V) - self.m - 2
 
+    @property
+    def weight(self):
+        return self.Pw[:, :, -1]
+
+    @property
+    def cpt(self):
+        ans = np.zeros((self.n + 1, self.m + 1, 3))
+        for i in range(self.n + 1):
+            for j in range(self.m + 1):
+                ans[i][j] = to_cartesian(self.Pw[i][j])
+        return ans
+
     def __call__(self, u, v, k=0, l=0, return_cartesian=True):
+        """
+        求在给定位置(u,v)处的导矢量
+        :param u: U方向参数
+        :param v: V方向参数
+        :param k: U方向求导次数
+        :param l: V方向求导次数
+        :param return_cartesian: 返回结果形式
+        :return: (u,v)处偏导矢量
+        """
+
         R = []
         for i in range(0, self.n + 1):
             spl = BSpline(self.V, self.Pw[i], self.q)
@@ -73,9 +83,25 @@ class NURBS_Surface(object):
         pw = spl(u, k)
         return to_cartesian(pw) if return_cartesian else pw
 
-    def to_iges(self, closed_u, closed_v, periodic_u, periodic_v, form=0):
-        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, self.cpt, self.weight,
-                              closed_u, closed_v, (1 if self.isPoly else 0), periodic_u, periodic_v,
+    def to_iges(self, closed_u=0, closed_v=0, periodic_u=0, periodic_v=0, form=0):
+        """
+        将曲面以IGES标准中第128号实体呈现
+        :param closed_u: U方向是否封闭
+        :type closed_u: int
+        :param closed_v: V方向是否封闭
+        :type closed_v: int
+        :param periodic_u: U方向是否是周期性的
+        :param periodic_v: V方向是否是周期性的
+        :param form: IGES中特定形式
+        :return: IGES_Entity128 Object
+        """
+
+        w = self.weight
+        poly = 0 if (w != np.ones(w.shape)).any() else 1
+        cpt = self.cpt
+
+        return IGES_Entity128(self.U, self.V, self.p, self.q, self.n, self.m, cpt, w,
+                              closed_u, closed_v, poly, periodic_u, periodic_v,
                               self.U[0], self.U[-1], self.V[0], self.V[-1], form)
 
 
@@ -144,6 +170,18 @@ class BilinearSurf(NURBS_Surface):
     def __init__(self, P):
         """
         双线性曲面
+
+        ^ V direction
+        |
+        |P[0][1]        P[1][1]
+        ----------------
+        |              |
+        |              |
+        |     SURF     |
+        |              |
+        |P[0][0]       |P[1][0]
+        --------------------------> U direction
+
         :param P:4个角点, 2x2
         """
 
@@ -163,11 +201,12 @@ class BilinearSurf(NURBS_Surface):
 
 
 class ExtrudedSurf(NURBS_Surface):
-    def __init__(self, crv: NURBS_Curve, dir):
+    def __init__(self, crv, direction):
         """
         拉伸曲面
         :param crv: Curve to be extruded.
-        :param dir: Direction vector.
+        :type crv: NURBS_Curve
+        :param direction: Direction vector.
         """
 
         U = np.copy(crv.U)
@@ -176,7 +215,7 @@ class ExtrudedSurf(NURBS_Surface):
         Pw = np.zeros((n, 2, 4))
         for i in range(n):
             Pw[i][0] = Pw[i][1] = np.copy(crv.Pw[i])
-            wdir = to_homogeneous(dir, Pw[i][0][3])
+            wdir = to_homogeneous(direction, Pw[i][0][3])
             for d in range(3):
                 Pw[i][1][d] += wdir[d]
 
@@ -224,8 +263,47 @@ class RuledSurf(NURBS_Surface):
 
 
 class Coons(NURBS_Surface):
-    def __init__(self):
-        pass
+    def __init__(self, c0u, c1u, c0v, c1v):
+        """
+        双线性混合Coons曲面
+
+         ^ V direction
+         |
+         |     c1u
+         ------->--------
+         |              |
+         |              |
+     c0v ^     SURF     ^ c1v
+         |              |
+         |              |
+         ------->-----------> U direction
+               c0u
+
+        :param c0u:沿U方向第1条曲线
+        :type c0u: NURBS_Curve
+        :param c1u:沿U方向第2条曲线
+        :type c1u: NURBS_Curve
+        :param c0v:沿V方向第1条曲线
+        :type c0v: NURBS_Curve
+        :param c1v:沿V方向第2条曲线
+        :type c1v: NURBS_Curve
+        """
+
+        '''Check 4 corners'''
+        assert equal(norm(c0u(0) - c0v(0)), 0.0)
+        assert equal(norm(c0u(1) - c1v(0)), 0.0)
+        assert equal(norm(c1v(1) - c1u(1)), 0.0)
+        assert equal(norm(c0v(1) - c1u(0)), 0.0)
+
+        s = np.zeros((2, 2, 3))
+        s[0][0] = np.copy(c0u(0))
+        s[0][1] = np.copy(c0v(1))
+        s[1][0] = np.copy(c1v(0))
+        s[1][1] = np.copy(c1u(1))
+
+        r1 = RuledSurf(c0u, c1u)
+        r2 = RuledSurf(c0v, c1v)
+        t = BilinearSurf(s)
 
 
 class Skinning(NURBS_Surface):
