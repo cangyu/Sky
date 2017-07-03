@@ -19,11 +19,8 @@ class NURBS_Curve(object):
         :param pw: 带权控制点
         """
 
-        self.U = None
-        self.Pw = None
-
-        self.spl = None
-        self.reset(u, pw)
+        self.U = np.copy(u)
+        self.Pw = np.copy(pw)
 
     @property
     def m(self):
@@ -67,6 +64,15 @@ class NURBS_Curve(object):
         for i in range(len(self.Pw)):
             ans[i] = to_cartesian(self.Pw[i])
         return ans
+
+    @property
+    def spl(self):
+        """
+        BSpline basis function with current
+        knot vector and control points.
+        """
+
+        return BSpline(self.U, self.Pw, self.p)
 
     def __call__(self, u, d=0, return_cartesian=True):
         """
@@ -120,7 +126,6 @@ class NURBS_Curve(object):
 
         self.U = np.copy(u)
         self.Pw = np.copy(pw)
-        self.spl = BSpline(self.U, self.Pw, self.p)
 
     def reverse(self):
         """
@@ -168,6 +173,22 @@ class NURBS_Curve(object):
 
         self.reset(self.U, npw)
 
+    @property
+    def start(self):
+        """
+        曲线起点
+        """
+
+        return to_cartesian(self.Pw[0])
+
+    @property
+    def end(self):
+        """
+        曲线终点
+        """
+
+        return to_cartesian(self.Pw[-1])
+
     def to_iges(self, *args, **kwargs):
         """
         将曲线以IGES标准中的第126号实体呈现
@@ -188,7 +209,7 @@ class NURBS_Curve(object):
         w = self.weight
         cpt = self.cpt
         poly = 0 if (w != np.ones(w.shape)).any() else 1
-        closed = 1 if equal(norm(self.__call__(self.U[0]) - self.__call__(self.U[-1])), 0.0) else 0
+        closed = 1 if equal(norm(self.end - self.start), 0.0) else 0
 
         return IGES_Entity126(self.p, self.n, planar, closed, poly, periodic, self.U, w, cpt, self.U[0], self.U[-1], norm_vector, form)
 
@@ -200,8 +221,11 @@ class NURBS_Curve(object):
         :return: None.
         """
 
-        if r <= 0:
-            raise ValueError('Invalid times!')
+        if r < 0:
+            raise AssertionError('Invalid times!')
+
+        if r == 0:
+            return
 
         '''Insert'''
         s = sum(x == u for x in self.U)  # Counts of duplicates
@@ -605,14 +629,6 @@ class Line(NURBS_Curve):
 
         super(Line, self).__init__(u, pw)
 
-    @property
-    def start(self):
-        return to_cartesian(self.Pw[0])
-
-    @property
-    def end(self):
-        return to_cartesian(self.Pw[-1])
-
     def length(self):
         return pnt_dist(self.start, self.end)
 
@@ -683,14 +699,6 @@ class Arc(NURBS_Curve):
 
     def length(self):
         return self.radius * np.deg2rad(self.theta)
-
-    @property
-    def start(self):
-        return to_cartesian(self.Pw[0])
-
-    @property
-    def end(self):
-        return to_cartesian(self.Pw[-1])
 
     @classmethod
     def from_2pnt(cls, start_pnt, end_pnt, theta, norm_vector):
