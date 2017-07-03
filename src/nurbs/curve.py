@@ -470,11 +470,11 @@ class BezierCrv(NURBS_Curve):
             return
 
         nh = self.p + t + 1
-        nPw = np.zeros((nh, 4))
+        npw = np.zeros((nh, 4))
         for i in range(nh):
             for j in range(max(0, i - t), min(self.p, i) + 1):
-                coef = comb(self.p, j, exact=True) * comb(t, i - j, exact=True) / comb(self.p + t, i, exact=True)
-                nPw[i] += coef * self.Pw[j]
+                cc = comb(self.p, j, exact=True) * comb(t, i - j, exact=True) / comb(self.p + t, i, exact=True)
+                npw[i] += cc * self.Pw[j]
 
         kv = []
         ph = self.p + t + 1
@@ -483,7 +483,7 @@ class BezierCrv(NURBS_Curve):
         for i in range(ph):
             kv.append(self.b)
 
-        self.reset(kv, nPw)
+        self.reset(kv, npw)
 
 
 class GlobalInterpolatedCrv(NURBS_Curve):
@@ -498,14 +498,14 @@ class GlobalInterpolatedCrv(NURBS_Curve):
         n, dim = pts.shape
         n -= 1
         param = calc_pnt_param(pts, method)
-        U = calc_knot_vector(param, p)
-        P = calc_ctrl_pts(U, p, pts, param)
+        kv = calc_knot_vector(param, p)
+        cpt = calc_ctrl_pts(kv, p, pts, param)
 
-        Pw = np.zeros((n + 1, dim + 1))
+        pw = np.zeros((n + 1, dim + 1))
         for i in range(0, n + 1):
-            Pw[i] = to_homogeneous(P[i])
+            pw[i] = to_homogeneous(cpt[i])
 
-        super(GlobalInterpolatedCrv, self).__init__(U, Pw)
+        super(GlobalInterpolatedCrv, self).__init__(kv, pw)
 
 
 def calc_pnt_param(pts, method):

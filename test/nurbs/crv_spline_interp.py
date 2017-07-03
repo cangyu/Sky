@@ -2,10 +2,11 @@ import unittest
 import numpy as np
 from src.nurbs.curve import Spline
 from src.iges.iges_core import IGES_Model
+from settings import AIRFOIL_DIR
 
 
 def build_airfoil(fn):
-    fn = '../../airfoil/' + fn + '.dat'
+    fn = AIRFOIL_DIR + '/' + fn + '.dat'
     fin = open(fn)
     pnt_list = []
     for pnt in fin:
