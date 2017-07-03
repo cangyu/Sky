@@ -50,33 +50,23 @@ class NURBS_Curve(object):
         return self.m - self.n - 1
 
     @property
-    def weight(self, index=None):
+    def weight(self):
         """
-        求权系数
-        :param index: 目标序号
-        :return: 若index为None则返回所有控制点权系数，否则返回指定序号处的控制点权系数
+        权系数
         """
 
-        if index is None:
-            return self.Pw[:, -1]
-        else:
-            return self.Pw[index][-1]
+        return self.Pw[:, -1]
 
     @property
-    def cpt(self, index=None):
+    def cpt(self):
         """
         求控制点
-        :param index: 目标序号
-        :return: 若index为None则返回所有控制点坐标，否则返回指定序号处的控制点坐标
         """
 
-        if index is None:
-            ans = np.zeros((len(self.Pw), 3))
-            for i in range(len(self.Pw)):
-                ans[i] = to_cartesian(self.Pw[i])
-            return ans
-        else:
-            return to_cartesian(self.Pw[index])
+        ans = np.zeros((len(self.Pw), 3))
+        for i in range(len(self.Pw)):
+            ans[i] = to_cartesian(self.Pw[i])
+        return ans
 
     def __call__(self, u, d=0, return_cartesian=True):
         """
