@@ -204,10 +204,10 @@ class RuledSurf(NURBS_Surface):
         c1.elevate(p - c1.p, self_update=True, return_raw=True)
         c2.elevate(p - c2.p, self_update=True, return_raw=True)
 
-        if not equal(norm(c1.U - c2.U), 0):
+        if len(c1.U) != len(c2.U) or not equal(norm(c1.U - c2.U), 0):
             all_knot = merge_knot(c1.U, c2.U)
-            x1 = different_knot(c1.U, all_knot)
-            x2 = different_knot(c2.U, all_knot)
+            x1 = different_knot(all_knot, c1.U)
+            x2 = different_knot(all_knot, c2.U)
             c1.refine(x1)
             c2.refine(x2)
 
@@ -298,33 +298,27 @@ def merge_knot(lhs, rhs):
 
     lval, lcnt = np.unique(lhs, return_counts=True)
     rval, rcnt = np.unique(rhs, return_counts=True)
+    val = np.unique(np.concatenate((lval, rval)))
 
-    val = np.concatenate((lval, rval))
-    val = np.unique(val)
     ans = []
-
     for v in val:
         if v in lval and v in rval:
             li = np.searchsorted(lval, v)
             ri = np.searchsorted(rval, v)
             cc = max(lcnt[li], rcnt[ri])
-            for i in range(0, cc):
+            for i in range(cc):
                 ans.append(v)
         else:
             if v in lval:
                 li = np.searchsorted(lval, v)
-                for i in range(0, lcnt[li]):
+                for i in range(lcnt[li]):
                     ans.append(v)
             else:
                 ri = np.searchsorted(rval, v)
-                for i in range(0, rcnt[ri]):
+                for i in range(rcnt[ri]):
                     ans.append(v)
 
-    ret = np.zeros(len(ans), float)
-    for i in range(0, len(ret)):
-        ret[i] = ans[i]
-
-    return ret
+    return np.copy(ans)
 
 
 def different_knot(lhs, rhs):
