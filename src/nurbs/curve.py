@@ -49,6 +49,35 @@ class NURBS_Curve(object):
 
         return self.m - self.n - 1
 
+    @property
+    def weight(self, index=None):
+        """
+        求权系数
+        :param index: 目标序号
+        :return: 若index为None则返回所有控制点权系数，否则返回指定序号处的控制点权系数
+        """
+
+        if index is None:
+            return self.Pw[:, -1]
+        else:
+            return self.Pw[index][-1]
+
+    @property
+    def cpt(self, index=None):
+        """
+        求控制点
+        :param index: 目标序号
+        :return: 若index为None则返回所有控制点坐标，否则返回指定序号处的控制点坐标
+        """
+
+        if index is None:
+            ans = np.zeros((len(self.Pw), 3))
+            for i in range(len(self.Pw)):
+                ans[i] = to_cartesian(self.Pw[i])
+            return ans
+        else:
+            return to_cartesian(self.Pw[index])
+
     def __call__(self, u, d=0, return_cartesian=True):
         """
         计算曲线上的点
@@ -152,15 +181,19 @@ class NURBS_Curve(object):
     def to_iges(self, *args, **kwargs):
         """
         将曲线以IGES标准中的第126号实体呈现
-        :param args: 
-        :param kwargs: 
-        :return: 
+        :param args: 依次指示:isPlaner, isPeriodic, norm, form
+        :param kwargs: Not used currently.
+        :return: IGES_Entity126 Object.
         """
 
         planar = 0
         periodic = 0
         norm_vector = np.zeros(3)
-        form = 0
+        form = kwargs['form'] if 'form' in kwargs else 0
+        if len(args) != 0:
+            planar = args[0]
+            periodic = args[1]
+            norm_vector = args[2]
 
         poly = True
         weight = np.zeros(self.n + 1)
@@ -591,8 +624,16 @@ class Line(NURBS_Curve):
 
         super(Line, self).__init__(u, pw)
 
+    @property
+    def start(self):
+        return to_cartesian(self.Pw[0])
+
+    @property
+    def end(self):
+        return to_cartesian(self.Pw[-1])
+
     def length(self):
-        return pnt_dist(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
+        return pnt_dist(self.start, self.end)
 
     def curvature(self, u):
         return 0.0
@@ -637,7 +678,7 @@ class Arc(NURBS_Curve):
             U[cur_index] = U[cur_index + 1] = i * dknot
 
         '''Control Points'''
-        self.sp = P[0] = np.array([r, 0, 0], float)
+        P[0] = np.array([r, 0, 0], float)
         Pw[0] = to_homogeneous(P[0], 1.0)
         T0 = np.array([0.0, 1.0, 0.0])
 
@@ -654,7 +695,6 @@ class Arc(NURBS_Curve):
             if i < narcs:
                 T0 = T2
 
-        self.ep = P[-1]
         super(Arc, self).__init__(U, Pw)
 
     def curvature(self, u):
@@ -662,6 +702,14 @@ class Arc(NURBS_Curve):
 
     def length(self):
         return self.radius * np.deg2rad(self.theta)
+
+    @property
+    def start(self):
+        return to_cartesian(self.Pw[0])
+
+    @property
+    def end(self):
+        return to_cartesian(self.Pw[-1])
 
     @classmethod
     def from_2pnt(cls, start_pnt, end_pnt, theta, norm_vector):
@@ -692,7 +740,7 @@ class Arc(NURBS_Curve):
         mrot_trans = np.transpose(mrot)
         pts = np.copy(arc.cpt)
         wg = np.copy(arc.weight)
-        pw = np.empty((len(pts), 4))
+        pw = np.zeros((len(pts), 4))
         for i in range(len(pts)):
             pts[i] = pts[i] * mrot_trans
             pts[i] += center
