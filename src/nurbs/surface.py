@@ -1,13 +1,12 @@
-import numpy as np
 from numpy.linalg import norm
 from scipy.interpolate import BSpline
 from src.nurbs.utility import *
 from src.nurbs.transform import Quaternion
-from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts, NURBS_Curve
+from src.nurbs.curve import calc_pnt_param, calc_knot_vector, calc_ctrl_pts, ClampedNURBSCrv
 from src.iges.iges_entity128 import IGES_Entity128
 
 
-class NURBS_Surface(object):
+class ClampedNURBSSurf(object):
     def __init__(self, u, v, pw):
         """
         NURBS曲面
@@ -188,7 +187,7 @@ class NURBS_Surface(object):
             crv_list = []
             npw = np.zeros((self.n + 2, self.m + 1, 4))
             for j in range(self.m + 1):
-                cc = NURBS_Curve(self.U, self.Pw[:, j])
+                cc = ClampedNURBSCrv(self.U, self.Pw[:, j])
                 cc.insert_knot(uv, r)
                 crv_list.append(cc)
                 for i in range(self.n + 2):
@@ -200,7 +199,7 @@ class NURBS_Surface(object):
             crv_list = []
             npw = np.zeros((self.n + 1, self.m + 2, 4))
             for i in range(self.n + 1):
-                cc = NURBS_Curve(self.V, self.Pw[i, :])
+                cc = ClampedNURBSCrv(self.V, self.Pw[i, :])
                 cc.insert_knot(uv, r)
                 crv_list.append(cc)
                 for j in range(self.m + 2):
@@ -214,7 +213,7 @@ class NURBS_Surface(object):
         :param direction: 方向
         :param uv: 等参数值
         :return: 给定方向上的等参数线
-        :rtype: NURBS_Curve
+        :rtype: ClampedNURBSCrv
         """
 
         if direction not in ('U', 'V'):
@@ -228,7 +227,7 @@ class NURBS_Surface(object):
                 spl = BSpline(self.U, self.Pw[:, j, :], self.p)
                 nqw[j] = spl(uv)
 
-            return NURBS_Curve(self.V, nqw)
+            return ClampedNURBSCrv(self.V, nqw)
 
         else:
             npw = np.zeros(self.n + 1, 4)
@@ -236,7 +235,7 @@ class NURBS_Surface(object):
                 spl = BSpline(self.V, self.Pw[i, :, :], self.q)
                 npw[i] = spl(uv)
 
-            return NURBS_Curve(self.U, npw)
+            return ClampedNURBSCrv(self.U, npw)
 
     def refine(self, direction, extra_knot):
         """
@@ -256,7 +255,7 @@ class NURBS_Surface(object):
             nh = self.n + 1 + len(extra_knot)
             npw = np.zeros((nh, self.m + 1, 4))
             for j in range(self.m + 1):
-                cc = NURBS_Curve(self.U, self.Pw[:, j, :])
+                cc = ClampedNURBSCrv(self.U, self.Pw[:, j, :])
                 cc.refine(extra_knot)
                 crv_list.append(cc)
                 for i in range(nh):
@@ -268,7 +267,7 @@ class NURBS_Surface(object):
             mh = self.m + 1 + len(extra_knot)
             npw = np.zeros((self.n + 1, mh, 4))
             for i in range(self.n + 1):
-                cc = NURBS_Curve(self.V, self.Pw[i, :, :])
+                cc = ClampedNURBSCrv(self.V, self.Pw[i, :, :])
                 cc.refine(extra_knot)
                 crv_list.append(cc)
                 for j in range(mh):
@@ -276,8 +275,51 @@ class NURBS_Surface(object):
 
             self.reset(self.U, crv_list[0].U, npw)
 
+    def elevate(self, tu=0, tv=0):
+        """
+        曲面升阶
+        :param tu: U方向升阶次数
+        :type tu: int
+        :param tv: V方向升阶次数
+        :type tv: int
+        :return: None.
+        """
 
-class GlobalInterpolatedSurf(NURBS_Surface):
+        if tu < 0 or tv < 0:
+            raise AssertionError('Invalid promotion!')
+
+        if tu > 0:
+            crv_list = []
+            for j in range(self.m + 1):
+                cc = ClampedNURBSCrv(self.U, self.Pw[:, j, :])
+                cc.elevate(tu)
+                crv_list.append(cc)
+
+            nh = len(crv_list[0].Pw)
+            npw = np.zeros((nh, self.m + 1, 4))
+            for j in range(self.m + 1):
+                for i in range(nh):
+                    npw[i][j] = np.copy(crv_list[j].Pw[i])
+
+            self.reset(crv_list[0].U, self.V, npw)
+
+        if tv > 0:
+            crv_list = []
+            for i in range(self.n + 1):
+                cc = ClampedNURBSCrv(self.V, self.Pw[i, :, :])
+                cc.elevate(tv)
+                crv_list.append(cc)
+
+            mh = len(crv_list[0].Pw)
+            npw = np.zeros((self.n + 1, mh, 4))
+            for i in range(self.n + 1):
+                for j in range(mh):
+                    npw[i][j] = np.copy(crv_list[i].Pw[j])
+
+            self.reset(self.U, crv_list[0].U, npw)
+
+
+class GlobalInterpolatedSurf(ClampedNURBSSurf):
     def __init__(self, pts, p, q, u_method='centripetal', v_method='chord'):
         """
         (n+1)x(m+1)个数据点全局插值，非有理
@@ -338,7 +380,7 @@ class GlobalInterpolatedSurf(NURBS_Surface):
         super(GlobalInterpolatedSurf, self).__init__(u_knot, v_knot, Pw)
 
 
-class BilinearSurf(NURBS_Surface):
+class BilinearSurf(ClampedNURBSSurf):
     def __init__(self, P):
         """
         双线性曲面
@@ -372,12 +414,12 @@ class BilinearSurf(NURBS_Surface):
         super(BilinearSurf, self).__init__(U, V, Pw)
 
 
-class ExtrudedSurf(NURBS_Surface):
+class ExtrudedSurf(ClampedNURBSSurf):
     def __init__(self, crv, direction):
         """
         拉伸曲面
         :param crv: Curve to be extruded.
-        :type crv: NURBS_Curve
+        :type crv: ClampedNURBSCrv
         :param direction: Direction vector.
         """
 
@@ -394,12 +436,12 @@ class ExtrudedSurf(NURBS_Surface):
         super(ExtrudedSurf, self).__init__(U, V, Pw)
 
 
-class RuledSurf(NURBS_Surface):
+class RuledSurf(ClampedNURBSSurf):
     def __init__(self, c1, c2):
         """
         生成V方向的直纹面,即两条曲线之间的线性插值
         :param c1: 第1条曲线
-        :type c1: NURBS_Curve
+        :type c1: ClampedNURBSCrv
         :param c2: 第2条曲线
         :type c2:NURBS_Curve
         """
@@ -434,7 +476,7 @@ class RuledSurf(NURBS_Surface):
         super(RuledSurf, self).__init__(uknot, vknot, pw)
 
 
-class Coons(NURBS_Surface):
+class Coons(ClampedNURBSSurf):
     def __init__(self, c0u, c1u, c0v, c1v):
         """
         双线性混合Coons曲面
@@ -456,7 +498,7 @@ class Coons(NURBS_Surface):
         :param c1u:沿U方向第2条曲线
         :type c1u: NURBS_Curve
         :param c0v:沿V方向第1条曲线
-        :type c0v: NURBS_Curve
+        :type c0v: ClampedNURBSCrv
         :param c1v:沿V方向第2条曲线
         :type c1v: NURBS_Curve
         """
@@ -478,7 +520,7 @@ class Coons(NURBS_Surface):
         t = BilinearSurf(s)
 
 
-class Skinning(NURBS_Surface):
+class Skinning(ClampedNURBSSurf):
     def __init__(self, crv, p, q, vmethod='chord'):
         """
         蒙皮曲面，非有理
