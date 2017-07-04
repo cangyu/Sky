@@ -32,5 +32,6 @@ class BasicSurfTest(unittest.TestCase):
         build_bilinear_surf(P1, 'surf1.igs')
         build_bilinear_surf(P2, 'surf2.igs')
 
+
 if __name__ == '__main__':
     unittest.main()
