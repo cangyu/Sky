@@ -173,7 +173,7 @@ class NURBS_Surface(object):
         :return:
         """
 
-        if direction not in ['U', 'V']:
+        if direction not in ('U', 'V'):
             raise AssertionError('Invalid direction choice!')
 
         if direction == 'U':
@@ -199,6 +199,74 @@ class NURBS_Surface(object):
                     npw[i][j] = np.copy(cc.Pw[j])
 
             self.reset(self.U, crv_list[0].V, npw)
+
+    def extract(self, direction, uv):
+        """
+        提取等参数线
+        :param direction: 方向
+        :param uv: 等参数值
+        :return: 给定方向上的等参数线
+        :rtype: NURBS_Curve
+        """
+
+        if direction not in ('U', 'V'):
+            raise AssertionError('Invalid direction choice!')
+        if np.less(uv, 0) or np.greater(uv, 1):
+            raise AssertionError('Invalid parameter!')
+
+        if direction == 'U':
+            nqw = np.zeros((self.m + 1, 4))
+            for j in range(self.m + 1):
+                spl = BSpline(self.U, self.Pw[:, j, :], self.p)
+                nqw[j] = spl(uv)
+
+            return NURBS_Curve(self.V, nqw)
+
+        else:
+            npw = np.zeros(self.n + 1, 4)
+            for i in range(self.n + 1):
+                spl = BSpline(self.V, self.Pw[i, :, :], self.q)
+                npw[i] = spl(uv)
+
+            return NURBS_Curve(self.U, npw)
+
+    def refine(self, direction, extra_knot):
+        """
+        细化节点矢量
+        :param direction: 方向选择
+        :param extra_knot: 待插入节点数组
+        :return: None
+        """
+
+        if direction not in ('U', 'V'):
+            raise AssertionError('Invalid direction choice!')
+        if len(extra_knot) == 0:
+            return
+
+        crv_list = []
+        if direction == 'U':
+            nh = self.n + 1 + len(extra_knot)
+            npw = np.zeros((nh, self.m + 1, 4))
+            for j in range(self.m + 1):
+                cc = NURBS_Curve(self.U, self.Pw[:, j, :])
+                cc.refine(extra_knot)
+                crv_list.append(cc)
+                for i in range(nh):
+                    npw[i][j] = np.copy(cc.Pw[i])
+
+            self.reset(crv_list[0].U, self.V, npw)
+
+        else:
+            mh = self.m + 1 + len(extra_knot)
+            npw = np.zeros((self.n + 1, mh, 4))
+            for i in range(self.n + 1):
+                cc = NURBS_Curve(self.V, self.Pw[i, :, :])
+                cc.refine(extra_knot)
+                crv_list.append(cc)
+                for j in range(mh):
+                    npw[i][j] = np.copy(cc.Pw[j])
+
+            self.reset(self.U, crv_list[0].U, npw)
 
 
 class GlobalInterpolatedSurf(NURBS_Surface):
