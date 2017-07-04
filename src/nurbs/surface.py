@@ -54,10 +54,18 @@ class NURBS_Surface(object):
 
     @property
     def weight(self):
+        """
+        权系数
+        """
+
         return self.Pw[:, :, -1]
 
     @property
     def cpt(self):
+        """
+        不带权控制点
+        """
+
         ans = np.zeros((self.n + 1, self.m + 1, 3))
         for i in range(self.n + 1):
             for j in range(self.m + 1):
@@ -167,10 +175,10 @@ class NURBS_Surface(object):
     def insert_knot(self, uv, r=1, direction='U'):
         """
         曲面插入节点
-        :param uv:
-        :param r:
-        :param direction:
-        :return:
+        :param uv: 待插入节点值
+        :param r: 插入次数
+        :param direction: 插入的方向
+        :return: None
         """
 
         if direction not in ('U', 'V'):
