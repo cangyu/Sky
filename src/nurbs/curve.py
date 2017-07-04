@@ -11,7 +11,7 @@ from src.iges.iges_entity112 import IGES_Entity112
 from src.iges.iges_entity126 import IGES_Entity126
 
 
-class NURBS_Curve(object):
+class ClampedNURBSCrv(object):
     def __init__(self, u, pw):
         """
         NURBS曲线
@@ -382,7 +382,7 @@ class NURBS_Curve(object):
         if return_raw:
             return nU, nPw
         else:
-            return NURBS_Curve(nU, nPw)
+            return ClampedNURBSCrv(nU, nPw)
 
     def elevate(self, t: int, self_update=False, return_raw=False):
         """
@@ -443,10 +443,10 @@ class NURBS_Curve(object):
         if return_raw:
             return nU, nPw
         else:
-            return NURBS_Curve(nU, nPw)
+            return ClampedNURBSCrv(nU, nPw)
 
 
-class BezierCrv(NURBS_Curve):
+class BezierCrv(ClampedNURBSCrv):
     def __init__(self, a, b, p, pw):
         kv = []
         for i in range(p + 1):
@@ -491,7 +491,7 @@ class BezierCrv(NURBS_Curve):
         self.reset(kv, npw)
 
 
-class GlobalInterpolatedCrv(NURBS_Curve):
+class GlobalInterpolatedCrv(ClampedNURBSCrv):
     def __init__(self, pts, p=3, method='centripetal'):
         """
         构造一条p次非有理B样条曲线插值于pts
@@ -614,7 +614,7 @@ def calc_ctrl_pts(U, p, pts, param):
     return ctrl_pts
 
 
-class Line(NURBS_Curve):
+class Line(ClampedNURBSCrv):
     def __init__(self, a, b):
         """
         两点间直线段
@@ -639,7 +639,7 @@ class Line(NURBS_Curve):
         return IGES_Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
 
 
-class Arc(NURBS_Curve):
+class Arc(ClampedNURBSCrv):
     def __init__(self, r, theta):
         """
         XY平面内简化圆弧，以原点为圆心，起始点为(r,0),法向量为(0,0,1)
@@ -784,17 +784,29 @@ class Spline(object):
         return self.f[2](u * self.U[-1], d)
 
     def __call__(self, u, d=0):
+        """
+        求指定位置上的导矢量
+        :param u: 目标参数
+        :param d: 求导次数
+        :return: 曲线在u处的d阶导矢
+        """
+
         return np.array([self.x(u, d), self.y(u, d), self.z(u, d)])
 
     def to_iges(self):
-        if self.p == 3:
-            coefficient_matrix = np.zeros((self.n + 1, 3, self.p + 1))
-            for k in range(self.n + 1):
-                for i in range(3):
-                    for j in range(self.p + 1):
-                        coefficient_matrix[k][i][j] = self.f[i](self.U[k], j) / factorial(j)
+        """
+        将3次样条曲线以IGES标准中第112号实体呈现
+        :return: 曲线的IGES实体表示
+        :rtype IGES_Entity112
+        """
 
-            return IGES_Entity112(self.U, coefficient_matrix)
-
-        else:
+        if self.p != 3:
             raise AttributeError('Should be cubic curve!')
+
+        coefficient_matrix = np.zeros((self.n + 1, 3, self.p + 1))
+        for k in range(self.n + 1):
+            for i in range(3):
+                for j in range(self.p + 1):
+                    coefficient_matrix[k][i][j] = self.f[i](self.U[k], j) / factorial(j)
+
+        return IGES_Entity112(self.U, coefficient_matrix)

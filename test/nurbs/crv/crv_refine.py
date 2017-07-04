@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from src.nurbs.curve import NURBS_Curve
+from src.nurbs.curve import ClampedNURBSCrv
 from src.iges.iges_core import IGES_Model
 from src.com.catia import view
 
@@ -19,13 +19,13 @@ Pw = np.array([[0, 0, 0, 1],
 X = [2.5, 2.5, 2.5]
 
 '''原始曲线'''
-C0 = NURBS_Curve(U, Pw)
+C0 = ClampedNURBSCrv(U, Pw)
 model = IGES_Model('before.igs')
 model.add_entity(C0.to_iges())
 model.write()
 
 '''插入若干节点'''
-C1 = NURBS_Curve(U, Pw)
+C1 = ClampedNURBSCrv(U, Pw)
 C1.refine(X)
 model = IGES_Model('after.igs')
 model.add_entity(C1.to_iges())

@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from src.nurbs.curve import NURBS_Curve
+from src.nurbs.curve import ClampedNURBSCrv
 from src.nurbs.utility import equal
 from src.iges.iges_core import IGES_Model
 
@@ -22,7 +22,7 @@ Pw = np.array([[0, 0, 0, 1],
                [0.618, 1.414, 2.718, 1]], float)
 
 '''原始曲线'''
-C0 = NURBS_Curve(U, Pw)
+C0 = ClampedNURBSCrv(U, Pw)
 model = IGES_Model('before.igs')
 model.add_entity(C0.to_iges())
 model.write()
