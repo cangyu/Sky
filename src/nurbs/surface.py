@@ -208,7 +208,7 @@ class ClampedNURBSSurf(object):
                 for j in range(self.m + 2):
                     npw[i][j] = np.copy(cc.Pw[j])
 
-            self.reset(self.U, crv_list[0].V, npw)
+            self.reset(self.U, crv_list[0].U, npw)
 
     def extract(self, direction, uv):
         """
