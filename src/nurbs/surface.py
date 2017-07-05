@@ -119,8 +119,24 @@ class ClampedNURBSSurf(object):
             self.V = np.ones(self.V.shape) - self.V
             self.Pw = self.Pw[:, ::-1, :]
 
+    def swap(self):
+        """
+        交换UV方向节点矢量与控制点
+        :return: None.
+        """
+
+        tmp = self.U[:]
+        self.U = self.V[:]
+        self.V = tmp
+        self.Pw = np.transpose(self.Pw, (1, 0, 2))
+
     def __repr__(self):
-        return 'U Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
+        return '\nU Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
+
+    def __str__(self):
+        ret = '\nClamped NURBS Surface\nDegree:({},{})'.format(self.p, self.q)
+        ret += self.__repr__()
+        return ret
 
     def pan(self, delta):
         """
