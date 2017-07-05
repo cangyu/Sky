@@ -701,3 +701,42 @@ def different_knot(lhs, rhs):
             k += 1
 
     return ans
+
+
+def make_revolved_surf(S, T, theta, m, Pj, wj, n, U, Pij, wij):
+    """
+    NURBS形式旋转面
+    :param S:
+    :param T:
+    :param theta:
+    :param m:
+    :param Pj:
+    :param wj:
+    :param n:
+    :param U:
+    :param Pij:
+    :param wij:
+    :return:
+    """
+
+    if theta <= 90.0:
+        narcs = 1
+    elif theta <= 180:
+        narcs = 2
+        U[3] = U[4] = 0.5
+    elif theta <= 270:
+        narcs = 3
+        U[3] = U[4] = 1 / 3
+        U[5] = U[6] = 2 / 3
+    else:
+        narcs = 4
+        U[3] = U[4] = 0.25
+        U[5] = U[6] = 0.5
+        U[7] = U[8] = 0.75
+
+    dtheta = theta / narcs
+    j = 3 + 2 * (narcs - 1)
+    for i in range(3):
+        pass
+
+    # TODO
