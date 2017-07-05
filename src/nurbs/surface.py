@@ -1,4 +1,5 @@
 from numpy.linalg import norm
+from copy import deepcopy
 from scipy.interpolate import BSpline
 from src.nurbs.utility import *
 from src.nurbs.transform import Quaternion
@@ -575,64 +576,61 @@ class Coons(ClampedNURBSSurf):
         super(Coons, self).__init__(xu, xv, npw)
 
 
-class Skinning(ClampedNURBSSurf):
-    def __init__(self, crv, p, q, vmethod='chord'):
+class Skinned(ClampedNURBSSurf):
+    def __init__(self, crv, p, q, v_method='chord'):
         """
         蒙皮曲面，非有理
         :param crv: 非有理曲线集合
         :param p: 目标曲面u方向次数(曲线方向)
         :param q: 目标曲面v方向次数(展向)
-        :param vmethod: v方向插值方法
+        :param v_method: v方向插值方法
         """
 
         '''Promote all curve to p order'''
-        self.crv = []
-        for i in range(0, len(crv)):
-            self.crv.append(crv[i])
-
-        for i in range(0, len(self.crv)):
-            self.crv[i].elevate(p - self.crv[i].p)
+        crv_list = []
+        for c in crv:
+            cc = deepcopy(c)
+            cc.elevate(p - cc.p, self_update=True)
+            crv_list.append(cc)
 
         '''Merge all knot vectors in U direction'''
-        uknot = np.copy(self.crv[0].U)
-        for i in range(1, len(self.crv)):
-            ck = np.copy(self.crv[i].U)
-            uknot = merge_knot(uknot, ck)
+        u_knot = np.copy(crv_list[0].U)
+        for i in range(1, len(crv_list)):
+            u_knot = merge_knot(u_knot, crv_list[i].U)
 
         '''Unify all curve knot vector'''
-        for i in range(0, len(self.crv)):
-            X = different_knot(uknot, self.crv[i].U)
-            for u in X:
-                self.crv[i].insert_knot(u)
+        for c in crv_list:
+            xu = different_knot(u_knot, c.U)
+            c.refine(xu)
 
         '''Knot vector in V direction'''
-        n = len(uknot) - 1 - p - 1
-        m = len(self.crv) - 1
+        n = len(u_knot) - p - 2
+        m = len(crv_list) - 1
         pnt = np.zeros((n + 1, m + 1, 3))
-        for j in range(0, m + 1):
-            for i in range(0, n + 1):
-                pnt[i][j] = to_cartesian(self.crv[j].Pw[i])
+        for j in range(m + 1):
+            for i in range(n + 1):
+                pnt[i][j] = to_cartesian(crv_list[j].Pw[i])
 
-        vparam = np.zeros((n + 1, m + 1))
+        v_param = np.zeros((n + 1, m + 1))
         vk = []
-        for i in range(0, n + 1):
-            vparam[i] = calc_pnt_param(pnt[i], vmethod)
-            vk.append(calc_knot_vector(vparam[i], q))
+        for i in range(n + 1):
+            v_param[i] = calc_pnt_param(pnt[i], v_method)
+            vk.append(calc_knot_vector(v_param[i], q))
 
-        vknot = np.mean(vk, axis=0)
+        v_knot = np.mean(vk, axis=0)
 
         '''Calculate control points'''
         Q = np.zeros((n + 1, m + 1, 3))
         Qw = np.zeros((n + 1, m + 1, 4))
 
-        for i in range(0, n + 1):
-            Q[i] = calc_ctrl_pts(vknot, q, pnt[i], vparam[i])
+        for i in range(n + 1):
+            Q[i] = calc_ctrl_pts(v_knot, q, pnt[i], v_param[i])
 
-        for i in range(0, n + 1):
-            for j in range(0, m + 1):
+        for i in range(n + 1):
+            for j in range(m + 1):
                 Qw[i][j] = to_homogeneous(Q[i][j])
 
-        super(Skinning, self).__init__(uknot, vknot, Qw)
+        super(Skinned, self).__init__(u_knot, v_knot, Qw)
 
 
 def merge_knot(lhs, rhs):

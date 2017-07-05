@@ -16,6 +16,8 @@ v0 = Line(u0.start, u1.start)
 v1 = Line(u0.end, u1.end)
 s = Coons(u0, u1, v0, v1)
 
+print(s)
+
 fn = 'coons_test.igs'
 model_file = IGES_Model(fn)
 model_file.add_entity(s.to_iges())
