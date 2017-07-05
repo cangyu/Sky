@@ -513,13 +513,13 @@ class Coons(ClampedNURBSSurf):
                c0u
 
         :param c0u:沿U方向第1条曲线
-        :type c0u: NURBS_Curve
+        :type c0u: ClampedNURBSCrv
         :param c1u:沿U方向第2条曲线
-        :type c1u: NURBS_Curve
+        :type c1u: ClampedNURBSCrv
         :param c0v:沿V方向第1条曲线
         :type c0v: ClampedNURBSCrv
         :param c1v:沿V方向第2条曲线
-        :type c1v: NURBS_Curve
+        :type c1v: ClampedNURBSCrv
         """
 
         '''Check 4 corners'''
@@ -528,15 +528,51 @@ class Coons(ClampedNURBSSurf):
         assert equal(norm(c1v(1) - c1u(1)), 0.0)
         assert equal(norm(c0v(1) - c1u(0)), 0.0)
 
+        '''Corner points'''
         s = np.zeros((2, 2, 3))
         s[0][0] = np.copy(c0u(0))
         s[0][1] = np.copy(c0v(1))
         s[1][0] = np.copy(c1v(0))
         s[1][1] = np.copy(c1u(1))
 
+        '''Base surf'''
         r1 = RuledSurf(c0u, c1u)
         r2 = RuledSurf(c0v, c1v)
+        r2.swap()
         t = BilinearSurf(s)
+
+        '''Elevate to same order'''
+        pu = max(r1.p, r2.p, t.p)
+        pv = max(r1.q, r2.q, t.q)
+        r1.elevate(pu - r1.p, pv - r1.q)
+        r2.elevate(pu - r2.p, pv - r2.q)
+        t.elevate(pu - t.p, pv - t.q)
+
+        '''Unify knot vector'''
+        xu = merge_knot(merge_knot(r1.U, r2.U), t.U)
+        xv = merge_knot(merge_knot(r1.V, r2.V), t.V)
+
+        xr1u = different_knot(xu, r1.U)
+        xr2u = different_knot(xu, r2.U)
+        xtu = different_knot(xu, t.U)
+
+        xr1v = different_knot(xv, r1.V)
+        xr2v = different_knot(xv, r2.V)
+        xtv = different_knot(xv, t.V)
+
+        r1.refine('U', xr1u)
+        r1.refine('V', xr1v)
+
+        r2.refine('U', xr2u)
+        r2.refine('V', xr2v)
+
+        t.refine('U', xtu)
+        t.refine('V', xtv)
+
+        '''Calculate new control points'''
+        npw = r1.Pw + r2.Pw - t.Pw
+
+        super(Coons, self).__init__(xu, xv, npw)
 
 
 class Skinning(ClampedNURBSSurf):
