@@ -108,16 +108,19 @@ class ClampedNURBSSurf(object):
         曲面反向
         """
 
-        if direction not in ['U', 'V', 'UV']:
+        if direction not in ('U', 'V', 'UV'):
             raise ValueError('Invalid direction choice!')
 
-        if direction in ['U', 'UV']:
+        if direction in ('U', 'UV'):
             self.U = np.ones(self.U.shape) - self.U
             self.Pw = self.Pw[::-1, :, :]
 
-        if direction in ['V', 'UV']:
+        if direction in ('V', 'UV'):
             self.V = np.ones(self.V.shape) - self.V
             self.Pw = self.Pw[:, ::-1, :]
+
+    def __repr__(self):
+        return 'U Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
 
     def pan(self, delta):
         """

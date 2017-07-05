@@ -19,9 +19,9 @@ P2 = np.array([[[0, 0, L], [0, L, 0]],
                [[L, 0, L], [L, L, 0]]], float)
 
 
-def surf_rotate_cmp(s, ref, ax, ang, fn):
+def surf_reverse_cmp(s, d, fn):
     ss = deepcopy(s)
-    ss.rotate(ref, ax, ang)
+    ss.reverse(d)
 
     model_file = IGES_Model(fn)
     model_file.add_entity(s.to_iges())
@@ -30,12 +30,23 @@ def surf_rotate_cmp(s, ref, ax, ang, fn):
     if auto_view:
         view(fn)
 
+    print('Origin:')
+    print(s)
 
-class RotateTest(unittest.TestCase):
+    print('Reversed:')
+    print(ss)
+
+
+class ReverseTest(unittest.TestCase):
     @staticmethod
     def test():
-        surf_rotate_cmp(BilinearSurf(P1), [L, L, L], [0, 0, 5], 45, 'rotate_surf1.igs')
-        surf_rotate_cmp(BilinearSurf(P2), [L, L, L], [0, 0, 5], 45, 'rotate_surf2.igs')
+        surf_reverse_cmp(BilinearSurf(P1), 'U', 'reverse_surf1_U.igs')
+        surf_reverse_cmp(BilinearSurf(P1), 'V', 'reverse_surf1_V.igs')
+        surf_reverse_cmp(BilinearSurf(P1), 'UV', 'reverse_surf1_UV.igs')
+
+        surf_reverse_cmp(BilinearSurf(P2), 'U', 'reverse_surf2_U.igs')
+        surf_reverse_cmp(BilinearSurf(P2), 'V', 'reverse_surf2_V.igs')
+        surf_reverse_cmp(BilinearSurf(P2), 'UV', 'reverse_surf2_UV.igs')
 
 
 if __name__ == '__main__':
