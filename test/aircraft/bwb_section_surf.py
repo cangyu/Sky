@@ -3,7 +3,11 @@ import numpy as np
 import math
 from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
-from src.com.catia import view
+
+try:
+    from src.com.catia import view
+except ImportError:
+    print('Win32 required for CATIA usage!')
 
 auto_view = True
 
@@ -26,14 +30,13 @@ def chebshev_dist(start, end, n):
     return pr
 
 
-def write_bwb(n, airfoil, frame_param, fn=""):
+def write_bwb(n, airfoil, frame_param):
     """
     BWB外形参数化建模
     :param n: 剖面数量
     :param airfoil: 剖面翼型名称
-    :param fn: 输出文件名
     :param frame_param: 总体描述参数 
-    :return: File handle
+    :return: None
     """
 
     gf = BWBFrame(frame_param)
@@ -51,22 +54,19 @@ def write_bwb(n, airfoil, frame_param, fn=""):
 
     wg = Wing(airfoil_list, thkf, z, xf, yf, xt, yt)
 
-    if fn == "":
-        fn = "BWB_{}_{}_{}_{}.igs".format(n, airfoil, frame_param[0], frame_param[4])
-    wg.write(fn)
+    fn = "BWB_{}_{}_{}_{}.igs".format(n, airfoil, frame_param[0], frame_param[4])
+    wg.write(fn, mirror=False)
 
-    return fn
+    if auto_view:
+        view(fn)
 
 
-def view_bwb(n, airfoil, frame_param):
-    fn = write_bwb(n, airfoil, frame_param)
-    view(fn)
+class BWBWingTest(unittest.TestCase):
+    @staticmethod
+    def test():
+        write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
+        write_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
 
 
 if __name__ == '__main__':
-    if auto_view:
-        view_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
-        view_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
-    else:
-        write_bwb(8, 'M6', [100, 60, 20, 30, 105, 0, 45, 30])
-        write_bwb(8, 'NACA0012', [100, 60, 20, 30, 105, 0, 45, 30])
+    unittest.main()

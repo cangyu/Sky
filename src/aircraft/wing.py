@@ -1,11 +1,12 @@
 import numpy as np
 import os
+from copy import deepcopy
 from src.iges.iges_core import IGES_Model
 from src.iges.iges_entity110 import IGES_Entity110
 from src.iges.iges_entity116 import IGES_Entity116
 from src.nurbs.utility import equal, pnt_dist
 from src.nurbs.curve import GlobalInterpolatedCrv
-from src.nurbs.surface import GlobalInterpolatedSurf
+from src.nurbs.surface import GlobalInterpolatedSurf, Skinned
 from settings import AIRFOIL_DIR
 
 BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
@@ -194,28 +195,23 @@ class Wing(object):
         for i in range(0, self.n):
             epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
                              [self.xt[i], self.yt[i], self.z[i]]])
-            wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
-            wing_model.add_entity(wp.nurbs_rep.to_iges(1, 0, [0, 0, 1]))
+            wp = WingProfile(self.airfoil[i], epts, self.thickness[i]).nurbs_rep
+            profile.append(wp)
+            wing_model.add_entity(wp.to_iges(1, 0, [0, 0, 1]))
             # add_pnt(wing_model, wp.pts[0])
             # add_pnt(wing_model, wp.pts[-1])
-            profile.append(wp)
 
         '''全局插值'''
-        nn = len(profile[0].pts)
-        mm = self.n
-        surf_pts = np.zeros((nn, mm, 3))
-        for i in range(0, nn):
-            for j in range(0, mm):
-                surf_pts[i][j] = np.copy(profile[j].pts[i])
-        self.surf = GlobalInterpolatedSurf(surf_pts, p, q)
-        wing_model.add_entity(self.surf.to_iges(0, 0, 0, 0))
+        self.surf = Skinned(profile, p, q)
+        wing_model.add_entity(self.surf.to_iges())
 
         if mirror:
-            for i in range(nn):
-                for j in range(mm):
-                    surf_pts[i][j][2] = -surf_pts[i][j][2]
-            surf = GlobalInterpolatedSurf(surf_pts, p, q)
-            wing_model.add_entity(surf.to_iges(0, 0, 0, 0))
+            msrf = deepcopy(self.surf)
+            for i in range(msrf.n + 1):
+                for j in range(msrf.m + 1):
+                    msrf.Pw[i][j][2] *= -1
+
+            wing_model.add_entity(msrf.to_iges())
 
         '''远场边框'''
         if farfield_box:
