@@ -9,7 +9,7 @@ try:
 except ImportError:
     print('Win32 required for CATIA usage!')
 
-auto_view = False
+auto_view = True
 
 L = 10
 P1 = np.array([[[0, 0, 0], [0, L, L]],
@@ -19,23 +19,23 @@ P2 = np.array([[[0, 0, L], [0, L, 0]],
                [[L, 0, L], [L, L, 0]]], float)
 
 
-def build_bilinear_surf(P, fn):
-    bsf0 = BilinearSurf(P)
-    bsf1 = deepcopy(bsf0)
-    bsf1.rotate([0, 0, 0], [5, 5, 5], 45)
+def surf_rotate_cmp(s, ref, ax, ang, fn):
+    ss = deepcopy(s)
+    ss.rotate(ref, ax, ang)
+
     model_file = IGES_Model(fn)
-    model_file.add_entity(bsf0.to_iges())
-    model_file.add_entity(bsf1.to_iges())
+    model_file.add_entity(s.to_iges())
+    model_file.add_entity(ss.to_iges())
     model_file.write()
     if auto_view:
         view(fn)
 
 
-class BasicSurfTest(unittest.TestCase):
+class RotatefTest(unittest.TestCase):
     @staticmethod
-    def test_bilinear():
-        build_bilinear_surf(P1, 'surf1.igs')
-        build_bilinear_surf(P2, 'surf2.igs')
+    def test():
+        surf_rotate_cmp(BilinearSurf(P1), [L, L, L], [0, 0, 5], 45, 'rotate_surf1.igs')
+        surf_rotate_cmp(BilinearSurf(P2), [L, L, L], [0, 0, 5], 45, 'rotate_surf2.igs')
 
 
 if __name__ == '__main__':

@@ -43,8 +43,8 @@ def surf_pan_cmp(s, dv, fn):
 class PanTest(unittest.TestCase):
     @staticmethod
     def test():
-        surf_pan_cmp(BilinearSurf(P1), (0, 0, 10), 'surf1.igs')
-        surf_pan_cmp(BilinearSurf(P2), (0, 0, 10), 'surf2.igs')
+        surf_pan_cmp(BilinearSurf(P1), (0, 0, 10), 'pan_surf1.igs')
+        surf_pan_cmp(BilinearSurf(P2), (0, 0, 10), 'pan_surf2.igs')
 
 
 if __name__ == '__main__':
