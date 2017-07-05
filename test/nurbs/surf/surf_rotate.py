@@ -27,7 +27,8 @@ def build_bilinear_surf(P, fn):
     model_file.add_entity(bsf0.to_iges())
     model_file.add_entity(bsf1.to_iges())
     model_file.write()
-    view(fn)
+    if auto_view:
+        view(fn)
 
 
 class BasicSurfTest(unittest.TestCase):
