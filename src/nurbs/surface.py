@@ -295,7 +295,7 @@ class ClampedNURBSSurf(object):
             crv_list = []
             for j in range(self.m + 1):
                 cc = ClampedNURBSCrv(self.U, self.Pw[:, j, :])
-                cc.elevate(tu)
+                cc.elevate(tu, self_update=True)
                 crv_list.append(cc)
 
             nh = len(crv_list[0].Pw)
@@ -310,7 +310,7 @@ class ClampedNURBSSurf(object):
             crv_list = []
             for i in range(self.n + 1):
                 cc = ClampedNURBSCrv(self.V, self.Pw[i, :, :])
-                cc.elevate(tv)
+                cc.elevate(tv, self_update=True)
                 crv_list.append(cc)
 
             mh = len(crv_list[0].Pw)
