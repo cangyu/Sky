@@ -54,21 +54,87 @@ IBLANK Values:
 
 
 class PLOT3D_Block(object):
-    def __init__(self, pts):
+    def __init__(self, pts, idx=0):
         """
         单块结构网格
         :param pts: 所有网格点坐标，下标从左到右依次循环I, J, K, 每个元素包含(X, Y, Z, IBLANK)
+        :param idx: 块序号, ranging from 1
         """
 
-        '''X方向节点数量，Y方向节点数量，Z方向节点数量，网格点信息维度'''
-        self.I, self.J, self.K, self.Dim = pts.shape
-        self.data = np.empty((self.I, self.J, self.K, self.Dim), float, order='F')
+        self.index = idx
+        self.data = np.empty(pts.shape, float, order='F')
 
-        for d in range(self.Dim):
+        for d in range(4):
             for k in range(self.K):
                 for j in range(self.J):
                     for i in range(self.I):
                         self.data[i][j][k][d] = pts[i][j][k][d]
+
+    @property
+    def I(self):
+        """
+        :return X方向节点数量
+        :rtype int
+        """
+
+        return self.data.shape[0]
+
+    @property
+    def J(self):
+        """
+        :return Y方向节点数量
+        :rtype int
+        """
+
+        return self.data.shape[1]
+
+    @property
+    def K(self):
+        """
+        :return Z方向节点数量
+        :rtype int
+        """
+
+        return self.data.shape[2]
+
+    @property
+    def pnt_num(self):
+        """
+        :return 该Block中point的数量
+        :rtype int
+        """
+
+        return self.I * self.J * self.K
+
+    @property
+    def cell_num(self):
+        """
+        :return 该Block中cell的数量
+        :rtype int
+        """
+
+        return (self.I - 1) * (self.J - 1) if self.K == 1 else (self.I - 1) * (self.J - 1) * (self.K - 1)
+
+    @property
+    def face_num(self):
+        """
+        :return 该Block中face的数量
+        :rtype int
+        """
+
+        return 3 * self.I * self.J * self.K - (self.I * self.J + self.J * self.K + self.K * self.I)
+
+    @property
+    def all_pnt(self):
+        t = 0
+        ret = np.empty((self.pnt_num, 3), float)
+        for k in range(self.K):
+            for j in range(self.J):
+                for i in range(self.I):
+                    ret[t] = np.copy(self.data[i][j][k][:3])
+                    t += 1
+
+        return ret
 
     def write(self, fout, with_iblank):
         """
