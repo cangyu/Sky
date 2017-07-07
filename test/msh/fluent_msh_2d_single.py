@@ -1,12 +1,21 @@
+import unittest
 import numpy as np
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.fluent import XF_MSH, BCType
-from src.nurbs.surface import Coons
 from src.nurbs.curve import Arc, Line
 from src.aircraft.wing import WingProfile
 
 
 def rectangular(U: int, V: int, L: float, W: float):
+    """
+    矩形
+    :param U: U方向网格数量
+    :param V: V方向网格数量
+    :param L: 矩形长度
+    :param W: 矩形宽度
+    :return: None
+    """
+
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
     ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
@@ -20,6 +29,17 @@ def rectangular(U: int, V: int, L: float, W: float):
 
 
 def curve_rect(U: int, V: int, L: float, H1: float, H2: float, H3: float):
+    """
+    曲边矩形
+    :param U: U方向网格数量
+    :param V: V方向网格数量
+    :param L: 矩形长度
+    :param H1: 控制高度1
+    :param H2: 控制高度2
+    :param H3: 控制高度3
+    :return: None
+    """
+
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
     ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
@@ -33,6 +53,21 @@ def curve_rect(U: int, V: int, L: float, H1: float, H2: float, H3: float):
 
 
 def airfoil(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
+    """
+    半圆翼型
+    :param U: U方向网格数量
+    :param V: V方向网格数量
+    :param foil: 翼型名称
+    :param ends: 翼型拉伸前后端点
+    :param thk: 翼型厚度缩放因子
+    :param order: 翼型曲线次数
+    :param arc_start: 远场圆弧起始点
+    :param arc_end: 远场圆弧终止点
+    :param theta: 远场圆弧角度
+    :param nv: 远场圆弧法向量
+    :return: None
+    """
+
     u0 = WingProfile(foil, ends, thk, order).nurbs_rep
     u1 = Arc.from_2pnt(arc_start, arc_end, theta, nv)
     v0 = Line(u0.start, u1.start)
@@ -48,11 +83,9 @@ def airfoil(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
     fluent_grid.save(fn)
 
 
-def airfoil_c(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
-    pass
-
-
-if __name__ == '__main__':
-    # rectangular(30, 10, 3, 1)
-    # curve_rect(50, 25, 100, 40, 60, 10)
-    airfoil(130, 45, 'M6', [[0, 0, 5], [20, 0, 5]], 1.6, 5, [25, 60, 5], [25, -60, 5], 180, [0, 0, 1])
+class SingleFluentMeshTest(unittest.TestCase):
+    @staticmethod
+    def test():
+        rectangular(30, 10, 3, 1)
+        curve_rect(50, 25, 100, 40, 60, 10)
+        airfoil(130, 45, 'M6', [[0, 0, 5], [20, 0, 5]], 1.6, 5, [25, 60, 5], [25, -60, 5], 180, [0, 0, 1])
