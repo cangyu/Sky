@@ -154,8 +154,8 @@ class Wing(object):
             tail_down_pts[i] = np.copy(profile[i].pts[-1])
 
         self.front = GlobalInterpolatedCrv(front_pts, q, 'chord')
-        self.tail_up = GlobalInterpolatedCrv(tail_up_pts, q, 'chord')
-        self.tail_down = GlobalInterpolatedCrv(tail_down_pts, q, 'chord')
+        self.tail_up = self.surf.extract('U', 0)
+        self.tail_down = self.surf.extract('U', 1)
 
     @property
     def geom(self):
