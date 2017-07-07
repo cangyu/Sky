@@ -1,6 +1,7 @@
 import numpy as np
 from abc import abstractmethod
 from enum import Enum, unique
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
 class XF_Section(object):
@@ -304,6 +305,9 @@ class XF_MSH(object):
         di = ii - i
         dj = jj - j
 
+        if di != 0 and dj != 0:
+            raise AssertionError("Invalid coordinates!")
+
         if di == 0:
             if dj == 1:
                 return XF_MSH.cell_index(i, j, 2, U, V), XF_MSH.cell_index(i, j, 1, U, V)
@@ -311,15 +315,13 @@ class XF_MSH(object):
                 return XF_MSH.cell_index(i, j, 4, U, V), XF_MSH.cell_index(i, j, 3, U, V)
             else:
                 raise ValueError("Invalid coordinates!")
-        elif dj == 0:
+        else:
             if di == 1:
                 return XF_MSH.cell_index(i, j, 1, U, V), XF_MSH.cell_index(i, j, 4, U, V)
             elif di == -1:
                 return XF_MSH.cell_index(i, j, 3, U, V), XF_MSH.cell_index(i, j, 2, U, V)
             else:
                 raise ValueError("Invalid coordinates!")
-        else:
-            raise ValueError("Invalid coordinates!")
 
     @classmethod
     def from_str2d(cls, grid, bc=(BCType.Wall, BCType.VelocityInlet, BCType.Wall, BCType.Outflow)):
@@ -335,6 +337,7 @@ class XF_MSH(object):
         NodeCnt = U * V
         EdgeCnt = 2 * U * V - U - V
         CellCnt = (U - 1) * (V - 1)
+        zone_idx = 0
 
         k = 0
         NodeList = np.empty((NodeCnt, Dim), float)
@@ -415,29 +418,51 @@ class XF_MSH(object):
 
         '''MSH File'''
         msh = cls()
+
         msh.add_section(XF_Header())
         msh.add_blank()
+
         msh.add_section(XF_Comment("Dimension:"))
         msh.add_section(XF_Dimension(Dim))
         msh.add_blank()
+
         msh.add_section(XF_Comment("Declaration:"))
         msh.add_section(XF_Cell.declaration(CellCnt))
         msh.add_section(XF_Face.declaration(EdgeCnt))
         msh.add_section(XF_Node.declaration(NodeCnt, Dim))
         msh.add_blank()
+
         msh.add_section(XF_Comment("Grid:"))
-        msh.add_section(XF_Cell(7, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
+
+        zone_idx += 1
+        msh.add_section(XF_Node(zone_idx, 1, NodeCnt, NodeType.Any, Dim, NodeList))
         msh.add_blank()
-        msh.add_section(XF_Face(2, face1_first, face1_last, bc[0], FaceType.Linear, face1))
+
+        zone_idx += 1
+        msh.add_section(XF_Face(zone_idx, face1_first, face1_last, bc[0], FaceType.Linear, face1))
         msh.add_blank()
-        msh.add_section(XF_Face(3, face2_first, face2_last, bc[1], FaceType.Linear, face2))
+
+        zone_idx += 1
+        msh.add_section(XF_Face(zone_idx, face2_first, face2_last, bc[1], FaceType.Linear, face2))
         msh.add_blank()
-        msh.add_section(XF_Face(4, face3_first, face3_last, bc[2], FaceType.Linear, face3))
+
+        zone_idx += 1
+        msh.add_section(XF_Face(zone_idx, face3_first, face3_last, bc[2], FaceType.Linear, face3))
         msh.add_blank()
-        msh.add_section(XF_Face(5, face4_first, face4_last, bc[3], FaceType.Linear, face4))
+
+        zone_idx += 1
+        msh.add_section(XF_Face(zone_idx, face4_first, face4_last, bc[3], FaceType.Linear, face4))
         msh.add_blank()
-        msh.add_section(XF_Face(6, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
+
+        zone_idx += 1
+        msh.add_section(XF_Face(zone_idx, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
         msh.add_blank()
-        msh.add_section(XF_Node(1, 1, NodeCnt, NodeType.Any, Dim, NodeList))
+
+        zone_idx += 1
+        msh.add_section(XF_Cell(zone_idx, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
 
         return msh
+
+    @classmethod
+    def from_plot3d_2d(cls, p3d_grid):
+        pass
