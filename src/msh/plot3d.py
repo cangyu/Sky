@@ -7,12 +7,25 @@ class PLOT3D(object):
         多块结构网格
         """
 
-        self.blk_num = 0
         self.blk_list = []
 
+    @property
+    def blk_num(self):
+        """
+        所含块数量
+        """
+
+        return len(self.blk_list)
+
     def add_block(self, blk):
+        """
+        增加Block
+        :param blk: 单块网格
+        :type blk: PLOT3D_Block
+        :return: None
+        """
+
         self.blk_list.append(blk)
-        self.blk_num += 1
 
     def write(self, fn, with_iblank=False):
         """
@@ -31,12 +44,20 @@ class PLOT3D(object):
         fout.close()
 
 
+"""
+IBLANK Values:
+ 0 : 计算域之外
+ 1 : 正常点
+ 2 : 固面边界
+-n : 与第n块网格相邻
+"""
+
+
 class PLOT3D_Block(object):
     def __init__(self, pts):
         """
         单块结构网格
-        :param pts: 所有网格点坐标，下标从左到右依次循环I, J, K, 
-                    每个元素包含(X, Y, Z, IBLANK)
+        :param pts: 所有网格点坐标，下标从左到右依次循环I, J, K, 每个元素包含(X, Y, Z, IBLANK)
         """
 
         '''X方向节点数量，Y方向节点数量，Z方向节点数量，网格点信息维度'''
@@ -72,14 +93,11 @@ class PLOT3D_Block(object):
     def set_iblank(self, i, j, k, t):
         """
         设置网格点的IBLANK信息
-         0 : 计算域之外
-         1 : 正常点
-         2 : 固面边界
-        -n : 与第n块网格相邻
         :param i: X方向下标
         :param j: Y方向下标
         :param k: Z方向下标
         :param t: IBLANK Value
+        :type t: int
         :return: None
         """
 
@@ -88,14 +106,11 @@ class PLOT3D_Block(object):
     def set_area_iblank(self, rg0, rg1, rg2, t):
         """
         设置区域内网格点的IBLANK信息
-         0 : 计算域之外
-         1 : 正常点
-         2 : 固面边界
-        -n : 与第n块网格相邻
         :param rg0: X方向范围
         :param rg1: Y方向范围
         :param rg2: Z方向范围
         :param t: IBLANK Value
+        :type t: int
         :return: None
         """
 
@@ -105,6 +120,13 @@ class PLOT3D_Block(object):
                     self.set_iblank(i, j, k, t)
 
     def set_boundary_iblank(self, t):
+        """
+        设置边界上网格点的IBLANK信息
+        :param t: IBLANK Value
+        :type t: int
+        :return: None
+        """
+
         if self.K == 1:
             for i in range(self.I):
                 for j in range(self.J):
@@ -121,8 +143,7 @@ class PLOT3D_Block(object):
     def build_from_2d(cls, pts, close=True):
         """
         从二维网格点数组构建PLOT3D块
-        :param pts: 二维网格点数组, 下标从左到右依次循环I, J,
-                    每个元素包含(X, Y, Z) / (X, Y)
+        :param pts: 二维网格点数组, 下标从左到右依次循环I, J, 每个元素包含(X, Y, Z) / (X, Y)
         :param close: 是否封闭边界
         :return: PLOT3D_Block
         """
@@ -145,8 +166,7 @@ class PLOT3D_Block(object):
     def build_from_3d(cls, pts, close=True):
         """
         从三维网格点数组构建PLOT3D块
-        :param pts: 三维网格点数组, 下标从左到右依次循环I, J, K
-                    每个元素包含(X, Y, Z)
+        :param pts: 三维网格点数组, 下标从左到右依次循环I, J, K, 每个元素包含(X, Y, Z)
         :param close: 是否封闭边界
         :return: PLOT3D_Block
         """
