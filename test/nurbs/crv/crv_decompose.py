@@ -5,7 +5,7 @@ from src.nurbs.utility import equal
 from src.iges.iges_core import IGES_Model
 
 try:
-    from src.com.catia import view
+    from src.misc.catia import view
 except ImportError:
     print('Win32 required for CATIA usage!')
 

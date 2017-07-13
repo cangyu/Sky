@@ -5,7 +5,7 @@ from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
 
 try:
-    from src.com.catia import view
+    from src.misc.catia import view
 except ImportError:
     print('Win32 required for CATIA usage!')
 

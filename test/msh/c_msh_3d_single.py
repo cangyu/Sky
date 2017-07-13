@@ -6,7 +6,7 @@ from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
 from src.nurbs.curve import Line, Arc
 from src.iges.iges_core import IGES_Model
-from src.com.catia import view
+from src.misc.catia import view
 from src.msh.tfi import Linear_TFI_2D, Linear_TFI_3D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 

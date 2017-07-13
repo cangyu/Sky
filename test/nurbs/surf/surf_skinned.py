@@ -6,7 +6,7 @@ from src.nurbs.surface import Skinned
 from src.aircraft.wing import Airfoil
 
 try:
-    from src.com.catia import view
+    from src.misc.catia import view
 except ImportError:
     print('Win32 required for CATIA usage!')
 

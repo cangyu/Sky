@@ -2,7 +2,7 @@ import math
 import numpy as np
 from src.nurbs.curve import ClampedNURBSCrv
 from src.iges.iges_core import IGES_Model
-from src.com.catia import view
+from src.misc.catia import view
 
 auto_view = True
 
