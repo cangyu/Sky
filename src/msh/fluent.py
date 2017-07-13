@@ -1,7 +1,6 @@
 import numpy as np
 from abc import abstractmethod
 from enum import Enum, unique
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
 class XF_Section(object):
@@ -324,7 +323,7 @@ class XF_MSH(object):
                 raise ValueError("Invalid coordinates!")
 
     @staticmethod
-    def dimensional_copy(dim, src, dst):
+    def dimensional_copy(dst, src, dim):
         for i in range(dim):
             dst[i] = src[i]
 
@@ -334,7 +333,8 @@ class XF_MSH(object):
         从2维结构网格构建Fluent msh文件
         :param grid: 2D structural grid
         :param bc: Boundary ID
-        :return: XF_MSH object
+        :return: 可用于后续生成msh文件的XF_MSH对象
+        :rtype: XF_MSH
         """
 
         U, V, Dim = grid.shape
@@ -348,7 +348,7 @@ class XF_MSH(object):
         NodeList = np.empty((NodeCnt, Dim), float)
         for j in range(V):
             for i in range(U):
-                cls.dimensional_copy(Dim, grid[i][j], NodeList[k])  # 节点序号规定为沿x方向优先，依次递增
+                cls.dimensional_copy(NodeList[k], grid[i][j], Dim)  # 节点序号规定为沿x方向优先，依次递增
                 k += 1
 
         '''Face-C1'''
@@ -470,26 +470,24 @@ class XF_MSH(object):
     @classmethod
     def from_str2d_multi(cls, blk_list, bc_list, adj_info):
         """
-
-        :param blk_list:
-        :param bc_list:
-        :param adj_info:
-        :return:
+        根据给定的邻接关系，将多块结构网格转换成非结构形式，
+        并赋予给定的边界条件, 类似于ICEM中的'Convert to unstructured mesh'功能
+        :param blk_list: 单块结构网格序列
+        :param bc_list: 依次包括每个单块结构网格的BC
+        :param adj_info: 依次每个单块结构网格的邻接关系序列
+        :return: 可用于后续生成msh文件的XF_MSH对象
+        :rtype: XF_MSH
         """
 
+        '''Set up basic variables'''
         dimension = 2
         blk_num = len(blk_list)
         blk_shape = np.empty((blk_num, 2), int)
-        cell_start = np.zeros(blk_num + 1, int)
-
-        '''Counting cells'''
-        ci = 0
-        for blk in blk_list:
-            blk_shape[ci] = blk.shape[:2]
-            cur_cell_cnt = (blk.shape[0] - 1) * (blk.shape[1] - 1)
-            cell_start[ci + 1] = cell_start[ci] + cur_cell_cnt
-
         adj_desc = np.zeros((blk_num, 4, 3), int)
+
+        for k, blk in enumerate(blk_list):
+            blk_shape[k] = blk.shape[:2]
+
         for entry in adj_info:
             b1, e1 = entry[0]
             b2, e2 = entry[1]
@@ -497,6 +495,33 @@ class XF_MSH(object):
 
             adj_desc[b1][e1 - 1] = np.array([b2, e2, reverse], int)
             adj_desc[b2][e2 - 1] = np.array([b1, e1, reverse], int)
+
+        '''Initialize MSH file'''
+        msh = cls()
+        zone_idx = 0
+        msh.add_section(XF_Header())
+        msh.add_blank()
+
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(dimension))
+        msh.add_blank()
+
+        '''Counting cells'''
+        cell_start = np.zeros(blk_num + 1, int)
+
+        def cell_num(u, v):
+            return (u - 1) * (v - 1)
+
+        for k in range(blk_num):
+            cur_cell_cnt = cell_num(blk.shape[0], blk.shape[1])
+            cell_start[k + 1] = cell_start[k] + cur_cell_cnt
+
+        '''Flush cell info to MSH file'''
+        msh.add_section(XF_Comment("Cell part:"))
+        msh.add_section(XF_Cell.declaration(cell_start[-1]))
+        zone_idx += 1
+        msh.add_section(XF_Cell(zone_idx, 1, cell_start[-1], CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_blank()
 
         '''Counting points'''
         pnt_num = 0
@@ -511,34 +536,23 @@ class XF_MSH(object):
             cur_pnt_num = blk_edge_pnt(b1, e1)
             pnt_num -= cur_pnt_num
 
-        bc_flag = []
-        for blk in blk_list:
-            cu = blk.shape[0]
-            cv = blk.shape[1]
-            cur_pnt_num = 2 * (cu + cv - 2)
-            flag_ary = np.full(cur_pnt_num, -1, int)
-            bc_flag.append(flag_ary)
+        def boundary_pnt_num(u, v):
+            return 2 * (u + v - 2)
 
-        pnt_list = np.zeros((pnt_num, dimension))
-        pnt_idx = 0
+        def boundary_coordinate(idx, u, v):
+            s1, s2, s3, s4 = u - 1, u + v - 2, 2 * u + v - 3, boundary_pnt_num(u, v)
+            if idx < s1:
+                return idx, 0
+            elif idx < s2:
+                return s1, idx - s1
+            elif idx < s3:
+                return s3 - idx, v - 1
+            elif idx < s4:
+                return 0, s4 - idx
+            else:
+                raise ValueError("Boundary point {} goes beyond maximum index of current block".format(idx))
 
-        def is_boundary_pnt(i, j, u, v):
-            return i in (0, u - 1) or j in (0, v - 1)
-
-        def get_edge_idx(i, j, u, v):
-            ans = []
-            if i == 0:
-                ans.append(2)
-            if i == u - 1:
-                ans.append(4)
-            if j == 0:
-                ans.append(1)
-            if j == v - 1:
-                ans.append(3)
-
-            return ans
-
-        def bc_pnt_idx(i, j, u, v):
+        def boundary_pnt_idx(i, j, u, v):
             if i == 0 and j == 0:
                 return 0
             elif i == u - 1 and j == 0:
@@ -560,11 +574,34 @@ class XF_MSH(object):
                 else:
                     raise ValueError('Invalid edge index: {}'.format(idx))
 
+        bc_flag = []
+        for blk in blk_list:
+            cu = blk.shape[0]
+            cv = blk.shape[1]
+            cur_pnt_num = boundary_pnt_num(cu, cv)
+            flag_ary = np.full(cur_pnt_num, -1, int)
+            bc_flag.append(flag_ary)
+
+        pnt_list = np.zeros((pnt_num, dimension))
+        pnt_idx = 0
+
+        def get_edge_idx(i, j, u, v):
+            ans = []
+            if i == 0:
+                ans.append(2)
+            if i == u - 1:
+                ans.append(4)
+            if j == 0:
+                ans.append(1)
+            if j == v - 1:
+                ans.append(3)
+
+            return ans
+
         def get_counterpart_idx(k1, e1, i, j, k2, e2, r):
             u1, v1 = blk_shape[k1]
             u2, v2 = blk_shape[k2]
 
-            t = 0
             if e1 in (1, 3):
                 t = u1 - 1 - i if r else i
             elif e1 in (2, 4):
@@ -587,62 +624,84 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid counterpart edge index: {}".format(e2))
 
-            return bc_pnt_idx(ii, jj, u2, v2)
+            return boundary_pnt_idx(ii, jj, u2, v2)
 
-        ck = 0
-        for blk in blk_list:
+        '''Handling internal points first'''
+        internal_pnt_start = np.zeros(blk_num + 1, int)
+        for k, blk in enumerate(blk_list):
             cu = blk.shape[0]
             cv = blk.shape[1]
+            for j in range(1, cv - 1):
+                for i in range(1, cu - 1):
+                    cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
+                    pnt_idx += 1
+            internal_pnt_start[k + 1] = internal_pnt_start[k] + pnt_idx
 
-            for j in range(cv):
-                for i in range(cu):
-                    if is_boundary_pnt(i, j, cu, cv):
-                        '''Check if has already been marked'''
-                        self_idx = bc_pnt_idx(i, j, cu, cv)
-                        if bc_flag[ck][self_idx] != -1:
-                            continue
+        '''Handling boundary points afterwards'''
+        for k, blk in enumerate(blk_list):
+            cu = blk.shape[0]
+            cv = blk.shape[1]
+            cn = boundary_pnt_num(cu, cv)
+            for w in range(cn):
+                if bc_flag[k][w] != -1:  # Has been marked
+                    continue
 
-                        '''Check if it's an interior pnt'''
-                        edge_idx = get_edge_idx(i, j, cu, cv)
-                        is_interior = False
-                        for e in edge_idx:
-                            if adj_desc[ck][e - 1].any():
-                                is_interior = True
-                                break
+                i, j = boundary_coordinate(w, cu, cv)
+                edge_idx = get_edge_idx(i, j, cu, cv)
 
-                        if is_interior:
-                            '''Inspect neighbours'''
-                            has_assigned = False
-                            cur_adj = []
-                            for e in edge_idx:
-                                k2, e2, r = adj_desc[ck][e - 1]
-                                cp_idx = get_counterpart_idx(ck, e, i, j, k2, e2, r)
-                                cur_adj.append((k2, cp_idx))
-                                if bc_flag[k2][cp_idx] != -1:
-                                    has_assigned = True
-                                    break
+                '''Check if it's an interior pnt'''
+                is_interior = False
+                for e in edge_idx:
+                    if adj_desc[k][e - 1][1] != 0:
+                        is_interior = True
+                        break
 
-                            if has_assigned:
-                                continue
-                            else:
-                                cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
+                if not is_interior:
+                    cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
+                    pnt_idx += 1
+                else:
+                    '''Inspect neighbours'''
+                    has_assigned = False
+                    cur_adj = []
+                    for e in edge_idx:
+                        k2, e2, r = adj_desc[k][e - 1]
+                        cp_idx = get_counterpart_idx(k, e, i, j, k2, e2, r)
+                        cur_adj.append((k2, cp_idx))
+                        if bc_flag[k2][cp_idx] != -1:
+                            bc_flag[k][w] = bc_flag[k2][cp_idx]
+                            has_assigned = True
+                            break
 
-                                '''Mark'''
-                                bc_flag[ck][self_idx] = pnt_idx
-                                for e in cur_adj:
-                                    bc_flag[e[0]][e[1]] = pnt_idx
-
-                                pnt_idx += 1
-
-                        else:
-                            cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
-                            pnt_idx += 1
-
-                    else:
-                        cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
+                    if not has_assigned:
+                        cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
+                        bc_flag[k][w] = pnt_idx
+                        for e in cur_adj:
+                            bc_flag[e[0]][e[1]] = pnt_idx
                         pnt_idx += 1
 
-            ck += 1
-
         '''Counting edges'''
-        zone_idx = 0
+
+        def blk_edge_num(u, v):
+            return (u - 1) * v + (v - 1) * u
+
+        def boundary_edge_num(u, v, e=None):
+            if e is None:
+                return 2 * (u + v) - 4
+            elif e in (1, 3):
+                return u - 1
+            elif e in (2, 4):
+                return v - 1
+            else:
+                raise ValueError("Invalid edge index when counting boundary edges, should be in (1, 2, 3, 4) but get {}".format(e))
+
+        edge_num = 0
+        for k in range(blk_num):
+            edge_num += blk_edge_num(blk_shape[k][0], blk_shape[1])
+
+        for entry in adj_info:
+            k1, e1 = entry[0]
+            cu, cv = blk_shape[k1]
+            edge_num -= boundary_edge_num(cu, cv, e1)
+
+        for k, blk in enumerate(blk_list):
+            pass
