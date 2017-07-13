@@ -323,6 +323,11 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid coordinates!")
 
+    @staticmethod
+    def dimensional_copy(dim, src, dst):
+        for i in range(dim):
+            dst[i] = src[i]
+
     @classmethod
     def from_str2d(cls, grid, bc=(BCType.Wall, BCType.VelocityInlet, BCType.Wall, BCType.Outflow)):
         """
@@ -343,8 +348,7 @@ class XF_MSH(object):
         NodeList = np.empty((NodeCnt, Dim), float)
         for j in range(V):
             for i in range(U):
-                for d in range(Dim):
-                    NodeList[k][d] = grid[i][j][d]  # 节点序号规定为沿x方向优先，依次递增
+                cls.dimensional_copy(Dim, grid[i][j], NodeList[k])  # 节点序号规定为沿x方向优先，依次递增
                 k += 1
 
         '''Face-C1'''
@@ -464,5 +468,181 @@ class XF_MSH(object):
         return msh
 
     @classmethod
-    def from_plot3d_2d(cls, p3d_grid):
-        pass
+    def from_str2d_multi(cls, blk_list, bc_list, adj_info):
+        """
+
+        :param blk_list:
+        :param bc_list:
+        :param adj_info:
+        :return:
+        """
+
+        dimension = 2
+        blk_num = len(blk_list)
+        blk_shape = np.empty((blk_num, 2), int)
+        cell_start = np.zeros(blk_num + 1, int)
+
+        '''Counting cells'''
+        ci = 0
+        for blk in blk_list:
+            blk_shape[ci] = blk.shape[:2]
+            cur_cell_cnt = (blk.shape[0] - 1) * (blk.shape[1] - 1)
+            cell_start[ci + 1] = cell_start[ci] + cur_cell_cnt
+
+        adj_desc = np.zeros((blk_num, 4, 3), int)
+        for entry in adj_info:
+            b1, e1 = entry[0]
+            b2, e2 = entry[1]
+            reverse = 1 if entry[2] else 0
+
+            adj_desc[b1][e1 - 1] = np.array([b2, e2, reverse], int)
+            adj_desc[b2][e2 - 1] = np.array([b1, e1, reverse], int)
+
+        '''Counting points'''
+        pnt_num = 0
+        for blk in blk_list:
+            pnt_num += blk.shape[0] * blk.shape[1]
+
+        def blk_edge_pnt(blk_idx, edge):
+            return blk_shape[blk_idx][0] if edge in (1, 3) else blk_shape[blk_idx][1]
+
+        for entry in adj_info:
+            b1, e1 = entry[0]
+            cur_pnt_num = blk_edge_pnt(b1, e1)
+            pnt_num -= cur_pnt_num
+
+        bc_flag = []
+        for blk in blk_list:
+            cu = blk.shape[0]
+            cv = blk.shape[1]
+            cur_pnt_num = 2 * (cu + cv - 2)
+            flag_ary = np.full(cur_pnt_num, -1, int)
+            bc_flag.append(flag_ary)
+
+        pnt_list = np.zeros((pnt_num, dimension))
+        pnt_idx = 0
+
+        def is_boundary_pnt(i, j, u, v):
+            return i in (0, u - 1) or j in (0, v - 1)
+
+        def get_edge_idx(i, j, u, v):
+            ans = []
+            if i == 0:
+                ans.append(2)
+            if i == u - 1:
+                ans.append(4)
+            if j == 0:
+                ans.append(1)
+            if j == v - 1:
+                ans.append(3)
+
+            return ans
+
+        def bc_pnt_idx(i, j, u, v):
+            if i == 0 and j == 0:
+                return 0
+            elif i == u - 1 and j == 0:
+                return u - 1
+            elif i == u - 1 and j == v - 1:
+                return u + v - 2
+            elif i == 0 and j == v - 1:
+                return 2 * u + v - 3
+            else:
+                idx = get_edge_idx(i, j, u, v)[0]
+                if idx == 1:
+                    return i
+                elif idx == 4:
+                    return u - 1 + j
+                elif idx == 3:
+                    return 2 * u + v - 3 - i
+                elif idx == 2:
+                    return 2 * (u + v) - 4 - j
+                else:
+                    raise ValueError('Invalid edge index: {}'.format(idx))
+
+        def get_counterpart_idx(k1, e1, i, j, k2, e2, r):
+            u1, v1 = blk_shape[k1]
+            u2, v2 = blk_shape[k2]
+
+            t = 0
+            if e1 in (1, 3):
+                t = u1 - 1 - i if r else i
+            elif e1 in (2, 4):
+                t = v1 - 1 - j if r else j
+            else:
+                raise ValueError('Invalid edge index: {}'.format(e1))
+
+            ii = 0
+            jj = 0
+            if e2 == 1:
+                ii = t
+            elif e2 == 2:
+                jj = t
+            elif e2 == 3:
+                ii = t
+                jj = v2 - 1
+            elif e2 == 4:
+                ii = u2 - 1
+                jj = t
+            else:
+                raise ValueError("Invalid counterpart edge index: {}".format(e2))
+
+            return bc_pnt_idx(ii, jj, u2, v2)
+
+        ck = 0
+        for blk in blk_list:
+            cu = blk.shape[0]
+            cv = blk.shape[1]
+
+            for j in range(cv):
+                for i in range(cu):
+                    if is_boundary_pnt(i, j, cu, cv):
+                        '''Check if has already been marked'''
+                        self_idx = bc_pnt_idx(i, j, cu, cv)
+                        if bc_flag[ck][self_idx] != -1:
+                            continue
+
+                        '''Check if it's an interior pnt'''
+                        edge_idx = get_edge_idx(i, j, cu, cv)
+                        is_interior = False
+                        for e in edge_idx:
+                            if adj_desc[ck][e - 1].any():
+                                is_interior = True
+                                break
+
+                        if is_interior:
+                            '''Inspect neighbours'''
+                            has_assigned = False
+                            cur_adj = []
+                            for e in edge_idx:
+                                k2, e2, r = adj_desc[ck][e - 1]
+                                cp_idx = get_counterpart_idx(ck, e, i, j, k2, e2, r)
+                                cur_adj.append((k2, cp_idx))
+                                if bc_flag[k2][cp_idx] != -1:
+                                    has_assigned = True
+                                    break
+
+                            if has_assigned:
+                                continue
+                            else:
+                                cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
+
+                                '''Mark'''
+                                bc_flag[ck][self_idx] = pnt_idx
+                                for e in cur_adj:
+                                    bc_flag[e[0]][e[1]] = pnt_idx
+
+                                pnt_idx += 1
+
+                        else:
+                            cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
+                            pnt_idx += 1
+
+                    else:
+                        cls.dimensional_copy(dimension, blk[i][j], pnt_list[pnt_idx])
+                        pnt_idx += 1
+
+            ck += 1
+
+        '''Counting edges'''
+        zone_idx = 0

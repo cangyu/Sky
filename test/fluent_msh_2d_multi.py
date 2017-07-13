@@ -47,14 +47,8 @@ def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
     grid1 = Linear_TFI_2D(c0, c2, c1, c3)
     ppu1, ppv1 = np.meshgrid(pu[0], pu[1], indexing='ij')
     grid1.calc_grid(ppu1, ppv1)
-    '''
-    laplace_grid1 = Laplace2D(grid1.get_grid())
-    laplace_grid1.calc_grid()
-    '''
     tm_grid1 = ThomasMiddlecoff2D(grid1.get_grid())
     tm_grid1.calc_grid()
-    fmg1 = XF_MSH.from_str2d(tm_grid1.get_grid())
-    fmg1.save('test.msh')
 
     """翼型后缘上部"""
     grid2 = Linear_TFI_2D(c6, c4, c7, c2)
