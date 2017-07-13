@@ -62,13 +62,7 @@ class PLOT3D_Block(object):
         """
 
         self.index = idx
-        self.data = np.empty(pts.shape, float, order='F')
-
-        for d in range(4):
-            for k in range(self.K):
-                for j in range(self.J):
-                    for i in range(self.I):
-                        self.data[i][j][k][d] = pts[i][j][k][d]
+        self.data = np.copy(pts)
 
     @property
     def I(self):
