@@ -474,7 +474,7 @@ class XF_MSH(object):
         并赋予给定的边界条件, 类似于ICEM中的'Convert to unstructured mesh'功能
         :param blk_list: 单块结构网格序列
         :param bc_list: 依次包括每个单块结构网格的BC
-        :param adj_info: 依次每个单块结构网格的邻接关系序列
+        :param adj_info: 依次包括每个单块结构网格的邻接关系序列
         :return: 可用于后续生成msh文件的XF_MSH对象
         :rtype: XF_MSH
         """
@@ -584,6 +584,68 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid counterpart edge index: {}".format(e2))
             return boundary_pnt_idx(ii, jj, u2, v2)
+
+        def boundary_cell_list(k, e):
+            u, v = blk_shape[k]
+            if e == 1:
+                start = cell_start[k]
+                end = start + (u - 1)
+                gap = 1
+            elif e == 2:
+                start = cell_start[k]
+                end = start + (u - 1) * (v - 2)
+                gap = u - 1
+            elif e == 3:
+                start = cell_start[k] + (u - 1) * (v - 2)
+                end = cell_start[k] + (u - 1) * (v - 1) - 1
+                gap = 1
+            elif e == 4:
+                start = cell_start[k] + (u - 2)
+                end = cell_start[k] + (u - 1) * (v - 1) - 1
+                gap = u - 1
+            else:
+                raise ValueError("Invalid edge index!")
+
+            return np.arange(start, end, gap, dtype=int)
+
+        def boundary_pnt_idx_list(k, e):
+            if e == 1:
+                return bc_flag[k][:u]
+            elif e == 2:
+                return bc_flag[k][u - 1:u + v - 1]
+            elif e == 3:
+                return bc_flag[k][2 * u + v - 3:u + v - 3:-1]
+            elif e == 4:
+                ans = np.array([bc_flag[k][0]])
+                ans = np.append(ans, bc_flag[k][2 * u + v - 3:2 * u + 2 * v - 3:-1])
+                return ans
+            else:
+                raise ValueError("Invalid edge index!")
+
+        def handle_interior_edge(k1, e1, k2, e2, r):
+            bc1 = boundary_cell_list(k1, e1)
+            bc2 = boundary_cell_list(k2, e2)
+            if r:
+                bc2 = bc2[::-1]
+
+            cn = blk_edge_pnt(k1, e1)
+            cur_boundary_edge = np.empty((cn, 4), int)
+            pnt_idx_list = boundary_pnt_idx_list(k1, e1)
+            for i in range(cn):
+                n1 = pnt_idx_list[i]
+                n2 = pnt_idx_list[i + 1]
+                if e1 in (1, 4):
+                    cl = bc1[i]
+                    cr = bc2[i]
+                elif e1 in (2, 3):
+                    cl = bc2[i]
+                    cr = bc1[i]
+                else:
+                    raise ValueError("Invalid edge index!")
+
+                cur_boundary_edge[i] = np.array([n1, n2, cl, cr], int)
+
+            return cur_boundary_edge
 
         '''Set up basic variables'''
         dimension = 2
@@ -766,5 +828,20 @@ class XF_MSH(object):
             cur_edge_first = next_edge_first
 
         '''Handle interior boundary'''
+        for k, entry in enumerate(adj_info):
+            k1, e1 = entry[0]
+            k2, e2 = entry[1]
+            reverse = entry[2]
+            cur_edge_list = handle_interior_edge(k1, e1, k2, e2, reverse)
 
+            '''Flush interior edges into MSH file'''
+            next_edge_first = cur_edge_first + len(cur_edge_list)
+            msh.add_section(XF_Comment("Interior edge {}:".format(k)))
+            zone_idx += 1
+            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, BCType.Interior, FaceType.Linear, cur_edge_list))
+            msh.add_blank()
+            cur_edge_first = next_edge_first
 
+        '''Handle non-adjacent boundary'''
+        for k in range(blk_num):
+            pass
