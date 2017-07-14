@@ -479,78 +479,30 @@ class XF_MSH(object):
         :rtype: XF_MSH
         """
 
-        '''Set up basic variables'''
-        dimension = 2
-        blk_num = len(blk_list)
-        blk_shape = np.empty((blk_num, 2), int)
-        adj_desc = np.zeros((blk_num, 4, 3), int)
-
-        for k, blk in enumerate(blk_list):
-            blk_shape[k] = blk.shape[:2]
-
-        for entry in adj_info:
-            b1, e1 = entry[0]
-            b2, e2 = entry[1]
-            reverse = 1 if entry[2] else 0
-
-            adj_desc[b1][e1 - 1] = np.array([b2, e2, reverse], int)
-            adj_desc[b2][e2 - 1] = np.array([b1, e1, reverse], int)
-
-        '''Initialize MSH file'''
-        msh = cls()
-        zone_idx = 0
-        msh.add_section(XF_Header())
-        msh.add_blank()
-
-        msh.add_section(XF_Comment("Dimension:"))
-        msh.add_section(XF_Dimension(dimension))
-        msh.add_blank()
-
-        '''Counting cells'''
-        cell_start = np.zeros(blk_num + 1, int)
-
         def cell_num(u, v):
             return (u - 1) * (v - 1)
 
-        for k in range(blk_num):
-            cur_cell_cnt = cell_num(blk.shape[0], blk.shape[1])
-            cell_start[k + 1] = cell_start[k] + cur_cell_cnt
+        def blk_edge_num(u, v):
+            return (u - 1) * v + (v - 1) * u
 
-        '''Flush cell info to MSH file'''
-        msh.add_section(XF_Comment("Cell part:"))
-        msh.add_section(XF_Cell.declaration(cell_start[-1]))
-        zone_idx += 1
-        msh.add_section(XF_Cell(zone_idx, 1, cell_start[-1], CellType.Fluid, CellElement.Quadrilateral))
-        msh.add_blank()
+        def internal_edge_num(u, v):
+            return (u - 2) * (v - 1) + (v - 2) * (u - 1)
 
-        '''Counting points'''
-        pnt_num = 0
-        for blk in blk_list:
-            pnt_num += blk.shape[0] * blk.shape[1]
+        def boundary_edge_num(u, v, e=None):
+            if e is None:
+                return 2 * (u + v) - 4
+            elif e in (1, 3):
+                return u - 1
+            elif e in (2, 4):
+                return v - 1
+            else:
+                raise ValueError("Invalid edge index when counting boundary edges, should be in (1, 2, 3, 4) but get {}".format(e))
 
-        def blk_edge_pnt(blk_idx, edge):
-            return blk_shape[blk_idx][0] if edge in (1, 3) else blk_shape[blk_idx][1]
-
-        for entry in adj_info:
-            b1, e1 = entry[0]
-            cur_pnt_num = blk_edge_pnt(b1, e1)
-            pnt_num -= cur_pnt_num
+        def is_boundary_pnt(i, j, u, v):
+            return i in (0, u - 1) or j in (0, v - 1)
 
         def boundary_pnt_num(u, v):
             return 2 * (u + v - 2)
-
-        def boundary_coordinate(idx, u, v):
-            s1, s2, s3, s4 = u - 1, u + v - 2, 2 * u + v - 3, boundary_pnt_num(u, v)
-            if idx < s1:
-                return idx, 0
-            elif idx < s2:
-                return s1, idx - s1
-            elif idx < s3:
-                return s3 - idx, v - 1
-            elif idx < s4:
-                return 0, s4 - idx
-            else:
-                raise ValueError("Boundary point {} goes beyond maximum index of current block".format(idx))
 
         def boundary_pnt_idx(i, j, u, v):
             if i == 0 and j == 0:
@@ -574,16 +526,29 @@ class XF_MSH(object):
                 else:
                     raise ValueError('Invalid edge index: {}'.format(idx))
 
-        bc_flag = []
-        for blk in blk_list:
-            cu = blk.shape[0]
-            cv = blk.shape[1]
-            cur_pnt_num = boundary_pnt_num(cu, cv)
-            flag_ary = np.full(cur_pnt_num, -1, int)
-            bc_flag.append(flag_ary)
+        def get_pnt_idx(i, j, u, v, k):
+            if is_boundary_pnt(i, j, u, v):
+                idx = boundary_pnt_idx(i, j, u, v)
+                return bc_flag[k][idx]
+            else:
+                rel = (j - 1) * (cu - 2) + (i - 1)
+                return internal_pnt_start[k] + rel
 
-        pnt_list = np.zeros((pnt_num, dimension))
-        pnt_idx = 0
+        def boundary_coordinate(idx, u, v):
+            s1, s2, s3, s4 = u - 1, u + v - 2, 2 * u + v - 3, boundary_pnt_num(u, v)
+            if idx < s1:
+                return idx, 0
+            elif idx < s2:
+                return s1, idx - s1
+            elif idx < s3:
+                return s3 - idx, v - 1
+            elif idx < s4:
+                return 0, s4 - idx
+            else:
+                raise ValueError("Boundary point {} goes beyond maximum index of current block".format(idx))
+
+        def blk_edge_pnt(blk_idx, edge):
+            return blk_shape[blk_idx][0] if edge in (1, 3) else blk_shape[blk_idx][1]
 
         def get_edge_idx(i, j, u, v):
             ans = []
@@ -595,7 +560,6 @@ class XF_MSH(object):
                 ans.append(1)
             if j == v - 1:
                 ans.append(3)
-
             return ans
 
         def get_counterpart_idx(k1, e1, i, j, k2, e2, r):
@@ -609,22 +573,80 @@ class XF_MSH(object):
             else:
                 raise ValueError('Invalid edge index: {}'.format(e1))
 
-            ii = 0
-            jj = 0
             if e2 == 1:
-                ii = t
+                ii, jj = t, 0
             elif e2 == 2:
-                jj = t
+                ii, jj = 0, t
             elif e2 == 3:
-                ii = t
-                jj = v2 - 1
+                ii, jj = t, v2 - 1
             elif e2 == 4:
-                ii = u2 - 1
-                jj = t
+                ii, jj = u2 - 1, t
             else:
                 raise ValueError("Invalid counterpart edge index: {}".format(e2))
-
             return boundary_pnt_idx(ii, jj, u2, v2)
+
+        '''Set up basic variables'''
+        dimension = 2
+        blk_num = len(blk_list)
+        blk_shape = np.empty((blk_num, 2), int)
+        adj_desc = np.zeros((blk_num, 4, 3), int)
+
+        for k, blk in enumerate(blk_list):
+            blk_shape[k] = blk.shape[:2]
+
+        for entry in adj_info:
+            b1, e1 = entry[0]
+            b2, e2 = entry[1]
+            reverse = 1 if entry[2] else 0
+            adj_desc[b1][e1 - 1] = np.array([b2, e2, reverse], int)
+            adj_desc[b2][e2 - 1] = np.array([b1, e1, reverse], int)
+
+        '''Initialize MSH file'''
+        msh = cls()
+        zone_idx = 0
+        msh.add_section(XF_Header())
+        msh.add_blank()
+
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(dimension))
+        msh.add_blank()
+
+        '''Counting cells'''
+        cell_start = np.zeros(blk_num + 1, int)
+        for k in range(blk_num):
+            cur_cell_cnt = cell_num(blk.shape[0], blk.shape[1])
+            cell_start[k + 1] = cell_start[k] + cur_cell_cnt
+
+        '''Flush cell info to MSH file'''
+        msh.add_section(XF_Comment("Cell Declaration:"))
+        msh.add_section(XF_Cell.declaration(cell_start[-1]))
+        msh.add_blank()
+
+        zone_idx += 1
+        msh.add_section(XF_Comment("Cell Info:"))
+        msh.add_section(XF_Cell(zone_idx, 1, cell_start[-1], CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_blank()
+
+        '''Counting points'''
+        pnt_num = 0
+        for blk in blk_list:
+            pnt_num += blk.shape[0] * blk.shape[1]
+
+        for entry in adj_info:
+            b1, e1 = entry[0]
+            cur_pnt_num = blk_edge_pnt(b1, e1)
+            pnt_num -= cur_pnt_num
+
+        bc_flag = []
+        for blk in blk_list:
+            cu = blk.shape[0]
+            cv = blk.shape[1]
+            cur_pnt_num = boundary_pnt_num(cu, cv)
+            flag_ary = np.full(cur_pnt_num, -1, int)
+            bc_flag.append(flag_ary)
+
+        pnt_list = np.zeros((pnt_num, dimension))
+        pnt_idx = 0
 
         '''Handling internal points first'''
         internal_pnt_start = np.zeros(blk_num + 1, int)
@@ -679,31 +701,20 @@ class XF_MSH(object):
                             bc_flag[e[0]][e[1]] = pnt_idx
                         pnt_idx += 1
 
-        '''Flush cell info to MSH file'''
-        msh.add_section(XF_Comment("Point part:"))
+        '''Flush point info to MSH file'''
+        msh.add_section(XF_Comment("Point Declaration:"))
         msh.add_section(XF_Node.declaration(pnt_num, dimension))
+        msh.add_blank()
+
         zone_idx += 1
+        msh.add_section(XF_Comment("Point Coordinates:"))
         msh.add_section(XF_Node(zone_idx, 1, pnt_num, NodeType.Any, dimension, pnt_list))
         msh.add_blank()
 
         '''Counting edges'''
         edge_num = 0
-
-        def blk_edge_num(u, v):
-            return (u - 1) * v + (v - 1) * u
-
-        def boundary_edge_num(u, v, e=None):
-            if e is None:
-                return 2 * (u + v) - 4
-            elif e in (1, 3):
-                return u - 1
-            elif e in (2, 4):
-                return v - 1
-            else:
-                raise ValueError("Invalid edge index when counting boundary edges, should be in (1, 2, 3, 4) but get {}".format(e))
-
         for k in range(blk_num):
-            edge_num += blk_edge_num(blk_shape[k][0], blk_shape[1])
+            edge_num += blk_edge_num(blk_shape[k][0], blk_shape[k][1])
 
         for entry in adj_info:
             k1, e1 = entry[0]
@@ -711,10 +722,49 @@ class XF_MSH(object):
             edge_num -= boundary_edge_num(cu, cv, e1)
 
         '''Flush edge declaration to MSH file'''
-        msh.add_section(XF_Comment("Edge part:"))
+        msh.add_section(XF_Comment("Edge Declaration:"))
         msh.add_section(XF_Face.declaration(edge_num))
+        msh.add_blank()
 
         '''Handle internal edges in each blk'''
+        cur_edge_first = 1
         for k, blk in enumerate(blk_list):
             cu, cv = blk_shape[k]
-            pass
+            cn = internal_edge_num(cu, cv)
+            cur_inter_edge = np.empty((cn, 4), int)
+            ce = 0
+            ts = cell_start[k]
+
+            '''Horizontal'''
+            for j in range(1, cv - 1):
+                for i in range(cu - 1):
+                    n1 = get_pnt_idx(i, j, cu, cv, k)
+                    n2 = get_pnt_idx(i + 1, j, cu, cv, k)
+                    cl, cr = XF_MSH.intersect((i, j), (i + 1, j), cu, cv)
+                    cl += ts
+                    cr += ts
+                    cur_inter_edge[ce] = np.array([n1, n2, cl, cr], int)
+                    ce += 1
+
+            '''Vertical'''
+            for i in range(1, cu - 1):
+                for j in range(cv - 1):
+                    n1 = get_pnt_idx(i, j, cu, cv, k)
+                    n2 = get_pnt_idx(i, j + 1, cu, cv, k)
+                    cl, cr = XF_MSH.intersect((i, j), (i, j + 1), cu, cv)
+                    cl += ts
+                    cr += ts
+                    cur_inter_edge[ce] = np.array([n1, n2, cl, cr], int)
+                    ce += 1
+
+            '''Flush internal edges into MSH file'''
+            next_edge_first = cur_edge_first + ce
+            msh.add_section(XF_Comment("Block {} internal edges:".format(k)))
+            zone_idx += 1
+            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, BCType.Interior, FaceType.Linear, cur_inter_edge))
+            msh.add_blank()
+            cur_edge_first = next_edge_first
+
+        '''Handle interior boundary'''
+
+
