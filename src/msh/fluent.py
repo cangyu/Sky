@@ -679,7 +679,15 @@ class XF_MSH(object):
                             bc_flag[e[0]][e[1]] = pnt_idx
                         pnt_idx += 1
 
+        '''Flush cell info to MSH file'''
+        msh.add_section(XF_Comment("Point part:"))
+        msh.add_section(XF_Node.declaration(pnt_num, dimension))
+        zone_idx += 1
+        msh.add_section(XF_Node(zone_idx, 1, pnt_num, NodeType.Any, dimension, pnt_list))
+        msh.add_blank()
+
         '''Counting edges'''
+        edge_num = 0
 
         def blk_edge_num(u, v):
             return (u - 1) * v + (v - 1) * u
@@ -694,7 +702,6 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid edge index when counting boundary edges, should be in (1, 2, 3, 4) but get {}".format(e))
 
-        edge_num = 0
         for k in range(blk_num):
             edge_num += blk_edge_num(blk_shape[k][0], blk_shape[1])
 
@@ -703,5 +710,11 @@ class XF_MSH(object):
             cu, cv = blk_shape[k1]
             edge_num -= boundary_edge_num(cu, cv, e1)
 
+        '''Flush edge declaration to MSH file'''
+        msh.add_section(XF_Comment("Edge part:"))
+        msh.add_section(XF_Face.declaration(edge_num))
+
+        '''Handle internal edges in each blk'''
         for k, blk in enumerate(blk_list):
+            cu, cv = blk_shape[k]
             pass
