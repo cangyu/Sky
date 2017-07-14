@@ -631,19 +631,14 @@ class XF_MSH(object):
             cn = blk_edge_pnt(k1, e1)
             cur_boundary_edge = np.empty((cn, 4), int)
             pnt_idx_list = boundary_pnt_idx_list(k1, e1)
-            for i in range(cn):
-                n1 = pnt_idx_list[i]
-                n2 = pnt_idx_list[i + 1]
-                if e1 in (1, 4):
-                    cl = bc1[i]
-                    cr = bc2[i]
-                elif e1 in (2, 3):
-                    cl = bc2[i]
-                    cr = bc1[i]
-                else:
-                    raise ValueError("Invalid edge index!")
-
-                cur_boundary_edge[i] = np.array([n1, n2, cl, cr], int)
+            if e1 in (1, 4):
+                for i in range(cn):
+                    cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc1[i], bc2[i]], int)
+            elif e1 in (2, 3):
+                for i in range(cn):
+                    cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc2[i], bc1[i]], int)
+            else:
+                raise ValueError("Invalid edge index!")
 
             return cur_boundary_edge
 
@@ -843,5 +838,30 @@ class XF_MSH(object):
             cur_edge_first = next_edge_first
 
         '''Handle non-adjacent boundary'''
+        be = 0
         for k in range(blk_num):
-            pass
+            for e in range(1, 5):
+                if adj_desc[k][e - 1][1] == 0:
+                    be += 1
+                    cur_edge_cell = boundary_cell_list(k, e)
+                    cur_edge_pnt = boundary_pnt_idx_list(k, e)
+                    cn = blk_edge_pnt(k, e)
+                    cur_edge_list = np.empty((cn, 4), int)
+                    if e1 in (1, 4):
+                        for i in range(cn):
+                            cur_edge_list[i] = np.array([cur_edge_pnt[i], cur_edge_pnt[i + 1], cur_edge_cell[i], 0], int)
+                    elif e1 in (2, 3):
+                        for i in range(cn):
+                            cur_edge_list[i] = np.array([cur_edge_pnt[i], cur_edge_pnt[i + 1], 0, cur_edge_cell[i]], int)
+                    else:
+                        raise ValueError("Invalid edge index!")
+
+                    '''Flush non-adjacent edges into MSH file'''
+                    next_edge_first = cur_edge_first + len(cur_edge_list)
+                    msh.add_section(XF_Comment("Boundary edge {}:".format(be)))
+                    zone_idx += 1
+                    msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, bc_list[k][e - 1], FaceType.Linear, cur_edge_list))
+                    msh.add_blank()
+                    cur_edge_first = next_edge_first
+
+        return msh
