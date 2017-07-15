@@ -739,6 +739,15 @@ class XF_MSH(object):
             return boundary_pnt_idx(ii, jj, u2, v2)
 
         def boundary_cell_list(k, e):
+            """
+            某条边界上的Cell列表
+            :param k: Block序号，从0开始
+            :type k: int
+            :param e: 边序号，从1开始
+            :type e: int
+            :return: 第(k+1)个Block的第e条边上的Cell序号
+            """
+
             u, v = blk_shape[k]
             if e == 1:
                 start = cell_start[k]
@@ -746,15 +755,15 @@ class XF_MSH(object):
                 gap = 1
             elif e == 2:
                 start = cell_start[k]
-                end = start + (u - 1) * (v - 2)
+                end = start + (u - 1) * (v - 2) + 1
                 gap = u - 1
             elif e == 3:
                 start = cell_start[k] + (u - 1) * (v - 2)
-                end = cell_start[k] + (u - 1) * (v - 1) - 1
+                end = start + (u - 1)
                 gap = 1
             elif e == 4:
                 start = cell_start[k] + (u - 2)
-                end = cell_start[k] + (u - 1) * (v - 1) - 1
+                end = cell_start[k] + (u - 1) * (v - 1)
                 gap = u - 1
             else:
                 raise ValueError("Invalid edge index!")
@@ -762,21 +771,44 @@ class XF_MSH(object):
             return np.arange(start, end, gap, dtype=int)
 
         def boundary_pnt_idx_list(k, e):
+            """
+            :param k: Block序号，从0开始
+            :type k: int
+            :param e: 边序号，从1开始
+            :type e: int
+            :return: 第(k+1)个Block的第e条边上所有节点的序号
+            """
+
             u, v = blk_shape[k]
             if e == 1:
                 return bc_flag[k][:u]
             elif e == 2:
-                return bc_flag[k][u - 1:u + v - 1]
-            elif e == 3:
-                return bc_flag[k][2 * u + v - 3:u + v - 3:-1]
-            elif e == 4:
                 ans = np.array([bc_flag[k][0]])
-                ans = np.append(ans, bc_flag[k][2 * u + v - 3:2 * u + 2 * v - 3:-1])
+                ans = np.append(ans, bc_flag[k][2 * u + v - 3::-1])
                 return ans
+            elif e == 3:
+                return bc_flag[k][u + v - 2:2 * u + v - 2:-1]
+            elif e == 4:
+                return bc_flag[k][u - 1:u + v - 1]
             else:
                 raise ValueError("Invalid edge index!")
 
         def handle_interior_edge(k1, e1, k2, e2, r):
+            """
+            构建重合的Interior边的描述数组
+            :param k1: Block1的序号，从0开始
+            :type k1: int
+            :param e1: 该Interior边在Block1中的边序号，从1开始
+            :type e1: int
+            :param k2: Block2的序号，从0开始
+            :type k2: int
+            :param e2: 该Interior边在Block2中的边序号，从1开始
+            :type e2: int
+            :param r: 在两个Block中该Interior的方向是否相反
+            :type r: bool
+            :return: 表示该Interior边上所有Edge的邻接关系的数组
+            """
+
             bc1 = boundary_cell_list(k1, e1)
             bc2 = boundary_cell_list(k2, e2)
             if r:
