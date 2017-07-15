@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 
 
 class TFI(object):
@@ -7,6 +8,11 @@ class TFI(object):
 
     def get_grid(self):
         return self.grid
+
+    @staticmethod
+    def dimensional_copy(dst, src, dim):
+        for i in range(dim):
+            dst[i] = src[i]
 
 
 class Linear_TFI_2D(TFI):
@@ -21,15 +27,15 @@ class Linear_TFI_2D(TFI):
 
         super(Linear_TFI_2D, self).__init__()
 
-        self.c1 = c1
-        self.c2 = c2
-        self.c3 = c3
-        self.c4 = c4
+        self.c1 = deepcopy(c1)
+        self.c2 = deepcopy(c2)
+        self.c3 = deepcopy(c3)
+        self.c4 = deepcopy(c4)
 
-        self.P12 = c1(0)  # c1与c2交点
-        self.P14 = c1(1)  # c1与c4交点
-        self.P23 = c3(0)  # c2与c3交点
-        self.P34 = c3(1)  # c3与c4交点
+        self.P12 = self.c1(0)  # c1与c2交点
+        self.P14 = self.c1(1)  # c1与c4交点
+        self.P23 = self.c3(0)  # c2与c3交点
+        self.P34 = self.c3(1)  # c3与c4交点
 
         self.U = lambda u, v: (1 - u) * self.c2(v) + u * self.c4(v)
         self.V = lambda u, v: (1 - v) * self.c1(u) + v * self.c3(u)
@@ -60,7 +66,7 @@ class Linear_TFI_2D(TFI):
 
         for i in range(d1):
             for j in range(d2):
-                self.grid[i][j] = self.__call__(pu[i][j], pv[i][j])
+                TFI.dimensional_copy(self.grid[i][j], self.__call__(pu[i][j], pv[i][j]), 3)
 
 
 class Linear_TFI_3D(TFI):
@@ -77,25 +83,25 @@ class Linear_TFI_3D(TFI):
 
         super(Linear_TFI_3D, self).__init__()
 
-        self.s1 = s1
-        self.s2 = s2
-        self.s3 = s3
-        self.s4 = s4
-        self.s5 = s5
-        self.s6 = s6
+        self.s1 = deepcopy(s1)
+        self.s2 = deepcopy(s2)
+        self.s3 = deepcopy(s3)
+        self.s4 = deepcopy(s4)
+        self.s5 = deepcopy(s5)
+        self.s6 = deepcopy(s6)
 
-        self.c35 = lambda u: s5(u, 0)  # intersection of s5, s3
-        self.c15 = lambda v: s5(0, v)  # intersection of s5, s1
-        self.c45 = lambda u: s5(u, 1)  # intersection of s5, s4
-        self.c25 = lambda v: s5(1, v)  # intersection of s5, s2
-        self.c36 = lambda u: s6(u, 0)  # intersection of s6, s3
-        self.c16 = lambda v: s6(0, v)  # intersection of s6, s1
-        self.c46 = lambda u: s6(u, 1)  # intersection of s6, s4
-        self.c26 = lambda v: s6(1, v)  # intersection of s6, s2
-        self.c13 = lambda w: s3(w, 0)  # intersection of s1, s3
-        self.c23 = lambda w: s2(0, w)  # intersection of s3, s2
-        self.c24 = lambda w: s4(w, 1)  # intersection of s2, s4
-        self.c14 = lambda w: s1(1, w)  # intersection of s4, s1
+        self.c35 = lambda u: self.s5(u, 0)  # intersection of s5, s3
+        self.c15 = lambda v: self.s5(0, v)  # intersection of s5, s1
+        self.c45 = lambda u: self.s5(u, 1)  # intersection of s5, s4
+        self.c25 = lambda v: self.s5(1, v)  # intersection of s5, s2
+        self.c36 = lambda u: self.s6(u, 0)  # intersection of s6, s3
+        self.c16 = lambda v: self.s6(0, v)  # intersection of s6, s1
+        self.c46 = lambda u: self.s6(u, 1)  # intersection of s6, s4
+        self.c26 = lambda v: self.s6(1, v)  # intersection of s6, s2
+        self.c13 = lambda w: self.s3(w, 0)  # intersection of s1, s3
+        self.c23 = lambda w: self.s2(0, w)  # intersection of s3, s2
+        self.c24 = lambda w: self.s4(w, 1)  # intersection of s2, s4
+        self.c14 = lambda w: self.s1(1, w)  # intersection of s4, s1
 
         self.p135 = self.c13(0)  # intersection of s1, s3, s5
         self.p235 = self.c23(0)  # intersection of s2, s3, s5
@@ -143,4 +149,4 @@ class Linear_TFI_3D(TFI):
         for i in range(d1):
             for j in range(d2):
                 for k in range(d3):
-                    self.grid[i][j][k] = self.__call__(pu[i][j][k], pv[i][j][k], pw[i][j][k])
+                    TFI.dimensional_copy(self.grid[i][j][k], self.__call__(pu[i][j][k], pv[i][j][k], pw[i][j][k]), 3)
