@@ -858,7 +858,8 @@ class XF_MSH(object):
         cell_start = np.empty(total_blk + 1, int)
         cell_start[0] = 1
         for k in range(total_blk):
-            cur_cell_cnt = cell_num(blk.shape[0], blk.shape[1])
+            cu, cv = blk_shape[k]
+            cur_cell_cnt = cell_num(cu, cv)
             cell_start[k + 1] = cell_start[k] + cur_cell_cnt
         total_cell = cell_start[-1] - 1
 
@@ -874,8 +875,8 @@ class XF_MSH(object):
 
         '''Counting points'''
         total_pnt = 0
-        for blk in blk_list:
-            total_pnt += blk.shape[0] * blk.shape[1]
+        for k in range(total_blk):
+            total_pnt += blk_shape[k][0] * blk_shape[k][1]
 
         for entry in adj_info:
             b1, e1 = entry[0]

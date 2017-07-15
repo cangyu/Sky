@@ -10,7 +10,7 @@ class TFI(object):
         return self.grid
 
     @staticmethod
-    def dimensional_copy(dst, src, dim):
+    def dimensional_copy(dst, src, dim: int):
         for i in range(dim):
             dst[i] = src[i]
 
@@ -41,7 +41,7 @@ class Linear_TFI_2D(TFI):
         self.V = lambda u, v: (1 - v) * self.c1(u) + v * self.c3(u)
         self.UV = lambda u, v: (1 - u) * (1 - v) * self.P12 + u * v * self.P34 + (1 - u) * v * self.P23 + (1 - v) * u * self.P14
 
-    def __call__(self, u, v):
+    def __call__(self, u: float, v: float):
         """
         曲面在(u,v)处的坐标
         """
