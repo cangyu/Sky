@@ -480,31 +480,122 @@ class XF_MSH(object):
         """
 
         def cell_num(u, v):
+            """
+            计算单个Block中的Cell数量
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: (U,V)方向上长度分别为(u,v)的Block的Cell数量
+            :rtype: int
+            """
+
             return (u - 1) * (v - 1)
 
-        def blk_edge_num(u, v):
+        def edge_num(u, v):
+            """
+            计算单个Block中的Edge数量
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: (U,V)方向上长度分别为(u,v)的Block的Edge数量
+            :rtype: int
+            """
+
             return (u - 1) * v + (v - 1) * u
 
         def internal_edge_num(u, v):
+            """
+            Block内部Edge数量
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: (U,V)方向上长度分别为(u,v)的Block的内部所有Edge数量
+            :rtype: int
+            """
+
             return (u - 2) * (v - 1) + (v - 2) * (u - 1)
 
         def boundary_edge_num(u, v, e=None):
+            """
+            计算Block指定边上的Edge数量
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :param e: 边序号，从1开始，若为None则表示计算4条边界上的Edge数量
+            :return: (U,V)方向上长度分别为(u,v)的Block的第e条边上的Edge数量
+            """
+
             if e is None:
-                return 2 * (u + v) - 4
+                return 2 * (u + v - 2)  # all boundary edge num
             elif e in (1, 3):
                 return u - 1
             elif e in (2, 4):
                 return v - 1
             else:
-                raise ValueError("Invalid edge index when counting boundary edges, should be in (1, 2, 3, 4) but get {}".format(e))
+                raise ValueError("Invalid edge index {}".format(e))
+
+        def blk_edge_pnt(blk_idx, edge):
+            """
+            给定Block序号和边的序号，计算其上节点数量
+            :param blk_idx: Block序号，从0开始
+            :type blk_idx: int
+            :param edge: 边的序号，从1开始
+            :type edge: int
+            :return: 第blk_idx个Block的第edge条边上节点的数量
+            :rtype: int
+            """
+
+            return blk_shape[blk_idx][0] if edge in (1, 3) else blk_shape[blk_idx][1]
 
         def is_boundary_pnt(i, j, u, v):
+            """
+            判断点是否是边界点
+            :param i: 目标点U方向下标
+            :type i: int
+            :param j: 目标点V方向下标
+            :type j: int
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: 在(U,V)方向长度分别为(u,v)的Block的边界上，点(i,j)是否在其边界上
+            :rtype: bool
+            """
+
             return i in (0, u - 1) or j in (0, v - 1)
 
         def boundary_pnt_num(u, v):
+            """
+            计算Block最外层上的节点数量
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: Block最外层上的节点数量
+            :rtype: int
+            """
+
             return 2 * (u + v - 2)
 
         def boundary_pnt_idx(i, j, u, v):
+            """
+            根据坐标计算边界点的序号
+            :param i: 目标点U方向下标
+            :type i: int
+            :param j: 目标点V方向下标
+            :type j: int
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: 在(U,V)方向长度分别为(u,v)的Block的边界上，点(i,j)的序号，从0开始
+            :rtype: int
+            """
+
             if i == 0 and j == 0:
                 return 0
             elif i == u - 1 and j == 0:
@@ -526,32 +617,71 @@ class XF_MSH(object):
                 else:
                     raise ValueError('Invalid edge index: {}'.format(idx))
 
-        def get_pnt_idx(i, j, u, v, k):
+        def get_pnt_idx(i, j, k):
+            """
+            求给定点在本程序的编号规则下的序号
+            :param i: 目标点U方向下标
+            :type i: int
+            :param j: 目标点V方向下标
+            :type j: int
+            :param k: Block序号
+            :type k: int
+            :return: 第(k+1)个Block中点(i,j)在本程序的编号规则下的序号
+            :rtype: int
+            """
+
+            u, v = blk_shape[k]
             if is_boundary_pnt(i, j, u, v):
                 idx = boundary_pnt_idx(i, j, u, v)
                 return bc_flag[k][idx]
             else:
-                rel = (j - 1) * (cu - 2) + (i - 1)
+                rel = (j - 1) * (u - 2) + (i - 1)
                 return internal_pnt_start[k] + rel
 
         def boundary_coordinate(idx, u, v):
+            """
+            给定边界点序号反算其坐标
+            边界点序号定义为从原点开始，按逆时针方向依次遍历4条边界上的所有点
+            :param idx: 边界点序号，从0开始
+            :type idx: int
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: 在(U,V)方向上长度分别为(u,v)的Block上，其边界上第(idx+1)个点的坐标
+            """
+
             s1, s2, s3, s4 = u - 1, u + v - 2, 2 * u + v - 3, boundary_pnt_num(u, v)
+
+            if idx < 0 or idx >= s4:
+                raise ValueError("Invalid boundary point index: {}".format(idx))
+
             if idx < s1:
                 return idx, 0
             elif idx < s2:
                 return s1, idx - s1
             elif idx < s3:
                 return s3 - idx, v - 1
-            elif idx < s4:
-                return 0, s4 - idx
             else:
-                raise ValueError("Boundary point {} goes beyond maximum index of current block".format(idx))
-
-        def blk_edge_pnt(blk_idx, edge):
-            return blk_shape[blk_idx][0] if edge in (1, 3) else blk_shape[blk_idx][1]
+                return 0, s4 - idx
 
         def get_edge_idx(i, j, u, v):
+            """
+            根据坐标计算目标点在哪条边上
+            若是角点则有2条边，若是其它边界点则有1条边，否则为空
+            :param i: 目标点U方向下标
+            :type i: int
+            :param j: 目标点V方向下标
+            :type j: int
+            :param u: U方向节点数
+            :type u: int
+            :param v: V方向节点数
+            :type v: int
+            :return: 在(U,V)方向上长度分别为(u,v)的Block上，点(i,j)所处边的序号列表，从1开始
+            """
+
             ans = []
+
             if i == 0:
                 ans.append(2)
             if i == u - 1:
@@ -560,9 +690,31 @@ class XF_MSH(object):
                 ans.append(1)
             if j == v - 1:
                 ans.append(3)
+
             return ans
 
         def get_counterpart_idx(k1, e1, i, j, k2, e2, r):
+            """
+            给定Block1上的点和该点对应的边序号，根据邻接关系求出与该边对应的Block2上对应边上的点在Block2边界上的序号
+            先计算对应点的坐标，再将坐标转换成序号
+            :param k1: Block1序号，从0开始
+            :type k1: int
+            :param e1: Block1上边界点所在的边序号，从1开始
+            :type k1: int
+            :param i: Block1上边界点U方向下标
+            :type k1: int
+            :param j: Block1上边界点V方向下标
+            :type k1: int
+            :param k2: Block1序号，从0开始
+            :type k1: int
+            :param e2: Block2上对应边的序号，从1开始
+            :type k1: int
+            :param r: 是否反向: 1 - Reverse, 0 - Not Reverse
+            :type k1: int
+            :return: 给定第(k1+1)个Block上第e1条边上的点(i,j), 计算在第(k2+1)个Block的第e2条边上所对应的点在该Block上的序号
+            :rtype: int
+            """
+
             u1, v1 = blk_shape[k1]
             u2, v2 = blk_shape[k2]
 
@@ -583,6 +735,7 @@ class XF_MSH(object):
                 ii, jj = u2 - 1, t
             else:
                 raise ValueError("Invalid counterpart edge index: {}".format(e2))
+
             return boundary_pnt_idx(ii, jj, u2, v2)
 
         def boundary_cell_list(k, e):
@@ -609,6 +762,7 @@ class XF_MSH(object):
             return np.arange(start, end, gap, dtype=int)
 
         def boundary_pnt_idx_list(k, e):
+            u, v = blk_shape[k]
             if e == 1:
                 return bc_flag[k][:u]
             elif e == 2:
@@ -644,9 +798,9 @@ class XF_MSH(object):
 
         '''Set up basic variables'''
         dimension = 2
-        blk_num = len(blk_list)
-        blk_shape = np.empty((blk_num, 2), int)
-        adj_desc = np.zeros((blk_num, 4, 3), int)
+        total_blk = len(blk_list)
+        blk_shape = np.empty((total_blk, 2), int)
+        adj_desc = np.zeros((total_blk, 4, 3), int)
 
         for k, blk in enumerate(blk_list):
             blk_shape[k] = blk.shape[:2]
@@ -669,57 +823,63 @@ class XF_MSH(object):
         msh.add_blank()
 
         '''Counting cells'''
-        cell_start = np.zeros(blk_num + 1, int)
-        for k in range(blk_num):
+        cell_start = np.empty(total_blk + 1, int)
+        cell_start[0] = 1
+        for k in range(total_blk):
             cur_cell_cnt = cell_num(blk.shape[0], blk.shape[1])
             cell_start[k + 1] = cell_start[k] + cur_cell_cnt
+        total_cell = cell_start[-1] - 1
 
         '''Flush cell info to MSH file'''
         msh.add_section(XF_Comment("Cell Declaration:"))
-        msh.add_section(XF_Cell.declaration(cell_start[-1]))
+        msh.add_section(XF_Cell.declaration(total_cell))
         msh.add_blank()
 
         zone_idx += 1
         msh.add_section(XF_Comment("Cell Info:"))
-        msh.add_section(XF_Cell(zone_idx, 1, cell_start[-1], CellType.Fluid, CellElement.Quadrilateral))
+        msh.add_section(XF_Cell(zone_idx, 1, total_cell, CellType.Fluid, CellElement.Quadrilateral))
         msh.add_blank()
 
         '''Counting points'''
-        pnt_num = 0
+        total_pnt = 0
         for blk in blk_list:
-            pnt_num += blk.shape[0] * blk.shape[1]
+            total_pnt += blk.shape[0] * blk.shape[1]
 
         for entry in adj_info:
             b1, e1 = entry[0]
             cur_pnt_num = blk_edge_pnt(b1, e1)
-            pnt_num -= cur_pnt_num
+            total_pnt -= cur_pnt_num
 
+        '''Flush point declaration msg to MSH file'''
+        msh.add_section(XF_Comment("Point Declaration:"))
+        msh.add_section(XF_Node.declaration(total_pnt, dimension))
+        msh.add_blank()
+
+        '''For recording boundary point index'''
         bc_flag = []
-        for blk in blk_list:
-            cu = blk.shape[0]
-            cv = blk.shape[1]
+        for k, blk in enumerate(blk_list):
+            cu, cv = blk_shape[k]
             cur_pnt_num = boundary_pnt_num(cu, cv)
-            flag_ary = np.full(cur_pnt_num, -1, int)
+            flag_ary = np.full(cur_pnt_num, -1, int)  # -1表示该点未分配序号
             bc_flag.append(flag_ary)
 
-        pnt_list = np.zeros((pnt_num, dimension))
+        pnt_list = np.empty((total_pnt, dimension), float)
         pnt_idx = 0
 
         '''Handling internal points first'''
-        internal_pnt_start = np.zeros(blk_num + 1, int)
+        internal_pnt_start = np.empty(total_blk + 1, int)
+        internal_pnt_start[0] = 1
         for k, blk in enumerate(blk_list):
-            cu = blk.shape[0]
-            cv = blk.shape[1]
+            cu, cv = blk_shape[k]
             for j in range(1, cv - 1):
                 for i in range(1, cu - 1):
                     cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
                     pnt_idx += 1
-            internal_pnt_start[k + 1] = internal_pnt_start[k] + pnt_idx
+            internal_pnt_start[k + 1] = pnt_idx + 1
 
         '''Handling boundary points afterwards'''
         for k, blk in enumerate(blk_list):
-            cu = blk.shape[0]
-            cv = blk.shape[1]
+            cu, cv = blk_shape[k]
             cn = boundary_pnt_num(cu, cv)
             for w in range(cn):
                 if bc_flag[k][w] != -1:  # Has been marked
@@ -731,7 +891,7 @@ class XF_MSH(object):
                 '''Check if it's an interior pnt'''
                 is_interior = False
                 for e in edge_idx:
-                    if adj_desc[k][e - 1][1] != 0:
+                    if adj_desc[k][e - 1][1] != 0:  # 非0则表示有相邻的边
                         is_interior = True
                         break
 
@@ -746,7 +906,7 @@ class XF_MSH(object):
                         k2, e2, r = adj_desc[k][e - 1]
                         cp_idx = get_counterpart_idx(k, e, i, j, k2, e2, r)
                         cur_adj.append((k2, cp_idx))
-                        if bc_flag[k2][cp_idx] != -1:
+                        if bc_flag[k2][cp_idx] != -1:  # 相邻的边已经mark了
                             bc_flag[k][w] = bc_flag[k2][cp_idx]
                             has_assigned = True
                             break
@@ -758,29 +918,25 @@ class XF_MSH(object):
                             bc_flag[e[0]][e[1]] = pnt_idx
                         pnt_idx += 1
 
-        '''Flush point info to MSH file'''
-        msh.add_section(XF_Comment("Point Declaration:"))
-        msh.add_section(XF_Node.declaration(pnt_num, dimension))
-        msh.add_blank()
-
+        '''Flush point coordinates to MSH file'''
         zone_idx += 1
         msh.add_section(XF_Comment("Point Coordinates:"))
-        msh.add_section(XF_Node(zone_idx, 1, pnt_num, NodeType.Any, dimension, pnt_list))
+        msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dimension, pnt_list))
         msh.add_blank()
 
         '''Counting edges'''
-        edge_num = 0
-        for k in range(blk_num):
-            edge_num += blk_edge_num(blk_shape[k][0], blk_shape[k][1])
+        total_edge = 0
+        for k in range(total_blk):
+            total_edge += edge_num(blk_shape[k][0], blk_shape[k][1])
 
         for entry in adj_info:
             k1, e1 = entry[0]
             cu, cv = blk_shape[k1]
-            edge_num -= boundary_edge_num(cu, cv, e1)
+            total_edge -= boundary_edge_num(cu, cv, e1)
 
         '''Flush edge declaration to MSH file'''
         msh.add_section(XF_Comment("Edge Declaration:"))
-        msh.add_section(XF_Face.declaration(edge_num))
+        msh.add_section(XF_Face.declaration(total_edge))
         msh.add_blank()
 
         '''Handle internal edges in each blk'''
@@ -795,8 +951,8 @@ class XF_MSH(object):
             '''Horizontal'''
             for j in range(1, cv - 1):
                 for i in range(cu - 1):
-                    n1 = get_pnt_idx(i, j, cu, cv, k)
-                    n2 = get_pnt_idx(i + 1, j, cu, cv, k)
+                    n1 = get_pnt_idx(i, j, k)
+                    n2 = get_pnt_idx(i + 1, j, k)
                     cl, cr = XF_MSH.intersect((i, j), (i + 1, j), cu, cv)
                     cl += ts
                     cr += ts
@@ -806,8 +962,8 @@ class XF_MSH(object):
             '''Vertical'''
             for i in range(1, cu - 1):
                 for j in range(cv - 1):
-                    n1 = get_pnt_idx(i, j, cu, cv, k)
-                    n2 = get_pnt_idx(i, j + 1, cu, cv, k)
+                    n1 = get_pnt_idx(i, j, k)
+                    n2 = get_pnt_idx(i, j + 1, k)
                     cl, cr = XF_MSH.intersect((i, j), (i, j + 1), cu, cv)
                     cl += ts
                     cr += ts
@@ -818,7 +974,7 @@ class XF_MSH(object):
             next_edge_first = cur_edge_first + ce
             msh.add_section(XF_Comment("Block {} internal edges:".format(k)))
             zone_idx += 1
-            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, BCType.Interior, FaceType.Linear, cur_inter_edge))
+            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first - 1, BCType.Interior, FaceType.Linear, cur_inter_edge))
             msh.add_blank()
             cur_edge_first = next_edge_first
 
@@ -833,13 +989,13 @@ class XF_MSH(object):
             next_edge_first = cur_edge_first + len(cur_edge_list)
             msh.add_section(XF_Comment("Interior edge {}:".format(k)))
             zone_idx += 1
-            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, BCType.Interior, FaceType.Linear, cur_edge_list))
+            msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first - 1, BCType.Interior, FaceType.Linear, cur_edge_list))
             msh.add_blank()
             cur_edge_first = next_edge_first
 
         '''Handle non-adjacent boundary'''
         be = 0
-        for k in range(blk_num):
+        for k in range(total_blk):
             for e in range(1, 5):
                 if adj_desc[k][e - 1][1] == 0:
                     be += 1
@@ -860,7 +1016,7 @@ class XF_MSH(object):
                     next_edge_first = cur_edge_first + len(cur_edge_list)
                     msh.add_section(XF_Comment("Boundary edge {}:".format(be)))
                     zone_idx += 1
-                    msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first, bc_list[k][e - 1], FaceType.Linear, cur_edge_list))
+                    msh.add_section(XF_Face(zone_idx, cur_edge_first, next_edge_first - 1, bc_list[k][e - 1], FaceType.Linear, cur_edge_list))
                     msh.add_blank()
                     cur_edge_first = next_edge_first
 
