@@ -7,7 +7,7 @@ from src.msh.spacing import single_exponential, double_exponential, hyperbolic_t
 from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
-from src.msh.fluent import XF_MSH
+from src.msh.fluent import XF_MSH, BCType
 
 
 def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
@@ -41,29 +41,45 @@ def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
           single_exponential(N[2], -3),  # c6, c7, c8, c9
           np.linspace(0.0, 1.0, N[3])]  # c10, c11
 
-    fn = '{}_C_grid.xyz'.format(foil)
-
-    """翼型前缘"""
+    '''翼型前缘'''
     grid1 = Linear_TFI_2D(c0, c2, c1, c3)
     ppu1, ppv1 = np.meshgrid(pu[0], pu[1], indexing='ij')
     grid1.calc_grid(ppu1, ppv1)
     tm_grid1 = ThomasMiddlecoff2D(grid1.get_grid())
     tm_grid1.calc_grid()
 
-    """翼型后缘上部"""
+    '''翼型后缘上部'''
     grid2 = Linear_TFI_2D(c6, c4, c7, c2)
     ppu2, ppv2 = np.meshgrid(pu[2], pu[1], indexing='ij')
     grid2.calc_grid(ppu2, ppv2)
 
-    """翼型后缘下部"""
+    '''翼型后缘下部'''
     grid3 = Linear_TFI_2D(c8, c5, c9, c3)
     ppu3, ppv3 = np.meshgrid(pu[2], pu[1], indexing='ij')
     grid3.calc_grid(ppu3, ppv3)
 
-    """钝尾缘部分"""
+    '''钝尾缘部分'''
     grid4 = Linear_TFI_2D(c8, c11, c6, c10)
     ppu4, ppv4 = np.meshgrid(pu[2], pu[3], indexing='ij')
     grid4.calc_grid(ppu4, ppv4)
+
+    '''网格, 边界条件, 邻接关系'''
+    blk = [tm_grid1.get_grid(), grid2.get_grid(), grid3.get_grid(), grid4.get_grid()]
+
+    bc = [(BCType.Wall, BCType.Interior, BCType.PressureFarField, BCType.Interior),
+          (BCType.Interior, BCType.PressureFarField, BCType.PressureFarField, BCType.Interior),
+          (BCType.Interior, BCType.PressureFarField, BCType.PressureFarField, BCType.Interior),
+          (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Wall)]
+
+    adj = [((0, 2), (1, 4), 0),
+           ((0, 4), (2, 4), 0),
+           ((1, 1), (3, 3), 0),
+           ((2, 1), (3, 1), 0)]
+
+    '''构建MSH文件'''
+    fn = '{}_C_grid.msh'.format(foil)
+    msh = XF_MSH.from_str2d_multi(blk, bc, adj)
+    msh.save(fn)
 
 
 class MultiBlockFluentMeshTest(unittest.TestCase):
