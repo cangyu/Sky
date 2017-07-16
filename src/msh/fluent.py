@@ -90,8 +90,10 @@ class XF_Node(XF_Section):
         self.pts = None if pts is None else np.copy(pts)
 
     def build_content(self):
-        self.formatted_content = "({} ({} {} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:], self.ND)
-        if self.pts is not None:
+        if self.pts is None:
+            self.formatted_content = "({} ({} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:])
+        else:
+            self.formatted_content = "({} ({} {} {} {} {})".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:], self.ND)
             n, dim = self.pts.shape
             self.formatted_content += "("
             for i in range(n):
@@ -101,8 +103,8 @@ class XF_Node(XF_Section):
         self.formatted_content += ")"
 
     @classmethod
-    def declaration(cls, num, dim):
-        return cls(0, 1, num, NodeType.Virtual, dim)
+    def declaration(cls, num):
+        return cls(0, 1, num, NodeType.Virtual, 0)
 
 
 class BCType(Enum):
@@ -433,7 +435,7 @@ class XF_MSH(object):
         msh.add_section(XF_Comment("Declaration:"))
         msh.add_section(XF_Cell.declaration(CellCnt))
         msh.add_section(XF_Face.declaration(EdgeCnt))
-        msh.add_section(XF_Node.declaration(NodeCnt, Dim))
+        msh.add_section(XF_Node.declaration(NodeCnt))
         msh.add_blank()
 
         msh.add_section(XF_Comment("Grid:"))
@@ -890,7 +892,7 @@ class XF_MSH(object):
 
         '''Flush point declaration msg to MSH file'''
         msh.add_section(XF_Comment("Point Declaration:"))
-        msh.add_section(XF_Node.declaration(total_pnt, dimension))
+        msh.add_section(XF_Node.declaration(total_pnt))
         msh.add_blank()
 
         '''For recording boundary point index'''
@@ -967,7 +969,8 @@ class XF_MSH(object):
         '''Counting edges'''
         total_edge = 0
         for k in range(total_blk):
-            total_edge += edge_num(blk_shape[k][0], blk_shape[k][1])
+            cu, cv = blk_shape[k]
+            total_edge += edge_num(cu, cv)
 
         for entry in adj_info:
             k1, e1 = entry[0]
@@ -986,7 +989,7 @@ class XF_MSH(object):
             cn = internal_edge_num(cu, cv)
             cur_inter_edge = np.empty((cn, 4), int)
             ce = 0
-            ts = cell_start[k]
+            ts = cell_start[k] - 1
 
             '''Horizontal'''
             for j in range(1, cv - 1):
