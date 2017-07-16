@@ -772,6 +772,7 @@ class XF_MSH(object):
 
         def boundary_pnt_idx_list(k, e):
             """
+            某条边界上节点的序号列表
             :param k: Block序号，从0开始
             :type k: int
             :param e: 边序号，从1开始
@@ -784,10 +785,14 @@ class XF_MSH(object):
                 return bc_flag[k][:u]
             elif e == 2:
                 ans = np.array([bc_flag[k][0]])
-                ans = np.append(ans, bc_flag[k][2 * u + v - 3::-1])
+                tmp = bc_flag[k][2 * u + v - 3:]
+                tmp = tmp[::-1]
+                ans = np.append(ans, tmp)
                 return ans
             elif e == 3:
-                return bc_flag[k][u + v - 2:2 * u + v - 2:-1]
+                ans = bc_flag[k][u + v - 2:2 * u + v - 2]
+                ans = ans[::-1]
+                return ans
             elif e == 4:
                 return bc_flag[k][u - 1:u + v - 1]
             else:
@@ -814,7 +819,7 @@ class XF_MSH(object):
             if r:
                 bc2 = bc2[::-1]
 
-            cn = blk_edge_pnt(k1, e1)
+            cn = blk_edge_pnt(k1, e1) - 1
             cur_boundary_edge = np.empty((cn, 4), int)
             pnt_idx_list = boundary_pnt_idx_list(k1, e1)
             if e1 in (1, 4):
@@ -923,19 +928,21 @@ class XF_MSH(object):
 
                 '''Check if it's an interior pnt'''
                 is_interior = False
+                interior_adj_edge = []
                 for e in edge_idx:
                     if adj_desc[k][e - 1][1] != 0:  # 非0则表示有相邻的边
-                        is_interior = True
-                        break
+                        interior_adj_edge.append(e)
+                        if not is_interior:
+                            is_interior = True
 
                 if not is_interior:
                     cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
+                    bc_flag[k][w] = pnt_idx
                     pnt_idx += 1
                 else:
-                    '''Inspect neighbours'''
                     has_assigned = False
                     cur_adj = []
-                    for e in edge_idx:
+                    for e in interior_adj_edge:  # Inspect neighbours
                         k2, e2, r = adj_desc[k][e - 1]
                         cp_idx = get_counterpart_idx(k, e, i, j, k2, e2, r)
                         cur_adj.append((k2, cp_idx))
@@ -1034,7 +1041,7 @@ class XF_MSH(object):
                     be += 1
                     cur_edge_cell = boundary_cell_list(k, e)
                     cur_edge_pnt = boundary_pnt_idx_list(k, e)
-                    cn = blk_edge_pnt(k, e)
+                    cn = blk_edge_pnt(k, e) - 1
                     cur_edge_list = np.empty((cn, 4), int)
                     if e1 in (1, 4):
                         for i in range(cn):

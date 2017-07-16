@@ -86,3 +86,7 @@ class MultiBlockFluentMeshTest(unittest.TestCase):
     @staticmethod
     def test():
         build_airfoil_msh('M6', [[0, 0, 0], [10, 0, 0]], 1.2, 10, 200, 100, 5, [41, 26, 61, 2])
+
+
+if __name__ == '__main__':
+    unittest.main()
