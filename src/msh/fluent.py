@@ -695,7 +695,7 @@ class XF_MSH(object):
 
             return ans
 
-        def get_counterpart_idx(k1, e1, i, j, k2, e2, r):
+        def get_counterpart_idx(k1, e1, i, j, k2, e2):
             """
             给定Block1上的点和该点对应的边序号，根据邻接关系求出与该边对应的Block2上对应边上的点在Block2边界上的序号
             先计算对应点的坐标，再将坐标转换成序号
@@ -711,8 +711,6 @@ class XF_MSH(object):
             :type k1: int
             :param e2: Block2上对应边的序号，从1开始
             :type k1: int
-            :param r: 是否反向: 1 - Reverse, 0 - Not Reverse
-            :type k1: int
             :return: 给定第(k1+1)个Block上第e1条边上的点(i,j), 计算在第(k2+1)个Block的第e2条边上所对应的点在该Block上的序号
             :rtype: int
             """
@@ -721,9 +719,9 @@ class XF_MSH(object):
             u2, v2 = blk_shape[k2]
 
             if e1 in (1, 3):
-                t = u1 - 1 - i if r else i
+                t = i
             elif e1 in (2, 4):
-                t = v1 - 1 - j if r else j
+                t = j
             else:
                 raise ValueError('Invalid edge index: {}'.format(e1))
 
@@ -800,7 +798,7 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid edge index!")
 
-        def handle_interior_edge(k1, e1, k2, e2, r):
+        def handle_interior_edge(k1, e1, k2, e2):
             """
             构建重合的Interior边的描述数组
             :param k1: Block1的序号，从0开始
@@ -811,27 +809,18 @@ class XF_MSH(object):
             :type k2: int
             :param e2: 该Interior边在Block2中的边序号，从1开始
             :type e2: int
-            :param r: 在两个Block中该Interior的方向是否相反
-            :type r: bool
             :return: 表示该Interior边上所有Edge的邻接关系的数组
             """
 
             bc1 = boundary_cell_list(k1, e1)
             bc2 = boundary_cell_list(k2, e2)
-            if r:
-                bc2 = bc2[::-1]
 
             cn = blk_edge_pnt(k1, e1) - 1
             cur_boundary_edge = np.empty((cn, 4), int)
             pnt_idx_list = boundary_pnt_idx_list(k1, e1)
-            if e1 in (1, 4):
-                for i in range(cn):
-                    cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc1[i], bc2[i]], int)
-            elif e1 in (2, 3):
-                for i in range(cn):
-                    cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc2[i], bc1[i]], int)
-            else:
-                raise ValueError("Invalid edge index!")
+
+            for i in range(cn):
+                cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc1[i], bc2[i]], int)
 
             return cur_boundary_edge
 
@@ -839,7 +828,7 @@ class XF_MSH(object):
         dimension = 2
         total_blk = len(blk_list)
         blk_shape = np.empty((total_blk, 2), int)
-        adj_desc = np.zeros((total_blk, 4, 3), int)
+        adj_desc = np.zeros((total_blk, 4, 2), int)
 
         for k, blk in enumerate(blk_list):
             blk_shape[k] = blk.shape[:2]
@@ -847,9 +836,8 @@ class XF_MSH(object):
         for entry in adj_info:
             b1, e1 = entry[0]
             b2, e2 = entry[1]
-            reverse = 1 if entry[2] else 0
-            adj_desc[b1][e1 - 1] = np.array([b2, e2, reverse], int)
-            adj_desc[b2][e2 - 1] = np.array([b1, e1, reverse], int)
+            adj_desc[b1][e1 - 1] = np.array([b2, e2], int)
+            adj_desc[b2][e2 - 1] = np.array([b1, e1], int)
 
         '''Initialize MSH file'''
         msh = cls()
@@ -945,8 +933,8 @@ class XF_MSH(object):
                     has_assigned = False
                     cur_adj = []
                     for e in interior_adj_edge:  # Inspect neighbours
-                        k2, e2, r = adj_desc[k][e - 1]
-                        cp_idx = get_counterpart_idx(k, e, i, j, k2, e2, r)
+                        k2, e2 = adj_desc[k][e - 1]
+                        cp_idx = get_counterpart_idx(k, e, i, j, k2, e2)
                         cur_adj.append((k2, cp_idx))
                         if bc_flag[k2][cp_idx] != -1:  # 相邻的边已经mark了
                             bc_flag[k][w] = bc_flag[k2][cp_idx]
@@ -1025,8 +1013,7 @@ class XF_MSH(object):
         for k, entry in enumerate(adj_info):
             k1, e1 = entry[0]
             k2, e2 = entry[1]
-            reverse = entry[2]
-            cur_edge_list = handle_interior_edge(k1, e1, k2, e2, reverse)
+            cur_edge_list = handle_interior_edge(k1, e1, k2, e2)
 
             '''Flush interior edges into MSH file'''
             next_edge_first = cur_edge_first + len(cur_edge_list)

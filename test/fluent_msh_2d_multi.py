@@ -71,10 +71,10 @@ def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
           (BCType.Interior, BCType.PressureFarField, BCType.PressureFarField, BCType.Interior),
           (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Wall)]
 
-    adj = [((0, 2), (1, 4), False),
-           ((0, 4), (2, 4), False),
-           ((1, 1), (3, 3), False),
-           ((2, 1), (3, 1), False)]
+    adj = [((0, 2), (1, 4)),
+           ((2, 4), (0, 4)),
+           ((3, 3), (1, 1)),
+           ((2, 1), (3, 1))]
 
     '''构建MSH文件'''
     fn = '{}_C_grid.msh'.format(foil)
