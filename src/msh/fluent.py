@@ -757,7 +757,7 @@ class XF_MSH(object):
                 gap = 1
             elif e == 2:
                 start = cell_start[k]
-                end = start + (u - 1) * (v - 2) + 1
+                end = start + (u - 1) * (v - 1)
                 gap = u - 1
             elif e == 3:
                 start = cell_start[k] + (u - 1) * (v - 2)
@@ -939,8 +939,8 @@ class XF_MSH(object):
 
                 if not is_interior:
                     cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
-                    bc_flag[k][w] = pnt_idx
                     pnt_idx += 1
+                    bc_flag[k][w] = pnt_idx
                 else:
                     has_assigned = False
                     cur_adj = []
@@ -955,10 +955,10 @@ class XF_MSH(object):
 
                     if not has_assigned:
                         cls.dimensional_copy(pnt_list[pnt_idx], blk[i][j], dimension)
+                        pnt_idx += 1
                         bc_flag[k][w] = pnt_idx
                         for e in cur_adj:
                             bc_flag[e[0]][e[1]] = pnt_idx
-                        pnt_idx += 1
 
         '''Flush point coordinates to MSH file'''
         zone_idx += 1
