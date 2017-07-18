@@ -1,12 +1,10 @@
 import unittest
 import numpy as np
-import math
-from src.nurbs.curve import GlobalInterpolatedCrv, Line, Arc
+from src.nurbs.curve import Line, Arc
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
 from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.tfi import Linear_TFI_2D
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.fluent import XF_MSH, BCType
 
 
@@ -94,6 +92,7 @@ class MultiBlockFluentMeshTest(unittest.TestCase):
     @staticmethod
     def test():
         build_airfoil_msh('M6', [[0, 0, 0], [10, 0, 0]], 1.2, 10, 200, 100, 5, [41, 26, 61, 2])
+        build_airfoil_msh('NACA0012', [[0, 0, 0], [10, 0, 0]], 1.2, 10, 200, 100, 5, [41, 26, 61, 2])
 
 
 if __name__ == '__main__':
