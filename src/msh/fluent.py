@@ -189,7 +189,7 @@ class CellElement(Enum):
     Triangular = 1
     Tetrahedral = 2
     Quadrilateral = 3
-    Hexahedra = 4
+    Hexahedral = 4
     Pyramid = 5
     Wedge = 6
     Polyhedral = 7
@@ -1103,3 +1103,68 @@ class XF_MSH(object):
                     cur_edge_first = next_edge_first
 
         return msh
+
+    @classmethod
+    def from_str3d(cls, grid, bc=(BCType.VelocityInlet, BCType.Outflow, BCType.Wall, BCType.Wall, BCType.Wall, BCType.Wall)):
+        """
+        将3维单块结构网格转化为Fluent MSH格式
+        :param grid: 结构网格
+        :param bc: 6个面的边界条件
+        :return: 可用于后续生成msh文件的XF_MSH对象
+        :rtype: XF_MSH
+        """
+
+        '''Basic variables'''
+        u, v, w = grid.shape[:3]
+        dimension = 3
+        zone_idx = 0
+        total_cell = (u - 1) * (v - 1) * (w - 1)
+        total_pnt = u * v * w
+        total_face = u * (v - 1) * (w - 1) + v * (w - 1) * (u - 1) + w * (u - 1) * (v - 1)
+
+        '''Initialize MSH file'''
+        msh = cls()
+        msh.add_section(XF_Header())
+        msh.add_blank()
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(dimension))
+        msh.add_blank()
+
+        '''Flush cell info to MSH file'''
+        msh.add_section(XF_Comment("Cell Declaration:"))
+        msh.add_section(XF_Cell.declaration(total_cell))
+        msh.add_blank()
+        zone_idx += 1
+        msh.add_section(XF_Comment("Cell Info:"))
+        msh.add_section(XF_Cell(zone_idx, 1, total_cell, CellType.Fluid, CellElement.Hexahedral))
+        msh.add_blank()
+
+        '''Collect point coordinates'''
+        pnt_idx = 0
+        pnt_list = np.empty((total_pnt, dimension), float)
+
+        for k in range(w):
+            for j in range(v):
+                for i in range(u):
+                    cls.dimensional_copy(pnt_list[pnt_idx], grid[i][j][k], dimension)
+
+        '''Flush pnt info to MSH file'''
+        msh.add_section(XF_Comment("Point Declaration:"))
+        msh.add_section(XF_Node.declaration(total_pnt))
+        msh.add_blank()
+        zone_idx += 1
+        msh.add_section(XF_Comment("Point Coordinates:"))
+        msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dimension, pnt_list))
+        msh.add_blank()
+
+        '''Build adjacent description'''
+        # TODO
+
+        '''Flush edge declaration to MSH file'''
+        msh.add_section(XF_Comment("Face Declaration:"))
+        msh.add_section(XF_Face.declaration(total_face))
+        msh.add_blank()
+
+    @classmethod
+    def from_str3d_multi(cls, grid_list, bc_list, adj_info):
+        pass
