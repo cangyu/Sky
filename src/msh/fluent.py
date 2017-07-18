@@ -715,7 +715,6 @@ class XF_MSH(object):
             :rtype: int
             """
 
-            u1, v1 = blk_shape[k1]
             u2, v2 = blk_shape[k2]
 
             if e1 in (1, 3):
@@ -820,24 +819,62 @@ class XF_MSH(object):
             pnt_idx_list = boundary_pnt_idx_list(k1, e1)
 
             for i in range(cn):
-                cur_boundary_edge[i] = np.array([pnt_idx_list[i], pnt_idx_list[i + 1], bc1[i], bc2[i]], int)
+                n1 = pnt_idx_list[i]
+                n2 = pnt_idx_list[i + 1]
+                cl = bc1[i]
+                cr = bc2[i]
+                cur_boundary_edge[i] = np.array([n1, n2, cl, cr], int)
 
             return cur_boundary_edge
 
-        '''Set up basic variables'''
+        @unique
+        class DirRevIdFactor(Enum):
+            Edge1Reverted = 2
+            Edge2Reverted = 3
+            Edge3Reverted = 5
+            Edge4Reverted = 7
+            EdgeRevTester = 210
+
+        '''Basic variables'''
         dimension = 2
         total_blk = len(blk_list)
         blk_shape = np.empty((total_blk, 2), int)
         adj_desc = np.zeros((total_blk, 4, 2), int)
-
+        blk_rev = np.ones(total_blk, int)
         for k, blk in enumerate(blk_list):
             blk_shape[k] = blk.shape[:2]
 
+        '''Adjacent info and orientation'''
         for entry in adj_info:
             b1, e1 = entry[0]
             b2, e2 = entry[1]
-            adj_desc[b1][e1 - 1] = np.array([b2, e2], int)
-            adj_desc[b2][e2 - 1] = np.array([b1, e1], int)
+            if b1 >= total_blk or b2 >= total_blk or e1 > 4 or e2 > 4:
+                raise ValueError("Invalid input.")
+
+            if e1 != 0 and e2 != 0:
+                adj_desc[b1][e1 - 1] = np.array([b2, e2], int)
+                adj_desc[b2][e2 - 1] = np.array([b1, e1], int)
+
+            if e1 == 2:
+                blk_rev[b1] *= DirRevIdFactor.Edge2Reverted.value
+            elif e1 == 3:
+                blk_rev[b1] *= DirRevIdFactor.Edge3Reverted.value
+            else:
+                pass
+
+            if e2 == 1:
+                blk_rev[b2] *= DirRevIdFactor.Edge1Reverted.value
+            elif e2 == 4:
+                blk_rev[b2] *= DirRevIdFactor.Edge4Reverted.value
+            else:
+                pass
+
+        '''Define orientation'''
+        for i in range(total_blk):
+            if blk_rev[i] == 1:
+                blk_rev[i] = 0
+            else:
+                blk_rev[i] = 1
 
         '''Initialize MSH file'''
         msh = cls()
@@ -871,19 +908,22 @@ class XF_MSH(object):
         '''Counting points'''
         total_pnt = 0
         for k in range(total_blk):
-            total_pnt += blk_shape[k][0] * blk_shape[k][1]
+            cu, cv = blk_shape[k]
+            total_pnt += cu * cv
 
         for entry in adj_info:
             b1, e1 = entry[0]
-            cur_pnt_num = blk_edge_pnt(b1, e1)
-            total_pnt -= cur_pnt_num
+            b2, e2 = entry[1]
+            if e1 != 0 and e2 != 0:
+                cur_pnt_num = blk_edge_pnt(b1, e1)
+                total_pnt -= cur_pnt_num
 
         '''Flush point declaration msg to MSH file'''
         msh.add_section(XF_Comment("Point Declaration:"))
         msh.add_section(XF_Node.declaration(total_pnt))
         msh.add_blank()
 
-        '''For recording boundary point index'''
+        '''Local storage for recording boundary point index'''
         bc_flag = []
         for k, blk in enumerate(blk_list):
             cu, cv = blk_shape[k]
@@ -914,7 +954,7 @@ class XF_MSH(object):
                     continue
 
                 i, j = boundary_coordinate(w, cu, cv)
-                edge_idx = get_edge_idx(i, j, cu, cv)
+                edge_idx = get_edge_idx(i, j, cu, cv)  # Usually 1 edge, but there will be 2 edges when it's a corner point
 
                 '''Check if it's an interior pnt'''
                 is_interior = False
@@ -932,11 +972,13 @@ class XF_MSH(object):
                 else:
                     has_assigned = False
                     cur_adj = []
-                    for e in interior_adj_edge:  # Inspect neighbours
+
+                    '''Inspect neighbours to see if it has been marked or not'''
+                    for e in interior_adj_edge:
                         k2, e2 = adj_desc[k][e - 1]
                         cp_idx = get_counterpart_idx(k, e, i, j, k2, e2)
                         cur_adj.append((k2, cp_idx))
-                        if bc_flag[k2][cp_idx] != -1:  # 相邻的边已经mark了
+                        if bc_flag[k2][cp_idx] != -1:  # Neighbours has been marked
                             bc_flag[k][w] = bc_flag[k2][cp_idx]
                             has_assigned = True
                             break
@@ -962,8 +1004,10 @@ class XF_MSH(object):
 
         for entry in adj_info:
             k1, e1 = entry[0]
-            cu, cv = blk_shape[k1]
-            total_edge -= boundary_edge_num(cu, cv, e1)
+            k2, e2 = entry[1]
+            if e1 != 0 and e2 != 0:
+                cu, cv = blk_shape[k1]
+                total_edge -= boundary_edge_num(cu, cv, e1)
 
         '''Flush edge declaration to MSH file'''
         msh.add_section(XF_Comment("Edge Declaration:"))
@@ -987,6 +1031,8 @@ class XF_MSH(object):
                     cl, cr = XF_MSH.intersect((i, j), (i + 1, j), cu, cv)
                     cl += ts
                     cr += ts
+                    if blk_rev[k]:
+                        cl, cr = cr, cl
                     cur_inter_edge[ce] = np.array([n1, n2, cl, cr], int)
                     ce += 1
 
@@ -998,6 +1044,8 @@ class XF_MSH(object):
                     cl, cr = XF_MSH.intersect((i, j), (i, j + 1), cu, cv)
                     cl += ts
                     cr += ts
+                    if blk_rev[k]:
+                        cl, cr = cr, cl
                     cur_inter_edge[ce] = np.array([n1, n2, cl, cr], int)
                     ce += 1
 
@@ -1013,6 +1061,9 @@ class XF_MSH(object):
         for k, entry in enumerate(adj_info):
             k1, e1 = entry[0]
             k2, e2 = entry[1]
+            if e1 == 0 or e2 == 0:
+                continue
+
             cur_edge_list = handle_interior_edge(k1, e1, k2, e2)
 
             '''Flush interior edges into MSH file'''
@@ -1033,14 +1084,15 @@ class XF_MSH(object):
                     cur_edge_pnt = boundary_pnt_idx_list(k, e)
                     cn = blk_edge_pnt(k, e) - 1
                     cur_edge_list = np.empty((cn, 4), int)
-                    if e1 in (1, 4):
-                        for i in range(cn):
-                            cur_edge_list[i] = np.array([cur_edge_pnt[i], cur_edge_pnt[i + 1], cur_edge_cell[i], 0], int)
-                    elif e1 in (2, 3):
-                        for i in range(cn):
-                            cur_edge_list[i] = np.array([cur_edge_pnt[i], cur_edge_pnt[i + 1], 0, cur_edge_cell[i]], int)
-                    else:
-                        raise ValueError("Invalid edge index!")
+
+                    for i in range(cn):
+                        n1 = cur_edge_pnt[i]
+                        n2 = cur_edge_pnt[i + 1]
+                        cl = cur_edge_cell[i]
+                        cr = 0
+                        if (blk_rev[k] == 0 and e in (2, 3)) or (blk_rev[k] != 0 and e in (1, 4)):
+                            cl, cr = cr, cl
+                        cur_edge_list[i] = np.array([n1, n2, cl, cr], int)
 
                     '''Flush non-adjacent edges into MSH file'''
                     next_edge_first = cur_edge_first + len(cur_edge_list)
