@@ -256,49 +256,67 @@ class XF_MSH(object):
         msh.close()
 
     @staticmethod
-    def pnt_index(i: int, j: int, U: int):
+    def dimensional_copy(dst, src, dim):
+        for i in range(dim):
+            dst[i] = src[i]
+
+    @staticmethod
+    def pnt_idx_2d(i, j, u):
         """
         坐标对应的序号，序号从1开始
         :param i: 列号(Starting from 0)，与x方向对应
+        :type i: int
         :param j: 行号(Starting from 0)，与y方向对应
-        :param U: 每行节点数
+        :type j: int
+        :param u: 每行节点数
+        :type u: int
         :return: (i,j)节点所对应的序号 
+        :rtype: int
         """
 
-        return j * U + i + 1
+        return 1 + j * u + i
 
     @staticmethod
-    def cell_index(i: int, j: int, d: int, U: int, V: int):
+    def cell_idx_2d(i, j, d, u, v):
         """
         由节点坐标及象限编号确定单元序号
         :param i: 列号(Starting from 0)，与x方向对应
+        :type i: int
         :param j: 行号(Starting from 0)，与y方向对应
+        :type j: int
         :param d: 象限号(Range from 1 to 4)
-        :param U: 每行节点数
-        :param V: 每列节点数
+        :type d: int
+        :param u: 每行节点数
+        :type u: int
+        :param v: 每列节点数
+        :type v: int
         :return: 以(i,j)为原点，位于第d象限的Cell的序号(Starting from 1)，若不存在则为0
+        :rtype: int
         """
 
         if d == 1:
-            return 0 if i == U - 1 or j == V - 1 else j * (U - 1) + i + 1
+            return 0 if i == u - 1 or j == v - 1 else j * (u - 1) + i + 1
         elif d == 2:
-            return 0 if i == 0 or j == V - 1 else j * (U - 1) + i
+            return 0 if i == 0 or j == v - 1 else j * (u - 1) + i
         elif d == 3:
-            return 0 if i == 0 or j == 0 else (j - 1) * (U - 1) + i
+            return 0 if i == 0 or j == 0 else (j - 1) * (u - 1) + i
         elif d == 4:
-            return 0 if i == U - 1 or j == 0 else (j - 1) * (U - 1) + i + 1
+            return 0 if i == u - 1 or j == 0 else (j - 1) * (u - 1) + i + 1
         else:
             raise ValueError("Invalid direction!")
 
     @staticmethod
-    def intersect(p1, p2, U: int, V: int):
+    def intersect(p1, p2, u, v):
         """
         求两个相邻的节点连结成的线段左右两个Cell
         :param p1: 起始点坐标
         :param p2: 终止点坐标
-        :param U: 每行节点数
-        :param V: 每列节点数
+        :param u: 每行节点数
+        :type u: int
+        :param v: 每列节点数
+        :type v: int
         :return: 从p1到p2的向量左右两个Cell的序号: cl, cr
+        :rtype: (int, int)
         """
 
         i, j = p1
@@ -311,23 +329,18 @@ class XF_MSH(object):
 
         if di == 0:
             if dj == 1:
-                return XF_MSH.cell_index(i, j, 2, U, V), XF_MSH.cell_index(i, j, 1, U, V)
+                return XF_MSH.cell_idx_2d(i, j, 2, u, v), XF_MSH.cell_idx_2d(i, j, 1, u, v)
             elif dj == -1:
-                return XF_MSH.cell_index(i, j, 4, U, V), XF_MSH.cell_index(i, j, 3, U, V)
+                return XF_MSH.cell_idx_2d(i, j, 4, u, v), XF_MSH.cell_idx_2d(i, j, 3, u, v)
             else:
                 raise ValueError("Invalid coordinates!")
         else:
             if di == 1:
-                return XF_MSH.cell_index(i, j, 1, U, V), XF_MSH.cell_index(i, j, 4, U, V)
+                return XF_MSH.cell_idx_2d(i, j, 1, u, v), XF_MSH.cell_idx_2d(i, j, 4, u, v)
             elif di == -1:
-                return XF_MSH.cell_index(i, j, 3, U, V), XF_MSH.cell_index(i, j, 2, U, V)
+                return XF_MSH.cell_idx_2d(i, j, 3, u, v), XF_MSH.cell_idx_2d(i, j, 2, u, v)
             else:
                 raise ValueError("Invalid coordinates!")
-
-    @staticmethod
-    def dimensional_copy(dst, src, dim):
-        for i in range(dim):
-            dst[i] = src[i]
 
     @classmethod
     def from_str2d(cls, grid, bc=(BCType.Wall, BCType.VelocityInlet, BCType.Wall, BCType.Outflow)):
@@ -359,8 +372,8 @@ class XF_MSH(object):
         face1_first = 1
         face1_last = face1_first + face1_num - 1
         for i in range(face1_num):
-            face1[i][0] = XF_MSH.pnt_index(i, 0, U)
-            face1[i][1] = XF_MSH.pnt_index(i + 1, 0, U)
+            face1[i][0] = XF_MSH.pnt_idx_2d(i, 0, U)
+            face1[i][1] = XF_MSH.pnt_idx_2d(i + 1, 0, U)
             cl, cr = XF_MSH.intersect((i, 0), (i + 1, 0), U, V)
             face1[i][2] = cl
             face1[i][3] = cr
@@ -371,8 +384,8 @@ class XF_MSH(object):
         face2_first = face1_last + 1
         face2_last = face2_first + face2_num - 1
         for j in range(face2_num):
-            face2[j][0] = XF_MSH.pnt_index(0, j, U)
-            face2[j][1] = XF_MSH.pnt_index(0, j + 1, U)
+            face2[j][0] = XF_MSH.pnt_idx_2d(0, j, U)
+            face2[j][1] = XF_MSH.pnt_idx_2d(0, j + 1, U)
             cl, cr = XF_MSH.intersect((0, j), (0, j + 1), U, V)
             face2[j][2] = cl
             face2[j][3] = cr
@@ -383,8 +396,8 @@ class XF_MSH(object):
         face3_first = face2_last + 1
         face3_last = face3_first + face3_num - 1
         for i in range(face3_num):
-            face3[i][0] = XF_MSH.pnt_index(i, V - 1, U)
-            face3[i][1] = XF_MSH.pnt_index(i + 1, V - 1, U)
+            face3[i][0] = XF_MSH.pnt_idx_2d(i, V - 1, U)
+            face3[i][1] = XF_MSH.pnt_idx_2d(i + 1, V - 1, U)
             cl, cr = XF_MSH.intersect((i, V - 1), (i + 1, V - 1), U, V)
             face3[i][2] = cl
             face3[i][3] = cr
@@ -395,8 +408,8 @@ class XF_MSH(object):
         face4_first = face3_last + 1
         face4_last = face4_first + face4_num - 1
         for j in range(face4_num):
-            face4[j][0] = XF_MSH.pnt_index(U - 1, j, U)
-            face4[j][1] = XF_MSH.pnt_index(U - 1, j + 1, U)
+            face4[j][0] = XF_MSH.pnt_idx_2d(U - 1, j, U)
+            face4[j][1] = XF_MSH.pnt_idx_2d(U - 1, j + 1, U)
             cl, cr = XF_MSH.intersect((U - 1, j), (U - 1, j + 1), U, V)
             face4[j][2] = cl
             face4[j][3] = cr
@@ -405,15 +418,15 @@ class XF_MSH(object):
         face5 = []
         for i in range(1, U - 1):
             for j in range(V - 1):
-                n1 = XF_MSH.pnt_index(i, j, U)
-                n2 = XF_MSH.pnt_index(i, j + 1, U)
+                n1 = XF_MSH.pnt_idx_2d(i, j, U)
+                n2 = XF_MSH.pnt_idx_2d(i, j + 1, U)
                 cl, cr = XF_MSH.intersect((i, j), (i, j + 1), U, V)
                 face5.append(np.array([n1, n2, cl, cr], int))
 
         for j in range(1, V - 1):
             for i in range(U - 1):
-                n1 = XF_MSH.pnt_index(i, j, U)
-                n2 = XF_MSH.pnt_index(i + 1, j, U)
+                n1 = XF_MSH.pnt_idx_2d(i, j, U)
+                n2 = XF_MSH.pnt_idx_2d(i + 1, j, U)
                 cl, cr = XF_MSH.intersect((i, j), (i + 1, j), U, V)
                 face5.append(np.array([n1, n2, cl, cr], int))
 
@@ -1104,6 +1117,46 @@ class XF_MSH(object):
 
         return msh
 
+    @staticmethod
+    def cell_idx_3d(coordinate, quadrant, dimension):
+        i, j, k = coordinate
+        u, v, w = dimension
+        rdx = 1 + (u - 1) * (v - 1) * k + (u - 1) * j + i
+
+        if quadrant == 1:
+            return rdx
+        elif quadrant == 2:
+            return rdx - 1
+        elif quadrant == 3:
+            return rdx - u
+        elif quadrant == 4:
+            return rdx - (u - 1)
+        elif quadrant == 5:
+            return rdx - (u - 1) * (v - 1)
+        elif quadrant == 6:
+            return rdx - (u - 1) * (v - 1) - 1
+        elif quadrant == 7:
+            return rdx - (u - 1) * (v - 1) - (u - 1) + 1
+        elif quadrant == 8:
+            return rdx - (u - 1) * (v - 1) - (u - 1)
+        else:
+            raise ValueError("Invalid quadrant index.")
+
+    @staticmethod
+    def pnt_idx_3d(coordinate, norm_dir, dimension):
+        if norm_dir not in ('X', 'x', 'Y', 'y', 'Z', 'z', 'U', 'u', 'V', 'v', 'W', 'w'):
+            raise ValueError("Invalid norm direction representation.")
+
+        i, j, k = coordinate
+        u, v, w = dimension
+        t = (u + 1) * (v + 1) * k + (u + 1) * j + i
+        if norm_dir in ('X', 'x', 'U', 'u'):
+            return t, t + (v + 1), t + (v + 2), t + 1
+        elif norm_dir in ('Y', 'y', 'V', 'v'):
+            return t, t + (u + 1), t + (u + 2), t + 1
+        else:
+            return t, t + (u + 1), t + u, t - 1
+
     @classmethod
     def from_str3d(cls, grid, bc=(BCType.VelocityInlet, BCType.Outflow, BCType.Wall, BCType.Wall, BCType.Wall, BCType.Wall)):
         """
@@ -1157,10 +1210,12 @@ class XF_MSH(object):
         msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dimension, pnt_list))
         msh.add_blank()
 
-        '''Build adjacent description'''
-        # TODO
+        '''Build interior adjacent description'''
+        ifn = (u - 1) * (v - 1) * (w - 2) + (v - 1) * (w - 1) * (u - 2) + (w - 1) * (u - 1) * (v - 2)
+        inter_face_desc = np.empty((ifn, 4), int)
+        inter_face_cnt = 0
 
-        '''Flush edge declaration to MSH file'''
+        '''Flush face declaration to MSH file'''
         msh.add_section(XF_Comment("Face Declaration:"))
         msh.add_section(XF_Face.declaration(total_face))
         msh.add_blank()
