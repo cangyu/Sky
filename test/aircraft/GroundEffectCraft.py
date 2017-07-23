@@ -1,6 +1,8 @@
 import numpy as np
 import math
 from src.aircraft.wing import Wing
+from src.nurbs.curve import Arc
+from src.nurbs.surface import ExtrudedSurf
 
 try:
     from src.misc.catia import view
@@ -9,10 +11,10 @@ except ImportError:
 
 auto_view = True
 
-len_inner = 2
-len_outer = 2
+len_inner = 4.5
+len_outer = 4.2
 cr = 3.3
-sweep_back = math.radians(20)
+sweep_back = math.radians(25)
 dihedral = math.radians(1 + 2)
 
 
@@ -20,7 +22,7 @@ def x_front(u):
     return 0 if u <= 0.5 else len_outer * math.tan(sweep_back) * (u - 0.5) / 0.5
 
 
-def x_tail():
+def x_tail(u):
     return cr
 
 
@@ -31,9 +33,10 @@ def y(u):
 def z(u):
     return u * (len_inner + len_outer)
 
+
 foil = 'M6'
-u_dist = np.array([0, 0.1, 0.3, 0.5, 0.6, 0.8, 1.0])
-sec_num = len(u_dist)
+sec_num = 17
+u_dist = np.linspace(0, 1, sec_num)
 airfoil_list = []
 thickness = np.ones(sec_num, float)
 z_dist = np.empty(sec_num, float)
@@ -51,8 +54,22 @@ for i in range(sec_num):
 
 wg = Wing(airfoil_list, thickness, z_dist, xf_dist, yf_dist, xt_dist, yt_dist)
 
-fn = "GroundEffectCraft_{}_{}.igs".format(n, foil)
-wg.write(fn, mirror=True)
+fn = "GroundEffectCraft_{}_{}.igs".format(sec_num, foil)
+igs_model = wg.write(fn, mirror=True)
 
+'''Body'''
+body_radius = 1.45
+body_len = 11.2
+body_profile = Arc.from_2pnt((-3.2, body_radius, 0), (-3.2, -body_radius, 0), 180, (1, 0, 0))
+body_half = ExtrudedSurf(body_profile, (body_len, 0, 0)).to_iges()
+igs_model.add_entity(body_half)
+body_profile_mirrow = Arc.from_2pnt((-3.2, body_radius, 0), (-3.2, -body_radius, 0), 180, (-1, 0, 0))
+body_half_mirrow = ExtrudedSurf(body_profile_mirrow, (body_len, 0, 0)).to_iges()
+igs_model.add_entity(body_half_mirrow)
+
+
+
+
+igs_model.write()
 if auto_view:
     view(fn)
