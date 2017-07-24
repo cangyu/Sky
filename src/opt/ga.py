@@ -3,7 +3,7 @@ import numpy as np
 from bitarray import bitarray
 from abc import abstractmethod
 
-var_name = ['Cr', 'Cm', 'Ct', 'Bm', 'Bt', 'Alpha_m', 'Alpha_t']
+var_name = ['Cr', 'Cm', 'Ct', 'Bm', 'Bt', 'Am', 'At']
 var_range = np.array([[100, 120],
                       [30, 45],
                       [6, 10],
