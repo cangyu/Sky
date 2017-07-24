@@ -1255,6 +1255,8 @@ class XF_MSH(object):
                     cls.dimensional_copy(pnt_list[pnt_idx], grid[i][j][k], dimension)
                     pnt_idx += 1
 
+        assert pnt_idx == total_pnt
+
         '''Flush pnt info to MSH file'''
         msh.add_section(XF_Comment("Point Declaration:"))
         msh.add_section(XF_Node.declaration(total_pnt))
@@ -1435,6 +1437,8 @@ class XF_MSH(object):
         face_cnt += z_face_cnt
         msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[5], FaceType.Quadrilateral, z1_face_desc))
         msh.add_blank()
+
+        assert face_cnt == total_face
 
         return msh
 

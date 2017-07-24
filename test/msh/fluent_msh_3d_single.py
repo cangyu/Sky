@@ -76,7 +76,7 @@ def sect(r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw):
 class TestFromStr3D(unittest.TestCase):
     @staticmethod
     def test():
-        grid = sect(10, 32, 0, 120, -40, 40, 20, 30, 10)
+        grid = sect(10, 32, 0, 160, -15, 15, 25, 30, 20)
         fluent_msh = XF_MSH.from_str3d(grid)
         fluent_msh.save("sect.msh")
         plot3d_msh = PLOT3D()
