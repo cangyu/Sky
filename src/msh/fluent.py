@@ -437,46 +437,35 @@ class XF_MSH(object):
 
         '''MSH File'''
         msh = cls()
-
         msh.add_section(XF_Header())
         msh.add_blank()
-
         msh.add_section(XF_Comment("Dimension:"))
         msh.add_section(XF_Dimension(Dim))
         msh.add_blank()
-
         msh.add_section(XF_Comment("Declaration:"))
         msh.add_section(XF_Cell.declaration(CellCnt))
         msh.add_section(XF_Face.declaration(EdgeCnt))
         msh.add_section(XF_Node.declaration(NodeCnt))
         msh.add_blank()
-
         msh.add_section(XF_Comment("Grid:"))
-
         zone_idx += 1
         msh.add_section(XF_Node(zone_idx, 1, NodeCnt, NodeType.Any, Dim, NodeList))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Face(zone_idx, face1_first, face1_last, bc[0], FaceType.Linear, face1))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Face(zone_idx, face2_first, face2_last, bc[1], FaceType.Linear, face2))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Face(zone_idx, face3_first, face3_last, bc[2], FaceType.Linear, face3))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Face(zone_idx, face4_first, face4_last, bc[3], FaceType.Linear, face4))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Face(zone_idx, face5_first, face5_last, BCType.Interior, FaceType.Linear, face5))
         msh.add_blank()
-
         zone_idx += 1
         msh.add_section(XF_Cell(zone_idx, 1, CellCnt, CellType.Fluid, CellElement.Quadrilateral))
 
@@ -1118,44 +1107,107 @@ class XF_MSH(object):
         return msh
 
     @staticmethod
-    def cell_idx_3d(coordinate, quadrant, dimension):
+    def cell_idx_3d(coordinate, dimension):
+        """
+        计算3维Block中指定Cell的序号
+        :param coordinate: 原点坐标
+        :param dimension: Block尺寸
+        :return: 以给定点为原点，正方向沿用Block的正方向，位于第1象限处的Cell的序号
+        :rtype: int
+        """
+
         i, j, k = coordinate
         u, v, w = dimension
-        rdx = 1 + (u - 1) * (v - 1) * k + (u - 1) * j + i
 
-        if quadrant == 1:
-            return rdx
-        elif quadrant == 2:
-            return rdx - 1
-        elif quadrant == 3:
-            return rdx - u
-        elif quadrant == 4:
-            return rdx - (u - 1)
-        elif quadrant == 5:
-            return rdx - (u - 1) * (v - 1)
-        elif quadrant == 6:
-            return rdx - (u - 1) * (v - 1) - 1
-        elif quadrant == 7:
-            return rdx - (u - 1) * (v - 1) - (u - 1) + 1
-        elif quadrant == 8:
-            return rdx - (u - 1) * (v - 1) - (u - 1)
-        else:
-            raise ValueError("Invalid quadrant index.")
+        if i >= u - 1 or j >= v - 1 or k >= w - 1:
+            raise AssertionError("Cell not Exist, boundary exceeded.")
+
+        return 1 + (u - 1) * (v - 1) * k + (u - 1) * j + i
 
     @staticmethod
-    def pnt_idx_3d(coordinate, norm_dir, dimension):
-        if norm_dir not in ('X', 'x', 'Y', 'y', 'Z', 'z', 'U', 'u', 'V', 'v', 'W', 'w'):
-            raise ValueError("Invalid norm direction representation.")
+    def cell_idx_quadrant_3d(coordinate, quadrant, dimension):
+        """
+        计算3维Block中指定Cell的序号
+        :param coordinate: 原点坐标
+        :param quadrant: 象限号
+        :type quadrant: int
+        :param dimension: Block尺寸
+        :return: 以给定点为原点，正方向沿用Block的正方向，位于指定象限处的Cell的序号
+        :rtype: int
+        """
+
+        if quadrant < 1 or quadrant > 8:
+            raise AssertionError("Invalid quadrant index.")
+
+        i, j, k = coordinate
+
+        if quadrant == 1:
+            return XF_MSH.cell_idx_3d(coordinate, dimension)
+        elif quadrant == 2:
+            return XF_MSH.cell_idx_3d((i - 1, j, k), dimension)
+        elif quadrant == 3:
+            return XF_MSH.cell_idx_3d((i - 1, j - 1, k), dimension)
+        elif quadrant == 4:
+            return XF_MSH.cell_idx_3d((i, j - 1, k), dimension)
+        elif quadrant == 5:
+            return XF_MSH.cell_idx_3d((i, j, k - 1), dimension)
+        elif quadrant == 6:
+            return XF_MSH.cell_idx_3d((i - 1, j, k - 1), dimension)
+        elif quadrant == 7:
+            return XF_MSH.cell_idx_3d((i - 1, j - 1, k - 1), dimension)
+        else:
+            return XF_MSH.cell_idx_3d((i, j - 1, k - 1), dimension)
+
+    @staticmethod
+    def pnt_idx_3d(coordinate, dimension):
+        """
+        3维单块Block中某点的序号
+        :param coordinate: 点的3维坐标
+        :param dimension: Block的尺寸
+        :return: 该点按照(x > y > z)的优先级排序下的序号，从1开始
+        :rtype: int
+        """
 
         i, j, k = coordinate
         u, v, w = dimension
-        t = (u + 1) * (v + 1) * k + (u + 1) * j + i
+
+        if i >= u or j >= v or k >= w:
+            raise AssertionError("Invalid coordinate, boundary exceeded.")
+
+        return 1 + u * v * k + u * j + i
+
+    @staticmethod
+    def pnt_idx_list_3d(coordinate, norm_dir, dimension):
+        """
+        求一点周围4个点的序号
+        :param coordinate: 指定点的3维坐标(i, j, k)
+        :param norm_dir: Face的法方向
+        :param dimension: 3维Block的尺寸(u, v, w)
+        :return: 从起始点coordinate开始，拇指指向norm_dir, 按右手法则绕一圈依次经过的4个点的序号(Starting from 1)
+        """
+
+        if norm_dir not in ('X', 'x', 'U', 'u', 'Y', 'y', 'V', 'v', 'Z', 'z', 'W', 'w'):
+            raise AssertionError("Invalid norm direction representation.")
+
+        i, j, k = coordinate
         if norm_dir in ('X', 'x', 'U', 'u'):
-            return t, t + (v + 1), t + (v + 2), t + 1
+            t1 = XF_MSH.pnt_idx_3d(coordinate, dimension)
+            t2 = XF_MSH.pnt_idx_3d((i, j + 1, k), dimension)
+            t3 = XF_MSH.pnt_idx_3d((i, j + 1, k + 1), dimension)
+            t4 = XF_MSH.pnt_idx_3d((i, j, k + 1), dimension)
+            return t1, t2, t3, t4
         elif norm_dir in ('Y', 'y', 'V', 'v'):
-            return t, t + (u + 1), t + (u + 2), t + 1
+            t1 = XF_MSH.pnt_idx_3d(coordinate, dimension)
+            t2 = XF_MSH.pnt_idx_3d((i, j, k + 1), dimension)
+            t3 = XF_MSH.pnt_idx_3d((i + 1, j, k + 1), dimension)
+            t4 = XF_MSH.pnt_idx_3d((i + 1, j, k), dimension)
+            return t1, t2, t3, t4
         else:
-            return t, t + (u + 1), t + u, t - 1
+            t1 = XF_MSH.pnt_idx_3d(coordinate, dimension)
+            t2 = XF_MSH.pnt_idx_3d((i + 1, j, k), dimension)
+            t3 = XF_MSH.pnt_idx_3d((i + 1, j + 1, k), dimension)
+            t4 = XF_MSH.pnt_idx_3d((i, j + 1, k), dimension)
+            return t1, t2, t3, t4
 
     @classmethod
     def from_str3d(cls, grid, bc=(BCType.VelocityInlet, BCType.Outflow, BCType.Wall, BCType.Wall, BCType.Wall, BCType.Wall)):
@@ -1169,6 +1221,7 @@ class XF_MSH(object):
 
         '''Basic variables'''
         u, v, w = grid.shape[:3]
+        blk_shape = (u, v, w)
         dimension = 3
         zone_idx = 0
         total_cell = (u - 1) * (v - 1) * (w - 1)
@@ -1210,15 +1263,179 @@ class XF_MSH(object):
         msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dimension, pnt_list))
         msh.add_blank()
 
-        '''Build interior adjacent description'''
-        ifn = (u - 1) * (v - 1) * (w - 2) + (v - 1) * (w - 1) * (u - 2) + (w - 1) * (u - 1) * (v - 2)
-        inter_face_desc = np.empty((ifn, 4), int)
-        inter_face_cnt = 0
-
         '''Flush face declaration to MSH file'''
         msh.add_section(XF_Comment("Face Declaration:"))
         msh.add_section(XF_Face.declaration(total_face))
         msh.add_blank()
+
+        '''Build interior adjacent description'''
+        ifn = (u - 1) * (v - 1) * (w - 2) + (v - 1) * (w - 1) * (u - 2) + (w - 1) * (u - 1) * (v - 2)
+        inter_face_desc = np.empty((ifn, 6), int)
+        face_cnt = 0
+
+        for i in range(1, u - 1):
+            for j in range(v - 1):
+                for k in range(w - 1):
+                    coord = (i, j, k)
+                    t1, t2, t3, t4 = cls.pnt_idx_list_3d(coord, 'X', blk_shape)
+                    inter_face_desc[face_cnt][0] = t1
+                    inter_face_desc[face_cnt][1] = t2
+                    inter_face_desc[face_cnt][2] = t3
+                    inter_face_desc[face_cnt][3] = t4
+                    inter_face_desc[face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(coord, 1, blk_shape)  # c0
+                    inter_face_desc[face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(coord, 2, blk_shape)  # c1
+                    face_cnt += 1
+
+        for j in range(1, v - 1):
+            for k in range(w - 1):
+                for i in range(u - 1):
+                    coord = (i, j, k)
+                    t1, t2, t3, t4 = cls.pnt_idx_list_3d(coord, 'Y', blk_shape)
+                    inter_face_desc[face_cnt][0] = t1
+                    inter_face_desc[face_cnt][1] = t2
+                    inter_face_desc[face_cnt][2] = t3
+                    inter_face_desc[face_cnt][3] = t4
+                    inter_face_desc[face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(coord, 1, blk_shape)  # c0
+                    inter_face_desc[face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(coord, 4, blk_shape)  # c1
+                    face_cnt += 1
+
+        for k in range(1, w - 1):
+            for i in range(u - 1):
+                for j in range(v - 1):
+                    coord = (i, j, k)
+                    t1, t2, t3, t4 = cls.pnt_idx_list_3d(coord, 'Z', blk_shape)
+                    inter_face_desc[face_cnt][0] = t1
+                    inter_face_desc[face_cnt][1] = t2
+                    inter_face_desc[face_cnt][2] = t3
+                    inter_face_desc[face_cnt][3] = t4
+                    inter_face_desc[face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(coord, 1, blk_shape)  # c0
+                    inter_face_desc[face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(coord, 5, blk_shape)  # c1
+                    face_cnt += 1
+
+        '''Flush Interior face info into MSH file'''
+        zone_idx += 1
+        msh.add_section(XF_Comment("Interior faces:"))
+        msh.add_section(XF_Face(zone_idx, 1, face_cnt, BCType.Interior, FaceType.Quadrilateral, inter_face_desc))
+        msh.add_blank()
+
+        '''X-Boundary faces'''
+        x_face_num = (v - 1) * (w - 1)
+        x_face_cnt = 0
+        x0_face_desc = np.empty((x_face_num, 6), int)
+        x1_face_desc = np.empty((x_face_num, 6), int)
+        for j in range(v - 1):
+            for k in range(w - 1):
+                c1 = (0, j, k)
+                c2 = (u - 1, j, k)
+                f1, f2, f3, f4 = cls.pnt_idx_list_3d(c1, 'X', blk_shape)
+                t1, t2, t3, t4 = cls.pnt_idx_list_3d(c2, 'X', blk_shape)
+
+                x0_face_desc[x_face_cnt][0] = f1
+                x0_face_desc[x_face_cnt][1] = f2
+                x0_face_desc[x_face_cnt][2] = f3
+                x0_face_desc[x_face_cnt][3] = f4
+                x0_face_desc[x_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(c1, 1, blk_shape)  # c0
+                x0_face_desc[x_face_cnt][5] = 0  # c1
+
+                x1_face_desc[x_face_cnt][0] = t1
+                x1_face_desc[x_face_cnt][1] = t2
+                x1_face_desc[x_face_cnt][2] = t3
+                x1_face_desc[x_face_cnt][3] = t4
+                x1_face_desc[x_face_cnt][4] = 0  # c0
+                x1_face_desc[x_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(c2, 2, blk_shape)  # c1
+                x_face_cnt += 1
+
+        msh.add_section(XF_Comment("X-Boundary faces:"))
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += x_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[0], FaceType.Quadrilateral, x0_face_desc))
+        msh.add_blank()
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += x_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[1], FaceType.Quadrilateral, x1_face_desc))
+        msh.add_blank()
+
+        '''Y-Boundary faces'''
+        y_face_num = (w - 1) * (u - 1)
+        y_face_cnt = 0
+        y0_face_desc = np.empty((y_face_num, 6), int)
+        y1_face_desc = np.empty((y_face_num, 6), int)
+        for k in range(w - 1):
+            for i in range(u - 1):
+                c1 = (i, 0, k)
+                c2 = (i, v - 1, k)
+                f1, f2, f3, f4 = cls.pnt_idx_list_3d(c1, 'Y', blk_shape)
+                t1, t2, t3, t4 = cls.pnt_idx_list_3d(c2, 'Y', blk_shape)
+
+                y0_face_desc[y_face_cnt][0] = f1
+                y0_face_desc[y_face_cnt][1] = f2
+                y0_face_desc[y_face_cnt][2] = f3
+                y0_face_desc[y_face_cnt][3] = f4
+                y0_face_desc[y_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(c1, 1, blk_shape)  # c0
+                y0_face_desc[y_face_cnt][5] = 0  # c1
+
+                y1_face_desc[y_face_cnt][0] = t1
+                y1_face_desc[y_face_cnt][1] = t2
+                y1_face_desc[y_face_cnt][2] = t3
+                y1_face_desc[y_face_cnt][3] = t4
+                y1_face_desc[y_face_cnt][4] = 0  # c0
+                y1_face_desc[y_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(c2, 4, blk_shape)  # c1
+                y_face_cnt += 1
+
+        msh.add_section(XF_Comment("Y-Boundary faces:"))
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += y_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[2], FaceType.Quadrilateral, y0_face_desc))
+        msh.add_blank()
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += y_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[3], FaceType.Quadrilateral, y1_face_desc))
+        msh.add_blank()
+
+        '''Z-Boundary faces'''
+        z_face_num = (u - 1) * (v - 1)
+        z_face_cnt = 0
+        z0_face_desc = np.empty((z_face_num, 6), int)
+        z1_face_desc = np.empty((z_face_num, 6), int)
+        for i in range(u - 1):
+            for j in range(v - 1):
+                c1 = (i, j, 0)
+                c2 = (i, j, w - 1)
+                f1, f2, f3, f4 = cls.pnt_idx_list_3d(c1, 'Z', blk_shape)
+                t1, t2, t3, t4 = cls.pnt_idx_list_3d(c2, 'Z', blk_shape)
+
+                z0_face_desc[z_face_cnt][0] = f1
+                z0_face_desc[z_face_cnt][1] = f2
+                z0_face_desc[z_face_cnt][2] = f3
+                z0_face_desc[z_face_cnt][3] = f4
+                z0_face_desc[z_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d(c1, 1, blk_shape)  # c0
+                z0_face_desc[z_face_cnt][5] = 0  # c1
+
+                z1_face_desc[z_face_cnt][0] = t1
+                z1_face_desc[z_face_cnt][1] = t2
+                z1_face_desc[z_face_cnt][2] = t3
+                z1_face_desc[z_face_cnt][3] = t4
+                z1_face_desc[z_face_cnt][4] = 0  # c0
+                z1_face_desc[z_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d(c2, 5, blk_shape)  # c1
+                z_face_cnt += 1
+
+        msh.add_section(XF_Comment("Z-Boundary faces:"))
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += z_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[0], FaceType.Quadrilateral, z0_face_desc))
+        msh.add_blank()
+        zone_idx += 1
+        cur_start = face_cnt + 1
+        face_cnt += z_face_cnt
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[1], FaceType.Quadrilateral, z1_face_desc))
+        msh.add_blank()
+
+        return msh
 
     @classmethod
     def from_str3d_multi(cls, grid_list, bc_list, adj_info):
