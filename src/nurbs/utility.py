@@ -191,3 +191,18 @@ def normalize(vector):
     for i in range(len(vector)):
         va[i] = factor * vector[i]
     return va
+
+
+def point_to_line(target, center, axis):
+    """
+    将点投影到一条直线上
+    :param target: 待投影点
+    :param center: 直线上的一点
+    :param axis: 直线的方向向量
+    :return: 目标点在直线上的投影点
+    """
+
+    a = target - center
+    t = normalize(axis)
+    b = np.inner(a, t) * t
+    return b + center

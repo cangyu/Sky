@@ -703,40 +703,72 @@ def different_knot(lhs, rhs):
     return ans
 
 
-def make_revolved_surf(S, T, theta, m, Pj, wj, n, U, Pij, wij):
-    """
-    NURBS形式旋转面
-    :param S:
-    :param T:
-    :param theta:
-    :param m:
-    :param Pj:
-    :param wj:
-    :param n:
-    :param U:
-    :param Pij:
-    :param wij:
-    :return:
-    """
+class RevolvedSurf(ClampedNURBSSurf):
+    def __init__(self, center, axis, theta, crv):
+        """
+        曲线绕过指定点的轴线旋转指定角度得到的曲面
+        :param center: 旋转中心
+        :param axis: 旋转轴，正方向按右手法则给定
+        :param theta: 旋转角度
+        :type theta: float
+        :param crv: 母线
+        :type crv: ClampedNURBSCrv
+        """
 
-    if theta <= 90.0:
-        narcs = 1
-    elif theta <= 180:
-        narcs = 2
-        U[3] = U[4] = 0.5
-    elif theta <= 270:
-        narcs = 3
-        U[3] = U[4] = 1 / 3
-        U[5] = U[6] = 2 / 3
-    else:
-        narcs = 4
-        U[3] = U[4] = 0.25
-        U[5] = U[6] = 0.5
-        U[7] = U[8] = 0.75
+        while theta <= 0:
+            theta += 360
+        while theta > 360:
+            theta -= 360
 
-    dtheta = theta / narcs
-    j = 3 + 2 * (narcs - 1)
-    for i in range(3):
-        pass
+        '''Segments'''
+        narcs = int(math.ceil(theta / 90))
+        theta = math.radians(theta)
+        dtheta = theta / narcs
 
-    # TODO
+        '''U Direction knots'''
+        u_knot = np.zeros(2 * narcs + 4)
+        u_knot[-1] = u_knot[-2] = u_knot[-3] = 1.0
+        delta_knot = 1.0 / narcs
+        for i in range(1, narcs):
+            cur_index = 1 + 2 * i
+            u_knot[cur_index] = u_knot[cur_index + 1] = i * delta_knot
+
+        '''Pre-compute sine and cosine stuff'''
+        n = 2 * narcs
+        wm = math.cos(dtheta / 2)
+        angle = 0.0
+        sines = np.zeros(narcs + 1, float)
+        cosines = np.ones(narcs + 1, float)
+        for i in range(1, narcs + 1):
+            angle += dtheta
+            cosines[i] = math.cos(angle)
+            sines[i] = math.sin(angle)
+
+        '''Initialize surface control points'''
+        npw = np.empty((len(u_knot) + 2 + 1, crv.m + 1, 4), float)
+        for j in range(crv.m + 1):
+            npw[0][j] = crv.Pw[j]
+
+        Pj = crv.cpt
+        wj = crv.weight
+        for j in range(crv.m + 1):
+            O = point_to_line(Pj[j], center, axis)
+            X = Pj[j] - O
+            r = norm(X)
+            X = normalize(X)
+            Y = np.outer(axis, X)
+            P0 = Pj[j]
+            T0 = Y
+            index = 0
+            angle = 0.0
+            for i in range(1, narcs + 1):
+                P2 = O + r * cosines[i] * X + r * sines[i] * Y
+                npw[index + 2][j] = to_homogeneous(P2, wj[j])
+                T2 = -sines[i] * X + cosines[i] * Y
+                npw[index + 1][j] = to_homogeneous(line_intersection(P0, T0, P2, T2), wm * wj[j])
+                index += 2
+                if i < narcs:
+                    P0 = P2
+                    T0 = T2
+
+        super(RevolvedSurf, self).__init__(u_knot, crv.U, npw)
