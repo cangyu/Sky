@@ -1253,6 +1253,7 @@ class XF_MSH(object):
             for j in range(v):
                 for i in range(u):
                     cls.dimensional_copy(pnt_list[pnt_idx], grid[i][j][k], dimension)
+                    pnt_idx += 1
 
         '''Flush pnt info to MSH file'''
         msh.add_section(XF_Comment("Point Declaration:"))
@@ -1427,12 +1428,12 @@ class XF_MSH(object):
         zone_idx += 1
         cur_start = face_cnt + 1
         face_cnt += z_face_cnt
-        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[0], FaceType.Quadrilateral, z0_face_desc))
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[4], FaceType.Quadrilateral, z0_face_desc))
         msh.add_blank()
         zone_idx += 1
         cur_start = face_cnt + 1
         face_cnt += z_face_cnt
-        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[1], FaceType.Quadrilateral, z1_face_desc))
+        msh.add_section(XF_Face(zone_idx, cur_start, face_cnt, bc[5], FaceType.Quadrilateral, z1_face_desc))
         msh.add_blank()
 
         return msh
