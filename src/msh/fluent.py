@@ -474,9 +474,8 @@ class XF_MSH(object):
     @classmethod
     def from_str2d_multi(cls, blk_list, bc_list, adj_info):
         """
-        根据给定的邻接关系，将多块结构网格转换成非结构形式，
-        并赋予给定的边界条件, 类似于ICEM中的'Convert to unstructured mesh'功能
-        :param blk_list: 单块结构网格序列
+        根据给定的邻接关系，将2维多块结构网格转换成非结构形式，并赋予给定的边界条件, 类似于ICEM中的'Convert to unstructured mesh'功能
+        :param blk_list: 2维单块结构网格序列
         :param bc_list: 依次包括每个单块结构网格的BC
         :param adj_info: 依次包括每个单块结构网格的邻接关系序列
         :return: 可用于后续生成msh文件的XF_MSH对象
@@ -1443,5 +1442,104 @@ class XF_MSH(object):
         return msh
 
     @classmethod
-    def from_str3d_multi(cls, grid_list, bc_list, adj_info):
-        pass
+    def from_str3d_multi(cls, blk_list, bc_list, adj_info):
+        """
+        根据给定的邻接关系，将3维多块结构网格转换成非结构形式，并赋予给定的边界条件, 类似于ICEM中的'Convert to unstructured mesh'功能
+        :param blk_list: 3维单块结构网格序列
+        :param bc_list: 依次包括每个单块结构网格的BC
+        :param adj_info: 依次包括每个单块结构网格的邻接关系序列
+        :return: 可用于后续生成msh文件的XF_MSH对象
+        :rtype: XF_MSH
+        """
+
+        def cell_num(nu, nv, nw):
+            return (nu - 1) * (nv - 1) * (nw - 1)
+
+        def pnt_num(nu, nv, nw):
+            return nu * nv * nw
+
+        def blk_face_pnt_num(k, f):
+            u, v, w = blk_shape[k]
+            if f in (1, 2):
+                return v * w
+            elif f in (3, 4):
+                return w * u
+            elif f in (5, 6):
+                return u * v
+            else:
+                raise ValueError("Invalid face index.")
+
+        def blk_shell_pnt_num(k):
+            nu, nv, nw = blk_shape[k]
+            return pnt_num(nu, nv, nw) - pnt_num(nu - 1, nv - 1, nw - 1)
+
+        def shell_pnt_idx_from_coord(crd, shp):
+            ii, jj, kk = crd
+            nu, nv, nw = shp
+
+        def shell_pnt_coord_from_idx(idx, shp):
+            nu, nv, nw = shp
+
+        '''Basic variables'''
+        dim = 3
+        total_cell = 0
+        total_pnt = 0
+        total_face = 0
+        blk_num = len(blk_list)
+        blk_shape = np.empty((blk_num, 3), int)
+        for k, blk in enumerate(blk_list):
+            u, v, w = blk.shape[:3]
+            blk_shape[k][0] = u
+            blk_shape[k][1] = v
+            blk_shape[k][2] = w
+            total_cell += cell_num(u, v, w)
+            total_pnt += pnt_num(u, v, w)
+
+        for entry in adj_info:
+            b1, f1 = entry[0]
+            total_pnt -= blk_face_pnt_num(b1, f1)
+
+        '''Initialize MSH file'''
+        msh = cls()
+        zone_idx = 0
+        msh.add_section(XF_Header())
+        msh.add_blank()
+        msh.add_section(XF_Comment("Dimension:"))
+        msh.add_section(XF_Dimension(dim))
+        msh.add_blank()
+
+        '''Flush cell info to MSH file'''
+        msh.add_section(XF_Comment("Cell Declaration:"))
+        msh.add_section(XF_Cell.declaration(total_cell))
+        msh.add_blank()
+        zone_idx += 1
+        msh.add_section(XF_Comment("Cell Info:"))
+        msh.add_section(XF_Cell(zone_idx, 1, total_cell, CellType.Fluid, CellElement.Hexahedral))
+        msh.add_blank()
+
+        '''Points'''
+        pnt_desc = np.empty((total_pnt, 3), float)
+        pnt_cnt = 0
+
+        '''Interior points in each block'''
+        for k, blk in enumerate(blk_list):
+            u, v = blk_shape[k]
+            for j in range(v):
+                for i in range(u):
+                    for d in range(dim):
+                        pnt_desc[pnt_cnt][d] = blk[i][j][d]
+                    pnt_cnt += 1
+
+        shell_pnt = []
+        for k in range(blk_num):
+            pn = blk_shell_pnt_num(k)
+            shell_pnt.append(np.zeros(pn, int))
+
+        '''Flush pnt info to MSH file'''
+        msh.add_section(XF_Comment("Point Declaration:"))
+        msh.add_section(XF_Node.declaration(total_pnt))
+        msh.add_blank()
+        zone_idx += 1
+        msh.add_section(XF_Comment("Point Coordinates:"))
+        msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dim, pnt_desc))
+        msh.add_blank()
