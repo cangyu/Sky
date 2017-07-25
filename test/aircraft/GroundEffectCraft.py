@@ -16,8 +16,8 @@ fn = "GroundEffectCraft.igs"
 gec = IGES_Model(fn)
 
 nose_len = 3.3
-fuselage_diameter = 3.1
-fuselage_len = 13.2
+fuselage_diameter = 2.95
+fuselage_len = 11.2
 tail_end_diameter = 0.8
 tail_tip_back_angle = 25
 tail_y_down_delta = 0.3
@@ -30,9 +30,9 @@ hs_y_offset = 5.1
 
 '''Nose'''
 nose_x = np.array([0, 0.4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-nose_up_y = np.array([0.4, 1.6, 2.25, 3, 3.3, 3.55, 4, 5, 5.5, 5.82, 6, 6.1])
-nose_bottom_y = np.array([-0.6, -1.6, -2, -2.55, -2.8, -3, -3, -3.05, -3.05, -3.1, -3.1, -3.2])
-nose_side_z = np.array([1, 2, 2.8, 3.4, 4, 4.2, 4.4, 4.48, 4.5, 4.55, 4.59, 4.6])
+nose_up_y = np.array([0.05, 1.6, 2.25, 3, 3.3, 3.55, 4, 5, 5.5, 5.82, 6, 6.1])
+nose_bottom_y = np.array([-0.1, -1.6, -2, -2.55, -2.8, -3, -3, -3.05, -3.05, -3.1, -3.1, -3.2])
+nose_side_z = np.array([0.2, 2, 2.8, 3.4, 4, 4.2, 4.4, 4.48, 4.5, 4.55, 4.59, 4.6])
 nose_side_y = np.copy(nose_x)
 
 n = len(nose_x)
@@ -118,7 +118,7 @@ twist = np.array([12, 12, 6], float)
 dihedral = np.array([0, 3, 5], float)
 twist_pos = np.array([0.25, 0.25, 0.25])
 y_ref = np.zeros(3)
-thickness_factor = np.ones(3, float) * 2.2
+thickness_factor = np.ones(3, float) * 1.7
 
 crv_list = []
 for k in range(3):

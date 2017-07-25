@@ -437,3 +437,7 @@ class Wing(object):
             section_list.append(WingProfile.from_geom_param(airfoil[k], z[k], length[k], sweep[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness[k]))
 
         return cls(section_list)
+
+    @classmethod
+    def from_frame(cls):
+        pass
