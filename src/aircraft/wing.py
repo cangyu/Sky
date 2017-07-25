@@ -8,21 +8,20 @@ from scipy import interpolate
 from src.iges.iges_core import IGES_Model
 from src.nurbs.utility import equal, pnt_dist
 from src.nurbs.curve import GlobalInterpolatedCrv
-from src.nurbs.surface import GlobalInterpolatedSurf, Skinned
+from src.nurbs.surface import Skinned
 from settings import AIRFOIL_DIR
-
-BWB_SEC_PARAM = ['Airfoil', 'Thickness Ratio', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)']
-AIRFOIL_LIST = []
 
 
 def update_airfoil_list():
     for f in os.listdir(AIRFOIL_DIR):
         base, ext = os.path.splitext(f)
         if ext == '.dat':
-            AIRFOIL_LIST.append(base)
+            Airfoil.AIRFOIL_LIST.append(base)
 
 
 class Airfoil(object):
+    AIRFOIL_LIST = []
+
     def __init__(self):
         """
         2D Airfoil, with chord length equals to 1.
@@ -60,7 +59,6 @@ class Airfoil(object):
     def pnt_num(self):
         return len(self.pts)
 
-    @property
     def nurbs_rep(self, p=5, method='centripetal'):
         """
         NURBS Representation
@@ -101,8 +99,14 @@ class Airfoil(object):
         af.pts = np.copy(pts)
         return af
 
+    def gen_msh(self):
+        pass
+
 
 class WingProfile(Airfoil):
+    SEC_INTRINSIC_PARAM = ['Airfoil', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)', 'Thickness Ratio']
+    SEC_GEOM_PARAM = ['Airfoil', 'Z(m)', 'Length(m)', 'SweepBack(deg)', 'Twist(deg)', 'Dihedral(deg)', 'TwistPos', 'Thickness Ratio']
+
     def __init__(self, foil, ends, thickness_factor=1.0):
         """
         3D profile at certain position.
@@ -153,6 +157,51 @@ class WingProfile(Airfoil):
     @property
     def tail(self):
         return self.ending[-1]
+
+    @classmethod
+    def from_geom_param(cls, foil, z_offset, length, sweep_back, twist, dihedral, twist_pos=0.25, y_ref=0, thickness_factor=1.0):
+        """
+        从几何描述参数构建机翼剖面
+        :param foil: 翼型名称
+        :type foil: str
+        :param z_offset: Z方向偏移量
+        :type z_offset: float
+        :param length: 剖面长度
+        :type length: float
+        :param sweep_back: 后掠角
+        :type sweep_back: float
+        :param twist: 相对翼根弦线的扭转角(默认在1/4弦长处扭转)
+        :type twist: float
+        :param dihedral: 相对翼根的上反角
+        :type dihedral: float
+        :param twist_pos: 扭转中心
+        :type twist_pos: float
+        :param y_ref: 翼根处Y方向基准坐标
+        :type y_ref: float
+        :param thickness_factor: 纵向厚度拉伸系数
+        :type thickness_factor: float
+        :return: 机翼剖面
+        :rtype: WingProfile
+        """
+
+        x_offset = z_offset * math.tan(math.radians(sweep_back))
+        y_offset = y_ref + z_offset * math.tan(math.radians(dihedral))
+        front = np.array([x_offset, y_offset, z_offset], float)
+        tail = np.array([x_offset + length, y_offset, z_offset], float)
+
+        center = (1 - twist_pos) * front + twist_pos * tail
+        theta = math.radians(-twist)
+        rot = complex(math.cos(theta), math.sin(theta))
+        d1 = front - center
+        d2 = tail - center
+        c1 = complex(d1[0], d1[1]) * rot
+        c2 = complex(d2[0], d2[1]) * rot
+        front[0] = center[0] + c1.real
+        front[1] = center[1] + c1.imag
+        tail[0] = center[0] + c2.real
+        tail[1] = center[1] + c2.imag
+
+        return cls(np.array([front, tail], float), foil, thickness_factor)
 
 
 class WingFrame(object):
@@ -262,123 +311,121 @@ class BWBFrame(WingFrame):
 
 
 class Wing(object):
-    def __init__(self, airfoil_list, thickness_list, z_list, xf_list, yf_list, xt_list, yt_list):
-        self.airfoil = airfoil_list
-        self.thickness = thickness_list
-        self.z = z_list
-        self.xf = xf_list
-        self.yf = yf_list
-        self.xt = xt_list
-        self.yt = yt_list
+    def __init__(self, section_list):
+        """
+        从剖面序列构造机翼
+        :param section_list: 机翼剖面序列
+        """
 
-        self.surf = None
-        self.root = None
-        self.tip = None
-        self.front = None
-        self.tail_up = None
-        self.tail_down = None
+        self.section = []
+        for elem in section_list:
+            self.section.append(deepcopy(elem))
 
     @property
     def section_num(self):
-        return len(self.airfoil)
+        return len(self.section)
 
-    def build_sketch(self, p=5, q=5):
+    @property
+    def root(self):
+        return self.section[0].nurbs_rep
+
+    @property
+    def tip(self):
+        return self.section[-1].nurbs_rep
+
+    def front(self, q=3, method='chord'):
+        n = self.section_num
+        front_pts = np.zeros((n, 3))
+        for i in range(n):
+            front_pts[i] = self.section[i].front
+
+        return GlobalInterpolatedCrv(front_pts, q, method)
+
+    def surf(self, p=3, q=3):
         """
         构建机翼轮廓曲线、曲面
         :param p: U方向次数
+        :type p: int
         :param q: V方向次数
-        :return: None
+        :type q: int
+        :return: 机翼蒙皮曲面
+        :rtype: Skinned
         """
 
-        '''剖面'''
-        profile = []
-        for i in range(0, self.n):
-            epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
-                             [self.xt[i], self.yt[i], self.z[i]]])
-            wp = WingProfile(self.airfoil[i], epts, self.thickness[i])
-            profile.append(wp)
-
-        self.root = profile[0].nurbs_rep
-        self.tip = profile[-1].nurbs_rep
-
-        '''曲面全局插值'''
-        nn = len(profile[0].pts)
-        mm = self.n
-        surf_pts = np.zeros((nn, mm, 3))
-        for i in range(0, nn):
-            for j in range(0, mm):
-                surf_pts[i][j] = np.copy(profile[j].pts[i])
-        self.surf = GlobalInterpolatedSurf(surf_pts, p, q)
-
-        '''前后缘采样点'''
-        front_pts = np.zeros((self.n, 3))
-        tail_up_pts = np.zeros((self.n, 3))
-        tail_down_pts = np.zeros((self.n, 3))
-        for i in range(self.n):
-            front_pts[i][0] = self.xf[i]
-            front_pts[i][1] = self.yf[i]
-            front_pts[i][2] = self.z[i]
-            tail_up_pts[i] = np.copy(profile[i].pts[0])
-            tail_down_pts[i] = np.copy(profile[i].pts[-1])
-
-        self.front = GlobalInterpolatedCrv(front_pts, q, 'chord')
-        self.tail_up = self.surf.extract('U', 0)
-        self.tail_down = self.surf.extract('U', 1)
+        profile_list = []
+        for elem in self.section:
+            profile_list.append(elem.nurbs_rep(p))
+        return Skinned(profile_list, p, q)
 
     @property
-    def geom(self):
-        return self.surf, self.root, self.tip, self.front, self.tail_up, self.tail_down
+    def tail_up(self):
+        sk = self.surf()
+        return sk.extract('U', 0)
 
-    def write(self, fn, p=5, q=5, mirror=True):
+    @property
+    def tail_down(self):
+        sk = self.surf()
+        return sk.extract('U', 1)
+
+    def iges_model(self, fn, p=3, q=3, mirror=True):
+        """
+        生成机翼相应的IGES模型
+        :param fn: 文件名
+        :type fn: str
+        :param p: U方向次数
+        :type p: int
+        :param q: V方向次数
+        :type q: int
+        :param mirror: 是否生成对称部分
+        :type mirror: bool
+        :return: 可用于后续生成IGS文件的IGES_Model对象
+        :rtype: IGES_Model
+        """
+
         wing_model = IGES_Model(fn)
 
-        '''前后缘采样点'''
-        front_pts = np.zeros((self.n, 3))
-        tail_pts = np.zeros((self.n, 3))
-        for i in range(0, self.n):
-            front_pts[i][0] = self.xf[i]
-            front_pts[i][1] = self.yf[i]
-            tail_pts[i][0] = self.xt[i]
-            tail_pts[i][1] = self.yt[i]
-            tail_pts[i][2] = front_pts[i][2] = self.z[i]
-
-        '''
-        for i in range(0, self.n):
-            wing_model.add_entity(IGES_Entity116(self.xf[i], self.yf[i], self.z[i]))
-            wing_model.add_entity(IGES_Entity116(self.xt[i], self.yt[i], self.z[i]))
-        '''
-
-        '''前后缘曲线'''
-        front_crv = GlobalInterpolatedCrv(front_pts, 5, 'chord')
-        tail_crv = GlobalInterpolatedCrv(tail_pts, 5, 'chord')
-        wing_model.add_entity(front_crv.to_iges(0, 0, [0, 0, 0]))
-        wing_model.add_entity(tail_crv.to_iges(0, 0, [0, 0, 0]))
-
-        '''根梢弦线'''
-        # wing_model.add_entity(IGES_Entity110([self.xf[0], self.yf[0], self.z[0]], [self.xt[0], self.yt[0], self.z[0]]))
-        # wing_model.add_entity(IGES_Entity110([self.xf[- 1], self.yf[- 1], self.z[- 1]], [self.xt[- 1], self.yt[- 1], self.z[- 1]]))
+        '''前缘曲线'''
+        wing_model.add_entity(self.front(q).to_iges())
 
         '''剖面'''
-        profile = []
-        for i in range(0, self.n):
-            epts = np.array([[self.xf[i], self.yf[i], self.z[i]],
-                             [self.xt[i], self.yt[i], self.z[i]]])
-            wp = WingProfile(self.airfoil[i], epts, self.thickness[i]).nurbs_rep
-            profile.append(wp)
-            wing_model.add_entity(wp.to_iges(1, 0, [0, 0, 1]))
-            # add_pnt(wing_model, wp.pts[0])
-            # add_pnt(wing_model, wp.pts[-1])
+        for elem in self.section:
+            wing_model.add_entity(elem.nurbs_rep(p).to_iges())
 
-        '''全局插值'''
-        self.surf = Skinned(profile, p, q)
-        wing_model.add_entity(self.surf.to_iges())
+        '''蒙皮'''
+        sk = self.surf(p, q)
+        wing_model.add_entity(sk.to_iges())
 
+        '''镜像'''
         if mirror:
-            msrf = deepcopy(self.surf)
-            for i in range(msrf.n + 1):
-                for j in range(msrf.m + 1):
-                    msrf.Pw[i][j][2] *= -1
+            msk = deepcopy(sk)
+            for i in range(msk.n + 1):
+                for j in range(msk.m + 1):
+                    msk.Pw[i][j][2] *= -1
 
-            wing_model.add_entity(msrf.to_iges())
+            wing_model.add_entity(msk.to_iges())
 
         return wing_model
+
+    @classmethod
+    def from_intrinsic_desc(cls, airfoil, thickness, z, xf, yf, xt, yt):
+        n = len(airfoil)
+        section_list = []
+        for k in range(n):
+            ends = np.empty((2, 3), float)
+            ends[0][2] = ends[1][2] = z[k]
+            ends[0][0] = xf[k]
+            ends[0][1] = yf[k]
+            ends[1][0] = xt[k]
+            ends[1][1] = yt[k]
+            section_list.append(WingProfile(airfoil[k], ends, thickness[k]))
+
+        return cls(section_list)
+
+    @classmethod
+    def from_geom_desc(cls, airfoil, length, thickness, z, sweep, twist, twist_pos, dihedral, y_ref):
+        n = len(airfoil)
+        section_list = []
+        for k in range(n):
+            section_list.append(WingProfile.from_geom_param(airfoil[k], z[k], length[k], sweep[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness[k]))
+
+        return cls(section_list)
