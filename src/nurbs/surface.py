@@ -170,6 +170,20 @@ class ClampedNURBSSurf(object):
                 cv = ref + q.rotate(cv)
                 self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
 
+    def mirror(self, axis):
+        if axis == 'X':
+            idx = 0
+        elif axis == 'Y':
+            idx = 1
+        elif axis == 'Z':
+            idx = 2
+        else:
+            raise ValueError("Invalid axis")
+
+        for i in range(self.n + 1):
+            for j in range(self.m + 1):
+                self.Pw[i][j][idx] *= -1
+
     def to_iges(self, closed_u=0, closed_v=0, periodic_u=0, periodic_v=0, form=0):
         """
         将曲面以IGES标准中第128号实体呈现
