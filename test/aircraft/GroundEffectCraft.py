@@ -1,8 +1,9 @@
 import numpy as np
 import math
-from src.aircraft.wing import Wing
+from src.aircraft.wing import Wing, WingProfile
+from src.iges.iges_core import IGES_Model
 from src.nurbs.curve import Arc
-from src.nurbs.surface import ExtrudedSurf
+from src.nurbs.surface import ExtrudedSurf, RuledSurf
 
 try:
     from src.misc.catia import view
@@ -11,65 +12,34 @@ except ImportError:
 
 auto_view = True
 
-len_inner = 4.5
-len_outer = 4.2
-cr = 3.3
-sweep_back = math.radians(25)
-dihedral = math.radians(1 + 2)
+fn = "GroundEffectCraft.igs"
+gec = IGES_Model(fn)
 
+foil = ['NACA0012', 'M6', 'M6']
+z_offset = np.array([0, 4.5, 7.7])
+length = np.array([3.3, 3.3, 0.9])
+sweep_back = np.array([0, 0, 25], float)
+twist = np.array([5, 5, 2], float)
+dihedral = np.array([0, 3, 5], float)
+twist_pos = np.array([0.25, 0.25, 0.25])
+y_ref = np.zeros(3)
+thickness_factor = np.ones(3, float)
 
-def x_front(u):
-    return 0 if u <= 0.5 else len_outer * math.tan(sweep_back) * (u - 0.5) / 0.5
+sect_list = []
+crv_list = []
 
+for k in range(3):
+    wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
+    sect_list.append(wp)
+    crv = wp.nurbs_rep()
+    crv_list.append(crv)
 
-def x_tail(u):
-    return cr
+inner_surf = RuledSurf(crv_list[0], crv_list[1])
+outer_surf = RuledSurf(crv_list[1], crv_list[2])
 
+gec.add_entity(inner_surf.to_iges())
+gec.add_entity(outer_surf.to_iges())
 
-def y(u):
-    return u * (len_inner + len_outer) * math.tan(dihedral)
-
-
-def z(u):
-    return u * (len_inner + len_outer)
-
-
-foil = 'M6'
-sec_num = 17
-u_dist = np.linspace(0, 1, sec_num)
-airfoil_list = []
-thickness = np.ones(sec_num, float)
-z_dist = np.empty(sec_num, float)
-xf_dist = np.empty(sec_num, float)
-yf_dist = np.empty(sec_num, float)
-xt_dist = np.empty(sec_num, float)
-yt_dist = np.empty(sec_num, float)
-
-for i in range(sec_num):
-    airfoil_list.append(foil)
-    z_dist[i] = z(u_dist[i])
-    xf_dist[i] = x_front(u_dist[i])
-    xt_dist[i] = x_tail(u_dist[i])
-    yf_dist[i] = yt_dist[i] = y(u_dist[i])
-
-wg = Wing(airfoil_list, thickness, z_dist, xf_dist, yf_dist, xt_dist, yt_dist)
-
-fn = "GroundEffectCraft_{}_{}.igs".format(sec_num, foil)
-igs_model = wg.write(fn, mirror=True)
-
-'''Body'''
-body_radius = 1.45
-body_len = 11.2
-body_profile = Arc.from_2pnt((-3.2, body_radius, 0), (-3.2, -body_radius, 0), 180, (1, 0, 0))
-body_half = ExtrudedSurf(body_profile, (body_len, 0, 0)).to_iges()
-igs_model.add_entity(body_half)
-body_profile_mirrow = Arc.from_2pnt((-3.2, body_radius, 0), (-3.2, -body_radius, 0), 180, (-1, 0, 0))
-body_half_mirrow = ExtrudedSurf(body_profile_mirrow, (body_len, 0, 0)).to_iges()
-igs_model.add_entity(body_half_mirrow)
-
-
-
-
-igs_model.write()
+gec.write()
 if auto_view:
     view(fn)

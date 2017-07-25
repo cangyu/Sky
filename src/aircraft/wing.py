@@ -81,7 +81,13 @@ class Airfoil(object):
             pts.append([x, y, z])
         fin.close()
 
-        return pts
+        n = len(pts)
+        ret = np.empty((n, 3), float)
+        for k, pnt in enumerate(pts):
+            for d in range(3):
+                ret[k][d] = pnt[d]
+
+        return ret
 
     @classmethod
     def from_file(cls, fn):
@@ -93,10 +99,9 @@ class Airfoil(object):
         :rtype: Airfoil
         """
 
-        pts = cls.read_pts(fn)
         af = cls()
         af.name = fn
-        af.pts = np.copy(pts)
+        af.pts = cls.read_pts(fn)
         return af
 
     def gen_msh(self):
@@ -200,8 +205,11 @@ class WingProfile(Airfoil):
         front[1] = center[1] + c1.imag
         tail[0] = center[0] + c2.real
         tail[1] = center[1] + c2.imag
+        ending = np.empty((2, 3), float)
+        ending[0] = front
+        ending[1] = tail
 
-        return cls(np.array([front, tail], float), foil, thickness_factor)
+        return cls(foil, ending, thickness_factor)
 
 
 class WingFrame(object):
@@ -327,11 +335,11 @@ class Wing(object):
 
     @property
     def root(self):
-        return self.section[0].nurbs_rep
+        return self.section[0].nurbs_rep()
 
     @property
     def tip(self):
-        return self.section[-1].nurbs_rep
+        return self.section[-1].nurbs_rep()
 
     def front(self, q=3, method='chord'):
         n = self.section_num

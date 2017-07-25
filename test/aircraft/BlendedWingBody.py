@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
 import math
-from src.aircraft.frame import BWBFrame
-from src.aircraft.wing import Wing
+from src.aircraft.wing import Wing, BWBFrame
 
 try:
     from src.misc.catia import view
