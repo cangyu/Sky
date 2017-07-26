@@ -1,6 +1,7 @@
 import numpy as np
 from abc import abstractmethod
 from enum import Enum, unique
+from copy import deepcopy
 
 
 class XF_Section(object):
@@ -1458,14 +1459,14 @@ class XF_MSH(object):
         def pnt_num(nu, nv, nw):
             return nu * nv * nw
 
-        def blk_face_pnt_num(k, f):
-            u, v, w = blk_shape[k]
-            if f in (1, 2):
-                return v * w
-            elif f in (3, 4):
-                return w * u
-            elif f in (5, 6):
-                return u * v
+        def blk_face_pnt_num(_k, _f):
+            _u, _v, _w = blk_shape[_k]
+            if _f in (1, 2):
+                return _v * _w
+            elif _f in (3, 4):
+                return _w * _u
+            elif _f in (5, 6):
+                return _u * _v
             else:
                 raise ValueError("Invalid face index.")
 
@@ -1473,12 +1474,147 @@ class XF_MSH(object):
             nu, nv, nw = blk_shape[k]
             return pnt_num(nu, nv, nw) - pnt_num(nu - 1, nv - 1, nw - 1)
 
-        def shell_pnt_idx_from_coord(crd, shp):
-            ii, jj, kk = crd
-            nu, nv, nw = shp
+        def shell_pnt_caste(nu, nv, nw):
+            t = np.empty(6, int)
+            t[0] = t[1] = nw * nv
+            t[2] = t[3] = (nu - 2) * nw
+            t[4] = t[5] = (nu - 2) * (nv - 2)
+            for i in range(1, 6):
+                t[i] += t[i - 1]
 
-        def shell_pnt_coord_from_idx(idx, shp):
-            nu, nv, nw = shp
+            return t
+
+        def face_num(nu, nv, nw):
+            return nu * (nv - 1) * (nw - 1) + nv * (nw - 1) * (nu - 1) + nw * (nu - 1) * (nv - 1)
+
+        def blk_boundary_face_num(_k, _f):
+            _u, _v, _w = blk_shape[_k]
+            if _f in (1, 2):
+                return (_v - 1) * (_w - 1)
+            elif _f in (3, 4):
+                return (_w - 1) * (_u - 1)
+            elif _f in (5, 6):
+                return (_u - 1) * (_v - 1)
+            else:
+                raise ValueError("Invalid face index.")
+
+        def is_boundary_pnt(_nu, _nv, _nw, _ci, _cj, _ck):
+            return _ci in (0, _nu - 1) or _cj in (0, _nv - 1) or _ck in (0, _nw - 1)
+
+        def shell_pnt_idx_from_coord(_k, _crd):
+            _nu, _nv, _nw = blk_shape[_k]
+            _ci, _cj, _ck = _crd
+
+            if _ci == 0:
+                return _cj + _ck * _nv
+            elif _ci == _nu - 1:
+                return blk_shell_caste[_k][0] + _cj + _ck * _nv
+            else:
+                if _cj == 0:
+                    return blk_shell_caste[_k][1] + _ck + (_ci - 1) * _nw
+                elif _cj == _nv - 1:
+                    return blk_shell_caste[_k][2] + _ck + (_ci - 1) * _nw
+                else:
+                    if _ck == 0:
+                        return blk_shell_caste[_k][3] + (_ci - 1) + (_cj - 1) * (_nu - 2)
+                    elif _ck == _nw - 1:
+                        return blk_shell_caste[_k][4] + (_ci - 1) + (_cj - 1) * (_nu - 2)
+                    else:
+                        raise ValueError("Not a boundary pnt.")
+
+        def shell_pnt_coord_from_idx(_k, _p):
+            nu, nv, nw = blk_shape[_k]
+            if _p < blk_shell_caste[_k][0]:
+                _ci = 0
+                _cj = _p % nv
+                _ck = _p // nv
+            elif _p < blk_shell_caste[_k][1]:
+                cp = _p - blk_shell_caste[_k][0]
+                _ci = nu - 1
+                _cj = cp % nv
+                _ck = cp // nv
+            elif _p < blk_shell_caste[_k][2]:
+                cp = _p - blk_shell_caste[_k][1]
+                _ci = 1 + cp // nw
+                _cj = 0
+                _ck = cp % nw
+            elif _p < blk_shell_caste[_k][3]:
+                cp = _p - blk_shell_caste[_k][2]
+                _ci = 1 + cp // nw
+                _cj = nv - 1
+                _ck = cp % nw
+            elif _p < blk_shell_caste[_k][4]:
+                cp = _p - blk_shell_caste[_k][3]
+                _ci = cp % (nu - 2) + 1
+                _cj = cp // (nu - 2) + 1
+                _ck = 0
+            elif _p < blk_shell_caste[_k][5]:
+                cp = _p - blk_shell_caste[_k][4]
+                _ci = cp % (nu - 2) + 1
+                _cj = cp // (nu - 2) + 1
+                _ck = nw - 1
+            else:
+                raise ValueError("Invalid pnt index.")
+
+            return _ci, _cj, _ck
+
+        def shell_pnt_face_idx(_k, coord):
+            nu, nv, nw = blk_shape[_k]
+            _ci, _cj, _ck = coord
+
+            ret = []
+            if _ci == 0:
+                ret.append(1)
+            if _ci == nu - 1:
+                ret.append(2)
+            if _cj == 0:
+                ret.append(3)
+            if _cj == nv - 1:
+                ret.append(4)
+            if _ck == 0:
+                ret.append(5)
+            if _ck == nw - 1:
+                ret.append(6)
+
+            return ret
+
+        def get_counterpart_pnt_coord(_b2, _f2, _crd):
+            ret = deepcopy(_crd)
+            nu, nv, nw = blk_shape[_b2]
+            if _f2 == 1:
+                ret[0] = 0
+            elif _f2 == 2:
+                ret[0] = nu - 1
+            elif _f2 == 3:
+                ret[1] = 0
+            elif _f2 == 4:
+                ret[1] = nv - 1
+            elif _f2 == 5:
+                ret[2] = 0
+            elif _f2 == 6:
+                ret[2] = nw - 1
+            else:
+                raise ValueError("Invalid face index.")
+
+            return ret
+
+        def pnt_related(_k, _p):
+            ret = [(_k, _p)]
+            t = 0
+            while t < len(ret):
+                crd = shell_pnt_coord_from_idx(_k, _p)
+                face = shell_pnt_face_idx(_k, crd)
+                for f in face:
+                    if adj_desc[_k][f - 1][1] != 0:
+                        _b2, _f2 = adj_desc[_k][f - 1]
+                        cp_crd = get_counterpart_pnt_coord(_b2, _f2, crd)
+                        cp_p = shell_pnt_idx_from_coord(_b2, cp_crd)
+                        ca = (_b2, cp_p)
+                        if ca not in ret:
+                            ret.append(ca)
+                t += 1
+
+            return ret
 
         '''Basic variables'''
         dim = 3
@@ -1487,17 +1623,26 @@ class XF_MSH(object):
         total_face = 0
         blk_num = len(blk_list)
         blk_shape = np.empty((blk_num, 3), int)
+        blk_shell_caste = np.empty((blk_num, 6), int)
+        adj_desc = np.zeros((blk_num, 6, 2), int)
+
         for k, blk in enumerate(blk_list):
-            u, v, w = blk.shape[:3]
-            blk_shape[k][0] = u
-            blk_shape[k][1] = v
-            blk_shape[k][2] = w
+            blk_shape[k] = blk.shape[:3]
+            u, v, w = blk_shape[k]
             total_cell += cell_num(u, v, w)
             total_pnt += pnt_num(u, v, w)
+            total_face += face_num(u, v, w)
+            blk_shell_caste[k] = shell_pnt_caste(u, v, w)
 
         for entry in adj_info:
             b1, f1 = entry[0]
+            b2, f2 = entry[1]
+            adj_desc[b1][f1 - 1][0] = b2
+            adj_desc[b1][f1 - 1][1] = f2
+            adj_desc[b2][f2 - 1][0] = b1
+            adj_desc[b2][f2 - 1][1] = f1
             total_pnt -= blk_face_pnt_num(b1, f1)
+            total_face -= blk_boundary_face_num(b1, f1)
 
         '''Initialize MSH file'''
         msh = cls()
@@ -1523,17 +1668,39 @@ class XF_MSH(object):
 
         '''Interior points in each block'''
         for k, blk in enumerate(blk_list):
-            u, v = blk_shape[k]
-            for j in range(v):
-                for i in range(u):
-                    for d in range(dim):
-                        pnt_desc[pnt_cnt][d] = blk[i][j][d]
-                    pnt_cnt += 1
+            u, v, w = blk_shape[k]
+            for ck in range(w):
+                for cj in range(v):
+                    for ci in range(u):
+                        for d in range(dim):
+                            pnt_desc[pnt_cnt][d] = blk[ci][cj][ck][d]
+                        pnt_cnt += 1
 
-        shell_pnt = []
+        shell_pnt_idx = []
+        shell_pnt_num = np.empty(blk_num, int)
         for k in range(blk_num):
             pn = blk_shell_pnt_num(k)
-            shell_pnt.append(np.zeros(pn, int))
+            shell_pnt_num[k] = pn
+            shell_pnt_idx.append(np.zeros(pn, int))
+
+        for k, blk in enumerate(blk_list):
+            pn = shell_pnt_num[k]
+            for pc in range(pn):
+                if shell_pnt_idx[k][pc] != 0:
+                    continue
+
+                '''Get coordinate under current blk'''
+                ci, cj, ck = shell_pnt_coord_from_idx(k, pc)
+
+                '''Mark all adjacent points'''
+                adj_blk_pnt = pnt_related(k, pc)
+                for entry in adj_blk_pnt:
+                    shell_pnt_idx[entry[0]][entry[1]] = pnt_cnt + 1
+
+                '''Record new pnt coordinate without duplication'''
+                for d in range(dim):
+                    pnt_desc[pnt_cnt][d] = blk[ci][cj][ck][d]
+                pnt_cnt += 1
 
         '''Flush pnt info to MSH file'''
         msh.add_section(XF_Comment("Point Declaration:"))
@@ -1543,3 +1710,11 @@ class XF_MSH(object):
         msh.add_section(XF_Comment("Point Coordinates:"))
         msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dim, pnt_desc))
         msh.add_blank()
+
+        '''Flush face declaration to MSH file'''
+        msh.add_section(XF_Comment("Face Declaration:"))
+        msh.add_section(XF_Face.declaration(total_face))
+        msh.add_blank()
+
+        '''Faces'''
+        # TODO
