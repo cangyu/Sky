@@ -17,12 +17,12 @@ gec = IGES_Model(fn)
 
 nose_len = 3.3
 fuselage_diameter = 2.95
-fuselage_len = 11.2
-tail_end_diameter = 0.8
+fuselage_len = 12.5
+tail_end_diameter = 0.4
 tail_tip_back_angle = 25
 tail_y_down_delta = 0.3
 wing_x_offset = 3.2
-wing_y_offset = 0.12
+wing_y_offset = -0.4
 vs_x_offset = 0.8
 vs_y_offset = 1.4
 hs_x_offset = 2.3
@@ -111,14 +111,14 @@ wing_x_start = fuselage_x_start + wing_x_offset
 wing_pan_dir = (wing_x_start, wing_y_offset, 0)
 
 foil = ['NACA0012', 'M6', 'M6']
-z_offset = np.array([0, 4.5, 7.7])
-length = np.array([3.3, 3.3, 0.9])
-sweep_back = np.array([0, 0, 25], float)
-twist = np.array([12, 12, 6], float)
+z_offset = np.array([0, 7.5, 9.2])
+length = np.array([3.3, 3.3, 1.6])
+sweep_back = np.array([0, 0, 3], float)
+twist = np.array([0, 0, 3], float)
 dihedral = np.array([0, 3, 5], float)
 twist_pos = np.array([0.25, 0.25, 0.25])
 y_ref = np.zeros(3)
-thickness_factor = np.ones(3, float) * 1.7
+thickness_factor = np.array([1.1, 1.0, 0.9], float)
 
 crv_list = []
 for k in range(3):
