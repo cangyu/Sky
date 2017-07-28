@@ -1470,8 +1470,8 @@ class XF_MSH(object):
             else:
                 raise ValueError("Invalid face index.")
 
-        def blk_shell_pnt_num(k):
-            nu, nv, nw = blk_shape[k]
+        def blk_shell_pnt_num(_k):
+            nu, nv, nw = blk_shape[_k]
             return pnt_num(nu, nv, nw) - pnt_num(nu - 1, nv - 1, nw - 1)
 
         def shell_pnt_caste(nu, nv, nw):
@@ -1484,8 +1484,11 @@ class XF_MSH(object):
 
             return t
 
-        def face_num(nu, nv, nw):
-            return nu * (nv - 1) * (nw - 1) + nv * (nw - 1) * (nu - 1) + nw * (nu - 1) * (nv - 1)
+        def face_num(_nu, _nv, _nw):
+            return _nu * (_nv - 1) * (_nw - 1) + _nv * (_nw - 1) * (_nu - 1) + _nw * (_nu - 1) * (_nv - 1)
+
+        def interior_face_num(_nu, _nv, _nw):
+            return (_nu - 2) * (_nv - 1) * (_nw - 1) + (_nv - 2) * (_nw - 1) * (_nu - 1) + (_nw - 2) * (_nu - 1) * (_nv - 1)
 
         def blk_boundary_face_num(_k, _f):
             _u, _v, _w = blk_shape[_k]
@@ -1616,6 +1619,18 @@ class XF_MSH(object):
 
             return ret
 
+        def pnt_idx(_k, _crd):
+            nu, nv, nw = blk_shape[_k]
+            ci, cj, ck = _crd
+
+            if is_boundary_pnt(nu, nv, nw, ci, cj, ck):
+                t = shell_pnt_idx_from_coord(_k, _crd)
+                return shell_pnt_idx[_k][t]
+            else:
+                t = inter_pnt_start[_k]
+                off = cls.pnt_idx_3d((ci - 1, cj - 1, ck - 1), (nu - 2, nv - 2, nw - 2)) - 1
+                return t + off
+
         '''Basic variables'''
         dim = 3
         total_cell = 0
@@ -1625,10 +1640,12 @@ class XF_MSH(object):
         blk_shape = np.empty((blk_num, 3), int)
         blk_shell_caste = np.empty((blk_num, 6), int)
         adj_desc = np.zeros((blk_num, 6, 2), int)
+        cell_start = np.empty(blk_num, int)
 
         for k, blk in enumerate(blk_list):
             blk_shape[k] = blk.shape[:3]
             u, v, w = blk_shape[k]
+            cell_start[k] = total_cell + 1
             total_cell += cell_num(u, v, w)
             total_pnt += pnt_num(u, v, w)
             total_face += face_num(u, v, w)
@@ -1664,11 +1681,13 @@ class XF_MSH(object):
 
         '''Points'''
         pnt_desc = np.empty((total_pnt, 3), float)
+        inter_pnt_start = np.empty(blk_num, int)
         pnt_cnt = 0
 
         '''Interior points in each block'''
         for k, blk in enumerate(blk_list):
             u, v, w = blk_shape[k]
+            inter_pnt_start[k] = pnt_cnt + 1
             for ck in range(w):
                 for cj in range(v):
                     for ci in range(u):
@@ -1716,5 +1735,253 @@ class XF_MSH(object):
         msh.add_section(XF_Face.declaration(total_face))
         msh.add_blank()
 
-        '''Faces'''
-        # TODO
+        '''Interior Faces'''
+        face_start = 1
+        for k in range(blk_num):
+            u, v, w = blk_shape[k]
+            ifn = interior_face_num(u, v, w)
+            inter_face_desc = np.empty((ifn, 6), int)
+            cur_face_cnt = 0
+
+            for nu in range(1, u - 1):
+                for nv in range(v - 1):
+                    for nw in range(w - 1):
+                        inter_face_desc[cur_face_cnt][0] = pnt_idx(k, (nu, nv, nw))
+                        inter_face_desc[cur_face_cnt][1] = pnt_idx(k, (nu, nv + 1, nw))
+                        inter_face_desc[cur_face_cnt][2] = pnt_idx(k, (nu, nv + 1, nw + 1))
+                        inter_face_desc[cur_face_cnt][3] = pnt_idx(k, (nu, nv, nw + 1))
+                        inter_face_desc[cur_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 1, blk_shape[k]) - 1 + cell_start[k]  # c0
+                        inter_face_desc[cur_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 2, blk_shape[k]) - 1 + cell_start[k]  # c1
+                        cur_face_cnt += 1
+
+            for nv in range(1, v - 1):
+                for nw in range(w - 1):
+                    for nu in range(u - 1):
+                        inter_face_desc[cur_face_cnt][0] = pnt_idx(k, (nu, nv, nw))
+                        inter_face_desc[cur_face_cnt][1] = pnt_idx(k, (nu, nv, nw + 1))
+                        inter_face_desc[cur_face_cnt][2] = pnt_idx(k, (nu + 1, nv, nw + 1))
+                        inter_face_desc[cur_face_cnt][3] = pnt_idx(k, (nu + 1, nv, nw))
+                        inter_face_desc[cur_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 1, blk_shape[k]) - 1 + cell_start[k]  # c0
+                        inter_face_desc[cur_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 4, blk_shape[k]) - 1 + cell_start[k]  # c1
+                        cur_face_cnt += 1
+
+            for nw in range(1, w - 1):
+                for nu in range(u - 1):
+                    for nv in range(v - 1):
+                        inter_face_desc[cur_face_cnt][0] = pnt_idx(k, (nu, nv, nw))
+                        inter_face_desc[cur_face_cnt][1] = pnt_idx(k, (nu + 1, nv, nw))
+                        inter_face_desc[cur_face_cnt][2] = pnt_idx(k, (nu + 1, nv + 1, nw))
+                        inter_face_desc[cur_face_cnt][3] = pnt_idx(k, (nu, nv + 1, nw))
+                        inter_face_desc[cur_face_cnt][4] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 1, blk_shape[k]) - 1 + cell_start[k]  # c0
+                        inter_face_desc[cur_face_cnt][5] = XF_MSH.cell_idx_quadrant_3d((nu, nv, nw), 5, blk_shape[k]) - 1 + cell_start[k]  # c1
+                        cur_face_cnt += 1
+
+            '''Flush Interior face info into MSH file'''
+            zone_idx += 1
+            msh.add_section(XF_Comment("Block {} interior faces:".format(k + 1)))
+            msh.add_section(XF_Face(zone_idx, face_start, face_start + cur_face_cnt - 1, BCType.Interior, FaceType.Quadrilateral, inter_face_desc))
+            msh.add_blank()
+            face_start += cur_face_cnt
+
+        def pnt_around(_crd, _norm_dir):
+            _ci, _cj, _ck = _crd
+            if _norm_dir in ('X', 'x', 'U', 'u'):
+                return np.array([[_ci, _cj, _ck], [_ci, _cj + 1, _ck], [_ci, _cj + 1, _ck + 1], [_ci, _cj, _ck + 1]], int)
+            elif _norm_dir in ('Y', 'y', 'V', 'v'):
+                return np.array([[_ci, _cj, _ck], [_ci, _cj, _ck + 1], [_ci + 1, _cj, _ck + 1], [_ci + 1, _cj, _ck]], int)
+            elif _norm_dir in ('Z', 'z', 'W', 'w'):
+                return np.array([[_ci, _cj, _ck], [_ci + 1, _cj, _ck], [_ci + 1, _cj + 1, _ck], [_ci, _cj + 1, _ck]], int)
+            else:
+                raise ValueError("Invalid normal direction.")
+
+        def calc_boundary_face_adj_info(b, f, left):
+            """
+            计算Block上指定面的邻接信息
+            :param b: Index of block. (Starting from 0)
+            :type b: int
+            :param f: Index of face. (Starting from 1)
+            :type f: int
+            :param left: If the face if on the left side of the intersection.
+            :type left: bool
+            :return: Adjacent info used to generate ANSYS Fluent MSH file.
+            """
+
+            nu, nv, nw = blk_shape[b]
+            bfn = blk_boundary_face_num(b, f)
+            ret = np.empty((bfn, 6), int)
+            nd = None
+            qud = None
+
+            '''Get all coordinates'''
+            crd = np.empty((bfn, 3), int)
+            pc = 0
+
+            if f in (1, 2):
+                nd = 'X'
+                d1c = 0 if f == 1 else nu - 1
+                qud = 1 if f == 1 else 2
+                for cj in range(nv - 1):
+                    for ck in range(nw - 1):
+                        crd[pc][0] = d1c
+                        crd[pc][1] = cj
+                        crd[pc][2] = ck
+                        pc += 1
+
+            if f in (3, 4):
+                nd = 'Y'
+                d2c = 0 if f == 3 else nv - 1
+                qud = 1 if f == 3 else 4
+                for ck in range(nw - 1):
+                    for ci in range(nu - 1):
+                        crd[pc][0] = ci
+                        crd[pc][1] = d2c
+                        crd[pc][2] = ck
+                        pc += 1
+
+            if f in (5, 6):
+                nd = 'Z'
+                d3c = 0 if f == 5 else nw - 1
+                qud = 1 if f == 5 else 5
+                for ci in range(nu - 1):
+                    for cj in range(nv - 1):
+                        crd[pc][0] = ci
+                        crd[pc][1] = cj
+                        crd[pc][2] = d3c
+                        pc += 1
+
+            '''Extend to surrounding 4 point index'''
+            pc = 0
+            while pc < bfn:
+                crd_ard = pnt_around(crd[pc], nd)
+                for c in range(4):
+                    ret[pc][c] = pnt_idx(b, crd_ard[c])
+
+                if on_left:
+                    ret[pc][4] = 0
+                    ret[pc][5] = XF_MSH.cell_idx_quadrant_3d(crd[pc], qud, blk_shape[b]) - 1 + cell_start[b]
+                else:
+                    ret[pc][4] = XF_MSH.cell_idx_quadrant_3d(crd[pc], qud, blk_shape[b]) - 1 + cell_start[b]
+                    ret[pc][5] = 0
+
+                pc += 1
+
+            return ret
+
+        def inner_crd(_crd, _f, _shp):
+            _nu, _nv, _nw = _shp
+            pc = 0
+            if _f in (1, 2):
+                d1c = 0 if _f == 1 else _nu - 1
+                for _cj in range(_nv - 1):
+                    for _ck in range(_nw - 1):
+                        _crd[pc][0] = d1c
+                        _crd[pc][1] = _cj
+                        _crd[pc][2] = _ck
+                        pc += 1
+
+            if _f in (3, 4):
+                d2c = 0 if _f == 3 else _nv - 1
+                for _ck in range(_nw - 1):
+                    for _ci in range(_nu - 1):
+                        _crd[pc][0] = _ci
+                        _crd[pc][1] = d2c
+                        _crd[pc][2] = _ck
+                        pc += 1
+
+            if _f in (5, 6):
+                d3c = 0 if _f == 5 else _nw - 1
+                for _ci in range(_nu - 1):
+                    for _cj in range(_nv - 1):
+                        _crd[pc][0] = _ci
+                        _crd[pc][1] = _cj
+                        _crd[pc][2] = d3c
+                        pc += 1
+
+        def face_norm_dir(_f):
+            """
+            将face编号转换为对应的法方向
+            :param _f: Index of a face.
+            :type _f: int
+            :return: Corresponding norm direction.
+            """
+
+            if _f in (1, 2):
+                return 'X'
+            elif _f in (3, 4):
+                return 'Y'
+            elif _f in (5, 6):
+                return 'Z'
+            else:
+                raise ValueError("Invalid face index.")
+
+        def cell_quadrant_on_face(_f):
+            """
+            计算边界面上Cell的象限
+            :param _f: Index of a face.
+            :type _f: int
+            :return:与边界边上的Face相邻的Cell相对于约定的原点所在的象限
+            :rtype: int
+            """
+
+            if _f in (1, 3, 5):
+                return 1
+            elif _f == 2:
+                return 2
+            elif _f == 4:
+                return 4
+            elif _f == 6:
+                return 5
+            else:
+                raise ValueError("Invalid face index.")
+
+        def calc_interface_adj_info(_b1, _f1, _b2, _f2):
+            bfn = blk_boundary_face_num(_b1, _f1)
+            if bfn != blk_boundary_face_num(_b2, _f2):
+                raise AssertionError("Invalid adjacent info.")
+
+            ret = np.empty((bfn, 6), int)
+
+            '''Get all coordinates'''
+            _crd1 = np.empty((bfn, 3), int)
+            _crd2 = np.empty((bfn, 3), int)
+            inner_crd(_crd1, _f1, blk_shape[_b1])
+            inner_crd(_crd2, _f2, blk_shape[_b2])
+
+            '''Calculate surrounding 4 point index'''
+            _pc = 0
+            nd = face_norm_dir(_f1)
+            while _pc < bfn:
+                crd_ard = pnt_around(_crd1[_pc], nd)
+                for c in range(4):
+                    ret[_pc][c] = pnt_idx(_b1, crd_ard[c])
+
+                '''Corresponded cells'''
+                _qud1 = cell_quadrant_on_face(_f1)
+                _qud2 = cell_quadrant_on_face(_f2)
+                ret[_pc][4] = XF_MSH.cell_idx_quadrant_3d(_crd2[_pc], _qud2, blk_shape[_b2]) - 1 + cell_start[_b2]
+                ret[_pc][5] = XF_MSH.cell_idx_quadrant_3d(_crd1[_pc], _qud1, blk_shape[_b1]) - 1 + cell_start[_b1]
+
+            return ret
+
+        '''Boundary Faces'''
+        for k, entry in enumerate(adj_info):
+            b1, f1 = entry[0]
+            b2, f2 = entry[1]
+            if f1 == 0 or f2 == 0:
+                '''Non-Adjacent faces'''
+                on_left = f2 == 0
+                boundary_face_desc = calc_boundary_face_adj_info(b1, f1, on_left)
+                bc = bc_list[b1][f1 - 1] if on_left else bc_list[b2][f2 - 1]
+            else:
+                '''Adjacent faces'''
+                bc = BCType.Interior
+                boundary_face_desc = calc_interface_adj_info(b1, f1, b2, f2)
+
+            cur_face_cnt = len(boundary_face_desc)
+            zone_idx += 1
+            msh.add_section(XF_Comment("Boundary {} faces:".format(k + 1)))
+            msh.add_section(XF_Face(zone_idx, face_start, face_start + cur_face_cnt - 1, bc, FaceType.Quadrilateral, boundary_face_desc))
+            msh.add_blank()
+            face_start += cur_face_cnt
+
+        return msh
