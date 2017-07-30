@@ -16,7 +16,7 @@ R = 10 * La
 N = np.array([41, 26, 61, 2])
 
 ending = np.array([[0, 0, 0], [La, 0, 0]])
-inner = WingProfile(airfoil, ending, Thickness, 5)
+inner = WingProfile(airfoil, ending, Thickness)
 yhu = inner.pts[0][1]
 ydu = inner.pts[-1][1]
 
@@ -49,7 +49,7 @@ outer = np.zeros((N[0], 3))
 for i in range(N[0]):
     outer[i] = np.copy(l1(i / (N[0] - 1)))
 
-C0 = inner.nurbs_rep
+C0 = inner.nurbs_rep()
 C1 = GlobalInterpolatedCrv(outer, method='chord')
 C2 = Line(p[0], p[2])
 C3 = Line(p[1], p[3])

@@ -3,13 +3,13 @@ import numpy as np
 from src.nurbs.curve import Line, Arc
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
-from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
+from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.fluent import XF_MSH, BCType
 
 
 def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
-    c0 = WingProfile(foil, ending, tk, foil_order).nurbs_rep
+    c0 = WingProfile(foil, ending, tk).nurbs_rep(foil_order)
     c1 = Arc.from_2pnt((La, R, 0), (La, -R, 0), 180, (0, 0, 1))
 
     yhu = c0.start[1]

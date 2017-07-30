@@ -6,37 +6,47 @@ from src.nurbs.curve import Arc, Line
 from src.aircraft.wing import WingProfile
 
 
-def rectangular(U: int, V: int, L: float, W: float):
+def rectangular(u, v, l, w):
     """
     矩形
-    :param U: U方向网格数量
-    :param V: V方向网格数量
-    :param L: 矩形长度
-    :param W: 矩形宽度
+    :param u: U方向网格数量
+    :type u: int
+    :param v: V方向网格数量
+    :type v: int
+    :param l: 矩形长度
+    :type l: float
+    :param w: 矩形宽度
+    :type w: float
     :return: None
     """
 
-    u_list = np.linspace(0, 1.0, U + 1)
-    v_list = np.linspace(0, 1.0, V + 1)
+    u_list = np.linspace(0, 1.0, u + 1)
+    v_list = np.linspace(0, 1.0, v + 1)
     ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    msh = Linear_TFI_2D(lambda u: np.array([L * u, 0, 0]),
-                        lambda v: np.array([0, W * v, 0]),
-                        lambda u: np.array([L * u, W, 0]),
-                        lambda v: np.array([L, W * v, 0]))
+    msh = Linear_TFI_2D(lambda u: np.array([l * u, 0, 0]),
+                        lambda v: np.array([0, w * v, 0]),
+                        lambda u: np.array([l * u, w, 0]),
+                        lambda v: np.array([l, w * v, 0]))
     msh.calc_grid(ppu, ppv)
     fluent_grid = XF_MSH.from_str2d(msh.get_grid())
-    fluent_grid.save('rect_{}_{}.msh'.format(U, V))
+    fluent_grid.save('rect_{}_{}.msh'.format(u, v))
 
 
-def curve_rect(U: int, V: int, L: float, H1: float, H2: float, H3: float):
+def curve_rect(U, V, L, H1, H2, H3):
     """
     曲边矩形
     :param U: U方向网格数量
+    :type U: int
     :param V: V方向网格数量
+    :type V: int
     :param L: 矩形长度
+    :type L: float
     :param H1: 控制高度1
+    :type H1: float
     :param H2: 控制高度2
+    :type H2: float
     :param H3: 控制高度3
+    :type H3: float
     :return: None
     """
 
@@ -68,7 +78,7 @@ def airfoil(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
     :return: None
     """
 
-    u0 = WingProfile(foil, ends, thk, order).nurbs_rep
+    u0 = WingProfile(foil, ends, thk).nurbs_rep(order)
     u1 = Arc.from_2pnt(arc_start, arc_end, theta, nv)
     v0 = Line(u0.start, u1.start)
     v1 = Line(u0.end, u1.end)

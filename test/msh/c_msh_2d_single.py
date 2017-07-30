@@ -8,17 +8,17 @@ from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
-def l0(u):
-    return np.array([(1 - u) * (La + Lt) + u * La, R, 0])
+def l0(_u):
+    return np.array([(1 - _u) * (La + Lt) + _u * La, R, 0])
 
 
-def l1(u):
-    ang = u * math.pi + math.pi / 2
+def l1(_u):
+    ang = _u * math.pi + math.pi / 2
     return np.array([(Lf + La) * math.cos(ang) + La, R * math.sin(ang), 0])
 
 
-def l2(u):
-    return np.array([(1 - u) * La + u * (La + Lt), -R, 0])
+def l2(_u):
+    return np.array([(1 - _u) * La + _u * (La + Lt), -R, 0])
 
 
 def ellipse_arc_len(a, b):
@@ -49,10 +49,10 @@ Thickness = 1.0
 
 '''Derived Variables'''
 ending = np.array([[0, 0, 0], [La, 0, 0]])
-af = WingProfile(airfoil, ending, Thickness, 5)
+af = WingProfile(airfoil, ending, Thickness)
 yhu = af.pts[0][1]
 ydu = af.pts[-1][1]
-T1 = 2 * Lt + af.nurbs_rep.length()
+T1 = 2 * Lt + af.nurbs_rep().length()
 T3 = 2 * Lt + ellipse_arc_len(La + Lf, R) / 2
 u1 = 1 / 3
 u2 = 2 / 3
@@ -67,24 +67,25 @@ tul = Line([La + Lt, yhu, 0], [La + Lt, R, 0])
 tdl = Line([La + Lt, ydu, 0], [La + Lt, -R, 0])
 
 
-def c2(u):
-    return tul(u)
+def c2(_u):
+    return tul(_u)
 
 
-def c4(u):
-    return tdl(u)
+def c4(_u):
+    return tdl(_u)
 
 
 '''C1'''
 hu = Line([La + Lt, yhu, 0], [La, yhu, 0])
 du = Line([La, ydu, 0], [La + Lt, ydu, 0])
+afc = af.nurbs_rep()
 
 
 def c1(u: float):
     if u <= u1:
         ans = hu(u / u1)
     elif u <= u2:
-        ans = af.nurbs_rep((u - u1) / (u2 - u1))
+        ans = afc((u - u1) / (u2 - u1))
     else:
         ans = du((u - u2) / (1.0 - u2))
 
