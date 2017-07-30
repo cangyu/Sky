@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from src.nurbs.curve import Spline, GlobalInterpolatedCrv
 from src.iges.iges_core import IGES_Model
@@ -10,9 +9,10 @@ from settings import AIRFOIL_DIR
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = False
+else:
+    auto_view = True
 
 
 def get_airfoil_pts(airfoil):

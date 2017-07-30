@@ -7,9 +7,10 @@ from settings import AIRFOIL_DIR
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = True
+else:
+    auto_view = True
 
 
 class CrvGlobalInterpTest(unittest.TestCase):

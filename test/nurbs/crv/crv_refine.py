@@ -2,9 +2,14 @@ import math
 import numpy as np
 from src.nurbs.curve import ClampedNURBSCrv
 from src.iges.iges_core import IGES_Model
-from src.misc.catia import view
 
-auto_view = True
+try:
+    from src.misc.catia import view
+except ImportError:
+    auto_view = False
+    print('Win32 required for CATIA usage!')
+else:
+    auto_view = True
 
 U = np.array([0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5], float)
 Pw = np.array([[0, 0, 0, 1],

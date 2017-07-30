@@ -7,9 +7,10 @@ from src.iges.iges_core import IGES_Model
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = False
+else:
+    auto_view = True
 
 U = np.array([0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1], float)
 Pw = np.array([[0, 0, 0, 1],

@@ -2,7 +2,6 @@ import numpy as np
 import math
 from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
-from src.iges.iges_core import IGES_Model
 from src.msh.spacing import linear_expand, single_exponential, double_exponential
 from src.msh.tfi import Linear_TFI_2D
 from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D

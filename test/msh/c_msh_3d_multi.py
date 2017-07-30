@@ -1,31 +1,12 @@
 import unittest
 import numpy as np
-import math
 import copy
-from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing
+from src.aircraft.frame import BWBFrame, chebshev_dist
 from src.nurbs.curve import Line, Arc
 from src.nurbs.surface import BilinearSurf, Coons
-from src.msh.tfi import Linear_TFI_2D, Linear_TFI_3D
+from src.msh.tfi import Linear_TFI_3D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
-
-
-def chebshev_dist(start, end, n):
-    """
-    生成切比雪夫点
-    :param start: 起始值
-    :param end: 终止值
-    :param n: 采样点数量
-    :return: n个点
-    """
-
-    ang = np.linspace(math.pi, 0, n)
-    pr = np.zeros(n)
-    for i in range(0, n):
-        pr[i] = math.cos(ang[i])
-        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
-
-    return pr
 
 
 def bwb_geom(n, airfoil, frame_param):

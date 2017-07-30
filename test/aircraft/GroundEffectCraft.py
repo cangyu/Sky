@@ -9,9 +9,11 @@ from src.nurbs.surface import ExtrudedSurf, RuledSurf, Coons
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
+else:
+    auto_view = True
 
-auto_view = True
 fn = "GroundEffectCraft.igs"
 gec = IGES_Model(fn)
 
