@@ -7,6 +7,7 @@ from src.iges.iges_core import IGES_Model
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.nurbs.surface import Skinned
 from src.nurbs.utility import equal, pnt_dist
+from src.aircraft.frame import WingFrame
 from settings import AIRFOIL_DIR
 
 
@@ -340,8 +341,23 @@ class Wing(object):
         return cls(section_list)
 
     @classmethod
-    def from_frame(cls):
-        pass
+    def from_frame(cls, airfoil, thickness, u, frm):
+        """
+        根据给定的参数化模型生成机翼
+        :param airfoil: 剖面翼型序列
+        :param thickness: 剖面厚度拉伸系数
+        :param u: 剖面位置分布参数
+        :param frm: 参数化模型
+        :type frm: WingFrame
+        :return:
+        """
+
+        z = list(map(frm.z, u))
+        xf = list(map(frm.x_front, u))
+        yf = list(map(frm.y_front, u))
+        xt = list(map(frm.x_tail, u))
+        yt = list(map(frm.y_tail, u))
+        return cls.from_intrinsic_desc(airfoil, thickness, z, xf, yf, xt, yt)
 
 
 if __name__ == '__main__':

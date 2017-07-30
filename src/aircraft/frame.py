@@ -56,7 +56,7 @@ class WingFrame(object):
 
 
 class BWBFrame(WingFrame):
-    def __init__(self, c_root, c_mid, c_tip, b_mid, b_tip, alpha_root, alpha_mid, alpha_tip):
+    def __init__(self, c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip):
         """
         BWB(Blended Wing Body)构型飞行器参数化描述
         :param c_root: 根部弦长
@@ -69,8 +69,6 @@ class BWBFrame(WingFrame):
         :type b_mid: float
         :param b_tip: 机翼半展长
         :type b_tip: float
-        :param alpha_root: 内翼平均后掠角
-        :type alpha_root: float
         :param alpha_mid: 中段平均后掠角
         :type alpha_mid: float
         :param alpha_tip: 翼尖平均后掠角
@@ -82,9 +80,6 @@ class BWBFrame(WingFrame):
         self.Ct = c_tip
         self.Bm = b_mid
         self.Bt = b_tip
-        self.Dm = d_mid
-        self.Dt = d_tip
-        self.Ar = alpha_root
         self.Am = alpha_mid
         self.At = alpha_tip
 
@@ -132,3 +127,22 @@ def chebshev_dist(start, end, n):
         pr[i] = start + (end - start) / 2 * (pr[i] + 1)
 
     return pr
+
+
+def chebshev_dist_multi(seg, num):
+    """
+    多段Chebshev分布
+    :param seg: 分段点
+    :param num: 每个分段内点的数量(包括首尾)
+    :return: 多段Chebshev分布数组
+    """
+
+    if len(seg) != len(num) + 1:
+        raise AssertionError("Unmatched settings.")
+
+    ret = chebshev_dist(seg[0], seg[1], num[0])
+    for k in range(1, len(num)):
+        csg = chebshev_dist(seg[k], seg[k + 1], num[k])
+        ret = np.concatenate((ret, csg[1:]))
+
+    return ret
