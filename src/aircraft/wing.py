@@ -56,6 +56,14 @@ class Airfoil(object):
         return (self.pts[0] + self.pts[-1]) / 2
 
     @property
+    def tail_up(self):
+        return self.pts[0]
+
+    @property
+    def tail_down(self):
+        return self.pts[-1]
+
+    @property
     def chord_len(self):
         return pnt_dist(self.front, self.tail)
 

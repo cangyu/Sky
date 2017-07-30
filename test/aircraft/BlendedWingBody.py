@@ -18,9 +18,7 @@ b_mid = 4.5
 b_tip = 13
 alpha_mid = 35
 alpha_tip = 30
-
 frm = BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
-frm.show()
 
 inner_sec_num = 6
 outer_sec_num = 8
