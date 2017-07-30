@@ -17,13 +17,12 @@ def airfoil(foil, L, R):
     """
 
     '''Read airfoil data'''
-    af = Airfoil(foil)
+    af = Airfoil.from_file(foil)
     for i in range(len(af.pts)):
         af.pts[i] *= L
 
     '''Parametric representation of airfoil'''
-    crv = Spline()
-    crv.interpolate(af.pts)
+    crv = Spline(af.pts)
     cx = crv.x
     cy = crv.y
     c1 = lambda u: np.array([cx(u), cy(u), 0])
@@ -57,7 +56,7 @@ def airfoil(foil, L, R):
 
     c4 = lambda v: np.array([af.pts[-1][0] + v * b * dir4[0], af.pts[-1][1] + v * b * dir4[1], 0])
 
-    '''Farfiled boundary'''
+    '''Farfield boundary'''
     sp = c2(1.0)
     ep = c4(1.0)
     sa = math.atan2(sp[1], sp[0])

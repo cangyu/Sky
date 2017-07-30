@@ -18,7 +18,7 @@ def write_airfoil_o_msh(foil, L, R, U, V, fn=''):
     """
 
     '''Read airfoil data'''
-    af = Airfoil(foil)
+    af = Airfoil.from_file(foil)
 
     '''Extend'''
     for i in range(len(af.pts)):

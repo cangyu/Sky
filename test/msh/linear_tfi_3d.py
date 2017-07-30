@@ -81,12 +81,14 @@ class T3L_WritePlot3D_Test(unittest.TestCase):
     3D Linear Transfinite Interpolation Test
     """
 
-    def test_cuboid(self):
+    @staticmethod
+    def test_cuboid():
         U, V, W = 10, 8, 4
         msh = cuboid(5, 4, 3)
         write_uniform_p3d(msh, U, V, W, "cuboid.xyz")
 
-    def test_sect(self):
+    @staticmethod
+    def test_sect():
         U, V, W = 30, 15, 60
         msh = sect(5, 20, 60, 120, -50, 50)
         write_uniform_p3d(msh, U, V, W, "sect.xyz")
