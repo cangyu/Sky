@@ -6,9 +6,10 @@ from src.iges.iges_core import IGES_Model
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = True
+else:
+    auto_view = True
 
 
 def build_extruded(crv, direction):

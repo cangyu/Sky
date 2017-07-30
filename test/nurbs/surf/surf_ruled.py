@@ -5,9 +5,10 @@ from src.iges.iges_core import IGES_Model
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = True
+else:
+    auto_view = True
 
 foil1 = WingProfile('M6', [[0, 0, 0], [10, 0, 0]], p=4).nurbs_rep
 foil2 = WingProfile('NACA0012', [[0, 0, 80], [15, 0, 80]], p=3).nurbs_rep

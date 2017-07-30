@@ -7,9 +7,10 @@ from copy import deepcopy
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = True
+else:
+    auto_view = True
 
 L = 10
 P1 = np.array([[[0, 0, 0], [0, L, L]],
