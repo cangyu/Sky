@@ -1,32 +1,15 @@
 import unittest
 import numpy as np
-import math
-from src.aircraft.wing import Wing, BWBFrame
+from src.aircraft.wing import Wing
+from src.aircraft.frame import BWBFrame, chebshev_dist
 
 try:
     from src.misc.catia import view
 except ImportError:
+    auto_view = False
     print('Win32 required for CATIA usage!')
-
-auto_view = True
-
-
-def chebshev_dist(start, end, n):
-    """
-    生成切比雪夫点
-    :param start: 起始值
-    :param end: 终止值
-    :param n: 采样点数量
-    :return: n个点
-    """
-
-    ang = np.linspace(math.pi, 0, n)
-    pr = np.zeros(n)
-    for i in range(0, n):
-        pr[i] = math.cos(ang[i])
-        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
-
-    return pr
+else:
+    auto_view = True
 
 
 def write_bwb(n, airfoil, frame_param):

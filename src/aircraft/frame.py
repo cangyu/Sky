@@ -111,3 +111,24 @@ class BWBFrame(WingFrame):
                                        interpolate.make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
                                        interpolate.make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
                                        lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
+
+
+def chebshev_dist(start, end, n):
+    """
+    生成切比雪夫点
+    :param start: 起始值
+    :type start: float
+    :param end: 终止值
+    :type end: float
+    :param n: 采样点数量
+    :type n: int
+    :return: n个点
+    """
+
+    ang = np.linspace(math.pi, 0, n)
+    pr = np.zeros(n)
+    for i in range(0, n):
+        pr[i] = math.cos(ang[i])
+        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
+
+    return pr
