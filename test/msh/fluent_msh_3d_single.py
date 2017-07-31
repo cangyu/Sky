@@ -79,6 +79,3 @@ class TestFromStr3D(unittest.TestCase):
         grid = sect(10, 32, 0, 160, -15, 15, 25, 30, 20)
         fluent_msh = XF_MSH.from_str3d(grid)
         fluent_msh.save("sect.msh")
-        plot3d_msh = PLOT3D()
-        plot3d_msh.add_block(PLOT3D_Block.build_from_3d(grid))
-        plot3d_msh.write("sect.xyz")
