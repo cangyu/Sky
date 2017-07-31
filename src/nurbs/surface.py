@@ -20,6 +20,11 @@ class ClampedNURBSSurf(object):
         self.V = np.copy(v)
         self.Pw = np.copy(pw)
 
+        self.spl = []
+        q = self.q
+        for i in range(self.n + 1):
+            self.spl.append(BSpline(self.V, self.Pw[i], q))
+
     @property
     def n(self):
         """
@@ -84,11 +89,11 @@ class ClampedNURBSSurf(object):
         """
 
         r = []
-        for i in range(0, self.n + 1):
-            spl = BSpline(self.V, self.Pw[i], self.q)
+        for spl in self.spl:
             r.append(spl(v, l))
+
         rw = np.copy(r)
-        spl = BSpline(self.U, rw, self.p)
+        spl = BSpline.construct_fast(self.U, rw, self.p)
         pw = spl(u, k)
         return to_cartesian(pw) if return_cartesian else pw
 
@@ -103,6 +108,11 @@ class ClampedNURBSSurf(object):
         self.U = np.copy(u)
         self.V = np.copy(v)
         self.Pw = np.copy(pw)
+
+        self.spl = []
+        q = self.q
+        for i in range(self.n + 1):
+            self.spl.append(BSpline(self.V, self.Pw[i], q))
 
     def reverse(self, direction):
         """

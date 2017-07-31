@@ -22,6 +22,8 @@ class ClampedNURBSCrv(object):
         self.U = np.copy(u)
         self.Pw = np.copy(pw)
 
+        self.spl = BSpline(self.U, self.Pw, self.p)
+
     @property
     def m(self):
         """
@@ -64,15 +66,6 @@ class ClampedNURBSCrv(object):
         for i in range(len(self.Pw)):
             ans[i] = to_cartesian(self.Pw[i])
         return ans
-
-    @property
-    def spl(self):
-        """
-        BSpline basis function with current
-        knot vector and control points.
-        """
-
-        return BSpline(self.U, self.Pw, self.p)
 
     def __call__(self, u, d=0, return_cartesian=True):
         """
@@ -126,6 +119,7 @@ class ClampedNURBSCrv(object):
 
         self.U = np.copy(u)
         self.Pw = np.copy(pw)
+        self.spl = BSpline(self.U, self.Pw, self.p)
 
     def reverse(self):
         """
