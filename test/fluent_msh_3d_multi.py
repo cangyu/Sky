@@ -85,7 +85,7 @@ C23 = Arc.from_2pnt(P[2], P[3], 180, [0, 0, 1])
 C1011 = Arc.from_2pnt(P[10], P[11], 180, [0, 0, 1])
 
 S1 = Coons(C23, C1011, Line(P[2], P[10]), Line(P[3], P[11]))
-S3 = Coons(C08, Line(P[2], P[10]), Line(P[0], P[0]), Line(P[8], P[10]))
+S3 = Coons(C08, Line(P[2], P[10]), Line(P[0], P[2]), Line(P[8], P[10]))
 S4 = Coons(C19, Line(P[3], P[11]), Line(P[1], P[3]), Line(P[9], P[11]))
 S5 = Coons(Line(P[0], P[2]), Line(P[1], P[3]), C01, C23)
 S6 = Coons(Line(P[8], P[10]), Line(P[9], P[11]), C89, C1011)
@@ -97,7 +97,7 @@ blk0_tfi_grid = Linear_TFI_3D(lambda v, w: sf(v, w),
                               lambda u, v: S5(u, v),
                               lambda u, v: S6(u, v))
 
-U, V, W = 18, 26, 12
+U, V, W = 14, 12, 10
 u_list = np.linspace(0, 1.0, U + 1)
 v_list = np.linspace(0, 1.0, V + 1)
 w_list = np.linspace(0, 1.0, W + 1)
@@ -118,7 +118,7 @@ blk1_tfi_grid = Linear_TFI_3D(lambda v, w: SS1(v, w),
                               lambda u, v: SS5(u, v),
                               lambda u, v: SS6(u, v))
 
-N = 15
+N = 11
 n_list = np.linspace(0.0, 1.0, N + 1)
 ppn, ppu, ppw = np.meshgrid(n_list, u_list, w_list, indexing='ij')
 blk1_tfi_grid.calc_grid(ppn, ppu, ppw)
@@ -193,6 +193,5 @@ adj = [((0, 0), (0, 1), 0, False),
        ((3, 6), (0, 0), 0, False)]
 
 '''构建MSH文件'''
-fn = '{}_C_grid.msh'.format(foil)
 msh = XF_MSH.from_str3d_multi(blk, bc, adj)
-msh.save(fn)
+msh.save('3d_multi_blk.msh')
