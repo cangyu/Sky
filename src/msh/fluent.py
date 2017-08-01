@@ -1746,13 +1746,19 @@ class XF_MSH(object):
         def calc_interior_face_adj_info(_b1, _f1, _b2, _f2, _ref, _swp):
             """
             计算两个交接面上的邻接信息
-            :param _b1:
-            :param _f1:
-            :param _b2:
-            :param _f2:
-            :param _ref:
-            :param _swp:
-            :return:
+            :param _b1: Block index of the left face
+            :type _b1: int
+            :param _f1: Face index of the left face within its block
+            :type _f1: int
+            :param _b2: Block index of the right face
+            :type _b2: int
+            :param _f2: Face index of the right face within its block
+            :type _f2: int
+            :param _ref: Indicate which face is selected as reference, 0 means the left, 1 means the right
+            :type _ref: int
+            :param _swp: Indicate if the two faces' primary coordinates are in the same order
+            :type _swp: bool
+            :return: Adjacent info of this interior face.
             """
 
             _bfn = boundary_face_num(blk_shape[_b1], _f1)
