@@ -1737,7 +1737,7 @@ class XF_MSH(object):
                 _ret[_tk][3] = pnt_idx(_b, crd_ard[3])
                 _ret[_tk][4] = 0
                 _ret[_tk][5] = cell_idx(_b, _crd[_tk], _qud)
-                if _left:
+                if not _left:
                     _ret[_tk][4], _ret[_tk][5] = _ret[_tk][5], _ret[_tk][4]
                 _tk += 1
 
@@ -1786,6 +1786,8 @@ class XF_MSH(object):
                     _ret[_pc][5] = cell_idx(_b2, _crd2[_pc], _qud2)
                     _cp_crd = get_counterpart_pnt_coord(_f2, _b1, _f1, _crd2[_pc], _swp)
                     _ret[_pc][4] = cell_idx(_b1, _cp_crd, _qud1)
+
+                _ret[_pc][4], _ret[_pc][5] = _ret[_pc][5], _ret[_pc][4]
                 _pc += 1
 
             return _ret
