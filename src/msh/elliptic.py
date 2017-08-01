@@ -16,8 +16,7 @@ class EllipticGrid2D(object):
     def __init__(self, grid):
         """
         二维曲边结构网格
-        :param grid: 二维初始网格点数组，下标依次迭代I,J
-                     每个元素包含(X, Y, Z) / (X, Y)
+        :param grid: 二维初始网格点数组，下标依次迭代I, J. 每个元素包含(X, Y, Z) / (X, Y)
         """
 
         if len(grid.shape) != 3:
