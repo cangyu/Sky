@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.fluent import XF_MSH, BCType
 from src.nurbs.curve import Arc, Line
 from src.aircraft.wing import WingProfile
@@ -20,14 +20,15 @@ def rectangular(u, v, l, w):
     :return: None
     """
 
+    msh = LinearTFI2D(lambda u: np.array([l * u, 0, 0]),
+                      lambda v: np.array([0, w * v, 0]),
+                      lambda u: np.array([l * u, w, 0]),
+                      lambda v: np.array([l, w * v, 0]))
+
     u_list = np.linspace(0, 1.0, u + 1)
     v_list = np.linspace(0, 1.0, v + 1)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    msh = Linear_TFI_2D(lambda u: np.array([l * u, 0, 0]),
-                        lambda v: np.array([0, w * v, 0]),
-                        lambda u: np.array([l * u, w, 0]),
-                        lambda v: np.array([l, w * v, 0]))
-    msh.calc_grid(ppu, ppv)
+    msh.calc_grid(u_list, v_list)
+
     fluent_grid = XF_MSH.from_str2d(msh.get_grid())
     fluent_grid.save('rect_{}_{}.msh'.format(u, v))
 
@@ -50,14 +51,15 @@ def curve_rect(U, V, L, H1, H2, H3):
     :return: None
     """
 
+    msh = LinearTFI2D(lambda u: np.array([u * L, 4 * H3 * u * (1 - u), 0]),
+                      lambda v: np.array([0, v * H1, 0]),
+                      lambda u: np.array([u * L, (H1 * (1 - u * u) + H2 * u * u), 0]),
+                      lambda v: np.array([L, v * H2, 0]))
+
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    msh = Linear_TFI_2D(lambda u: np.array([u * L, 4 * H3 * u * (1 - u), 0]),
-                        lambda v: np.array([0, v * H1, 0]),
-                        lambda u: np.array([u * L, (H1 * (1 - u * u) + H2 * u * u), 0]),
-                        lambda v: np.array([L, v * H2, 0]))
-    msh.calc_grid(ppu, ppv)
+    msh.calc_grid(u_list, v_list)
+
     fluent_grid = XF_MSH.from_str2d(msh.get_grid())
     fluent_grid.save('crv_rect_{}_{}.msh'.format(U, V))
 
@@ -83,11 +85,12 @@ def airfoil(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
     v0 = Line(u0.start, u1.start)
     v1 = Line(u0.end, u1.end)
 
+    msh = LinearTFI2D(u0, v0, u1, v1)
+
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    msh = Linear_TFI_2D(u0, v0, u1, v1)
-    msh.calc_grid(ppu, ppv)
+    msh.calc_grid(u_list, v_list)
+
     fluent_grid = XF_MSH.from_str2d(msh.get_grid(), bc=(BCType.Wall, BCType.Outflow, BCType.VelocityInlet, BCType.Outflow))
     fn = '{}_{}_{}.msh'.format(foil, U, V)
     fluent_grid.save(fn)

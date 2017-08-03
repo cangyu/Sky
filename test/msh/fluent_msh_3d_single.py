@@ -1,9 +1,8 @@
 import numpy as np
 import unittest
 import math
-from src.msh.tfi import Linear_TFI_3D
+from src.msh.tfi import LinearTFI3D
 from src.msh.fluent import XF_MSH
-from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 
 def sect(r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw):
@@ -63,13 +62,13 @@ def sect(r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw):
                          share(u, r_min, r_max) * math.sin(math.radians(share(v, theta_min, theta_max))),
                          h_max])
 
+    msh = LinearTFI3D(s1, s2, s3, s4, s5, s6)
+
     u_list = np.linspace(0, 1.0, nu + 1)
     v_list = np.linspace(0, 1.0, nv + 1)
     w_list = np.linspace(0, 1.0, nw + 1)
-    ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
+    msh.calc_grid(u_list, v_list, w_list)
 
-    msh = Linear_TFI_3D(s1, s2, s3, s4, s5, s6)
-    msh.calc_grid(ppu, ppv, ppw)
     return msh.get_grid()
 
 

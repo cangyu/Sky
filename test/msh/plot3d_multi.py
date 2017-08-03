@@ -2,7 +2,7 @@ import numpy as np
 import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import Spline
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.elliptic import Laplace2D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
@@ -80,13 +80,13 @@ def write_uniform_airfoil(foil, L, R, U1, U2, V, fn="", delta_zeta=1.0, delta_et
     v_list = np.linspace(0, 1.0, V + 1)
     c1, c2, c3, c4, c5, c6 = airfoil(foil, L, R)
 
-    grid1 = Linear_TFI_2D(c1, c2, c3, c4)
+    grid1 = LinearTFI2D(c1, c2, c3, c4)
     ppu, ppv = np.meshgrid(u1_list, v_list, indexing='ij')
     grid1.calc_grid(ppu, ppv)
     grid1 = Laplace2D(grid1.get_grid())
     grid1.calc_grid()
 
-    grid2 = Linear_TFI_2D(c2, c5, c4, c6)
+    grid2 = LinearTFI2D(c2, c5, c4, c6)
     ppu, ppv = np.meshgrid(u2_list, v_list, indexing='ij')
     grid2.calc_grid(ppu, ppv)
 

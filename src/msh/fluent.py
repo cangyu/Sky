@@ -1317,14 +1317,14 @@ class XF_MSH(object):
         """
 
         def shell_pnt_caste(_nu, _nv, _nw):
-            t = np.empty(6, int)
-            t[0] = t[1] = _nw * _nv
-            t[2] = t[3] = (_nu - 2) * _nw
-            t[4] = t[5] = (_nu - 2) * (_nv - 2)
+            _ret = np.empty(6, int)
+            _ret[0] = _ret[1] = _nw * _nv
+            _ret[2] = _ret[3] = (_nu - 2) * _nw
+            _ret[4] = _ret[5] = (_nu - 2) * (_nv - 2)
             for i in range(1, 6):
-                t[i] += t[i - 1]
+                _ret[i] += _ret[i - 1]
 
-            return t
+            return _ret
 
         def shell_pnt_idx_from_coord(_k, _crd):
             _nu, _nv, _nw = blk_shape[_k]

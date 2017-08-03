@@ -3,7 +3,7 @@ import math
 from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import linear_expand, single_exponential, double_exponential
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
@@ -145,11 +145,9 @@ for i in range(1, len(pu3)):
 
 pu = np.copy(pu)
 
-ppu, ppv = np.meshgrid(pu, pv, indexing='ij')
-
 '''TFI Grid'''
-tfi_grid = Linear_TFI_2D(c1, c2, c3, c4)
-tfi_grid.calc_grid(ppu, ppv)
+tfi_grid = LinearTFI2D(c1, c2, c3, c4)
+tfi_grid.calc_grid(pu, pv)
 msh = PLOT3D()
 msh.add_block(PLOT3D_Block.build_from_2d(tfi_grid.get_grid()))
 msh.write(airfoil + "_TFI.xyz")

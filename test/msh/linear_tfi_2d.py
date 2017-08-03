@@ -1,17 +1,16 @@
 import unittest
 import numpy as np
 import math
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 
 
-def write_uniform_p3d(msh: Linear_TFI_2D, U: int, V: int, fn="msh_p3d.xyz"):
+def write_uniform_p3d(msh: LinearTFI2D, U: int, V: int, fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    msh.calc_grid(ppu, ppv)
+    msh.calc_grid(u_list, v_list)
     grid = PLOT3D()
     grid.add_block(PLOT3D_Block.build_from_2d(msh.get_grid()))
     grid.write(fn)
@@ -22,7 +21,7 @@ def rectangular(L: float, W: float):
     c3 = lambda u: np.array([L * u, W, 0])
     c2 = lambda v: np.array([0, W * v, 0])
     c4 = lambda v: np.array([L, W * v, 0])
-    return Linear_TFI_2D(c1, c2, c3, c4)
+    return LinearTFI2D(c1, c2, c3, c4)
 
 
 def circle(R1: float, R2: float):
@@ -30,7 +29,7 @@ def circle(R1: float, R2: float):
     c3 = lambda u: np.array([0, (1 - u) * R1 + u * R2, 0])
     c2 = lambda v: np.array([R1 * math.cos(0.5 * math.pi * v), R1 * math.sin(0.5 * math.pi * v), 0])
     c4 = lambda v: np.array([R2 * math.cos(0.5 * math.pi * v), R2 * math.sin(0.5 * math.pi * v), 0])
-    return Linear_TFI_2D(c1, c2, c3, c4)
+    return LinearTFI2D(c1, c2, c3, c4)
 
 
 def eccentric_circle(delta: float, R1: float, R2: float):
@@ -38,7 +37,7 @@ def eccentric_circle(delta: float, R1: float, R2: float):
     c3 = lambda u: np.array([(delta - R1) * (1 - u) - R2 * u, 0, 0])
     c2 = lambda v: np.array([R1 * math.cos(math.pi * v) + delta, R1 * math.sin(math.pi * v), 0])
     c4 = lambda v: np.array([R2 * math.cos(math.pi * v), R2 * math.sin(math.pi * v), 0])
-    return Linear_TFI_2D(c1, c2, c3, c4)
+    return LinearTFI2D(c1, c2, c3, c4)
 
 
 def curve_rect(L: float, H1: float, H2: float, H3: float):
@@ -46,7 +45,7 @@ def curve_rect(L: float, H1: float, H2: float, H3: float):
     c3 = lambda u: np.array([u * L, (H1 * (1 - u * u) + H2 * u * u), 0])
     c2 = lambda v: np.array([0, v * H1, 0])
     c4 = lambda v: np.array([L, v * H2, 0])
-    return Linear_TFI_2D(c1, c2, c3, c4)
+    return LinearTFI2D(c1, c2, c3, c4)
 
 
 def airfoil(foil, L, R):
@@ -108,7 +107,7 @@ def airfoil(foil, L, R):
 
     c3 = lambda u: np.array([r * math.cos((1 - u) * sa + u * ea), r * math.sin((1 - u) * sa + u * ea), 0])
 
-    return Linear_TFI_2D(c1, c2, c3, c4)
+    return LinearTFI2D(c1, c2, c3, c4)
 
 
 class T2L_WritePlot3D_Test(unittest.TestCase):
@@ -116,27 +115,32 @@ class T2L_WritePlot3D_Test(unittest.TestCase):
     Test Plot3D file generation.
     """
 
-    def test_rectangular(self):
+    @staticmethod
+    def test_rectangular():
         msh = rectangular(5, 4)
         U, V = 10, 8
         write_uniform_p3d(msh, U, V, "rect.xyz")
 
-    def test_circle(self):
+    @staticmethod
+    def test_circle():
         msh = circle(1, 2)
         U, V = 5, 10
         write_uniform_p3d(msh, U, V, "circle.xyz")
 
-    def test_eccentic(self):
+    @staticmethod
+    def test_eccentric():
         msh = eccentric_circle(-10, 4, 25)
         U, V = 15, 40
         write_uniform_p3d(msh, U, V, "eccentric.xyz")
 
-    def test_crv_rect(self):
+    @staticmethod
+    def test_crv_rect():
         msh = curve_rect(100, 40, 60, 10)
         U, V = 50, 25
         write_uniform_p3d(msh, U, V, "crv_rect.xyz")
 
-    def test_airfoil(self):
+    @staticmethod
+    def test_airfoil():
         msh = airfoil("NACA0012", 10, 50)
         U, V = 60, 15
         write_uniform_p3d(msh, U, V, "NACA0012.xyz")

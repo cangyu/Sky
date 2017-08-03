@@ -5,7 +5,7 @@ from src.aircraft.wing import Wing
 from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.nurbs.curve import Line, Arc
 from src.nurbs.surface import BilinearSurf, Coons
-from src.msh.tfi import Linear_TFI_3D
+from src.msh.tfi import LinearTFI3D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 p3d_msh = PLOT3D()
@@ -93,19 +93,18 @@ S4 = Coons(Line(P[2], P[10]), C08, Line(P[2], P[0]), Line(P[10], P[8]))
 S5 = Coons(Line(P[3], P[1]), Line(P[2], P[0]), C32, C10)
 S6 = Coons(Line(P[11], P[9]), Line(P[10], P[8]), C1110, C98)
 
-blk0_tfi_grid = Linear_TFI_3D(lambda v, w: S1(v, w),
-                              lambda v, w: sf(1.0 - v, w),
-                              lambda w, u: S3(w, u),
-                              lambda w, u: S4(w, u),
-                              lambda u, v: S5(u, v),
-                              lambda u, v: S6(u, v))
+blk0_tfi_grid = LinearTFI3D(lambda v, w: S1(v, w),
+                            lambda v, w: sf(1.0 - v, w),
+                            lambda w, u: S3(w, u),
+                            lambda w, u: S4(w, u),
+                            lambda u, v: S5(u, v),
+                            lambda u, v: S6(u, v))
 
 U, V, W = 32, 42, 25
 u_list = np.linspace(0, 1.0, U + 1)
 v_list = np.linspace(0, 1.0, V + 1)
 w_list = np.linspace(0, 1.0, W + 1)
-ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
-blk0_tfi_grid.calc_grid(ppu, ppv, ppw)
+blk0_tfi_grid.calc_grid(u_list, v_list, w_list)
 p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk0_tfi_grid.get_grid()))
 
 SS1 = Coons(Line(P[0], P[2]), Line(P[8], P[10]), C08, Line(P[2], P[10]))
@@ -115,17 +114,16 @@ SS4 = BilinearSurf(np.array([[P[2], P[6]], [P[10], P[14]]]))
 SS5 = BilinearSurf(np.array([[P[0], P[2]], [P[4], P[6]]]))
 SS6 = BilinearSurf(np.array([[P[8], P[10]], [P[12], P[14]]]))
 
-blk1_tfi_grid = Linear_TFI_3D(lambda v, w: SS1(v, w),
-                              lambda v, w: SS2(v, w),
-                              lambda w, u: SS3(w, u),
-                              lambda w, u: SS4(w, u),
-                              lambda u, v: SS5(u, v),
-                              lambda u, v: SS6(u, v))
+blk1_tfi_grid = LinearTFI3D(lambda v, w: SS1(v, w),
+                            lambda v, w: SS2(v, w),
+                            lambda w, u: SS3(w, u),
+                            lambda w, u: SS4(w, u),
+                            lambda u, v: SS5(u, v),
+                            lambda u, v: SS6(u, v))
 
 N = 15
 n_list = np.linspace(0.0, 1.0, N + 1)
-ppn, ppu, ppw = np.meshgrid(n_list, u_list, w_list, indexing='ij')
-blk1_tfi_grid.calc_grid(ppn, ppu, ppw)
+blk1_tfi_grid.calc_grid(n_list, u_list, w_list)
 p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk1_tfi_grid.get_grid()))
 
 SSS1 = Coons(Line(P[3], P[1]), Line(P[11], P[9]), Line(P[3], P[11]), C19)
@@ -135,15 +133,14 @@ SSS4 = Coons(C19, Line(P[5], P[13]), Line(P[1], P[5]), Line(P[9], P[13]))
 SSS5 = BilinearSurf(np.array([[P[3], P[1]], [P[7], P[5]]]))
 SSS6 = BilinearSurf(np.array([[P[11], P[9]], [P[15], P[13]]]))
 
-blk2_tfi_grid = Linear_TFI_3D(lambda v, w: SSS1(v, w),
-                              lambda v, w: SSS2(v, w),
-                              lambda w, u: SSS3(w, u),
-                              lambda w, u: SSS4(w, u),
-                              lambda u, v: SSS5(u, v),
-                              lambda u, v: SSS6(u, v))
+blk2_tfi_grid = LinearTFI3D(lambda v, w: SSS1(v, w),
+                            lambda v, w: SSS2(v, w),
+                            lambda w, u: SSS3(w, u),
+                            lambda w, u: SSS4(w, u),
+                            lambda u, v: SSS5(u, v),
+                            lambda u, v: SSS6(u, v))
 
-ppn, ppu, ppw = np.meshgrid(n_list, u_list, w_list, indexing='ij')
-blk2_tfi_grid.calc_grid(ppn, ppu, ppw)
+blk2_tfi_grid.calc_grid(n_list, u_list, w_list)
 p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk2_tfi_grid.get_grid()))
 
 SSSI1 = Coons(Line(P[0], P[1]), Line(P[8], P[9]), C08, C19)
@@ -153,16 +150,15 @@ SSSI4 = Coons(C19, Line(P[5], P[13]), Line(P[1], P[5]), Line(P[9], P[13]))
 SSSI5 = BilinearSurf(np.array([[P[0], P[1]], [P[4], P[5]]]))
 SSSI6 = BilinearSurf(np.array([[P[8], P[9]], [P[12], P[13]]]))
 
-blk3_tfi_grid = Linear_TFI_3D(lambda v, w: SSSI1(v, w),
-                              lambda v, w: SSSI2(v, w),
-                              lambda w, u: SSSI3(w, u),
-                              lambda w, u: SSSI4(w, u),
-                              lambda u, v: SSSI5(u, v),
-                              lambda u, v: SSSI6(u, v))
+blk3_tfi_grid = LinearTFI3D(lambda v, w: SSSI1(v, w),
+                            lambda v, w: SSSI2(v, w),
+                            lambda w, u: SSSI3(w, u),
+                            lambda w, u: SSSI4(w, u),
+                            lambda u, v: SSSI5(u, v),
+                            lambda u, v: SSSI6(u, v))
 
 M = 6
 m_list = np.linspace(0, 1, M + 1)
-ppn, ppu, ppw = np.meshgrid(n_list, m_list, w_list, indexing='ij')
-blk3_tfi_grid.calc_grid(ppn, ppu, ppw)
+blk3_tfi_grid.calc_grid(n_list, m_list, w_list)
 p3d_msh.add_block(PLOT3D_Block.build_from_3d(blk3_tfi_grid.get_grid()))
 p3d_msh.write(fn)

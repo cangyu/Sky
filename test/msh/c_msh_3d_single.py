@@ -5,7 +5,7 @@ from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.aircraft.wing import Wing
 from src.nurbs.curve import Line, Arc
 from src.iges.iges_core import IGES_Model
-from src.msh.tfi import Linear_TFI_2D, Linear_TFI_3D
+from src.msh.tfi import LinearTFI2D, LinearTFI3D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 try:
@@ -21,7 +21,7 @@ def write_uniform_p3d(msh, u, v, w, _fn="msh_p3d.xyz"):
     """
     构建单块Plot3D网格
     :param msh: 3D TFI Grid
-    :type msh: Linear_TFI_3D
+    :type msh: LinearTFI3D
     :param u: U方向网格数量
     :type u: int
     :param v: V方向网格数量
@@ -36,8 +36,7 @@ def write_uniform_p3d(msh, u, v, w, _fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, u + 1)
     v_list = np.linspace(0, 1.0, v + 1)
     w_list = np.linspace(0, 1.0, w + 1)
-    ppu, ppv, ppw = np.meshgrid(u_list, v_list, w_list, indexing='ij')
-    msh.calc_grid(ppu, ppv, ppw)
+    msh.calc_grid(u_list, v_list, w_list)
     grid = PLOT3D()
     grid.add_block(PLOT3D_Block.build_from_3d(msh.get_grid()))
     grid.write(_fn)
@@ -134,11 +133,11 @@ C1110 = Arc.from_2pnt(P[11], P[10], 180, [0, 0, -1])
 C23 = Arc.from_2pnt(P[2], P[3], 180, [0, 0, 1])
 C1011 = Arc.from_2pnt(P[10], P[11], 180, [0, 0, 1])
 
+'''
 fn = "frame.igs"
 frame = IGES_Model(fn)
 for line in L:
     frame.add_entity(line.to_iges())
-
 frame.add_entity(C08.to_iges(0, 0, [0, 0, 0]))
 frame.add_entity(C19.to_iges(0, 0, [0, 0, 0]))
 frame.add_entity(C01.to_iges())
@@ -146,21 +145,21 @@ frame.add_entity(C89.to_iges())
 frame.add_entity(C23.to_iges(1, 0, [0, 0, 1]))
 frame.add_entity(C1011.to_iges(1, 0, [0, 0, 1]))
 frame.write()
-
 if auto_view:
     view(fn)
+'''
 
-S1 = Linear_TFI_2D(C32, L[LineMap['L311']], C1110, L[LineMap['L210']])
-S3 = Linear_TFI_2D(L[LineMap['L311']], L[LineMap['L31']], C19, L[LineMap['L119']])
-S4 = Linear_TFI_2D(L[LineMap['L210']], L[LineMap['L20']], C08, L[LineMap['L108']])
-S5 = Linear_TFI_2D(L[LineMap['L31']], C32, L[LineMap['L20']], C10)
-S6 = Linear_TFI_2D(L[LineMap['L119']], C1110, L[LineMap['L108']], C98)
+S1 = LinearTFI2D(C32, L[LineMap['L311']], C1110, L[LineMap['L210']])
+S3 = LinearTFI2D(L[LineMap['L311']], L[LineMap['L31']], C19, L[LineMap['L119']])
+S4 = LinearTFI2D(L[LineMap['L210']], L[LineMap['L20']], C08, L[LineMap['L108']])
+S5 = LinearTFI2D(L[LineMap['L31']], C32, L[LineMap['L20']], C10)
+S6 = LinearTFI2D(L[LineMap['L119']], C1110, L[LineMap['L108']], C98)
 
-tfi_grid = Linear_TFI_3D(lambda v, w: S1(v, w),
-                         lambda v, w: sf(1.0 - v, w),
-                         lambda w, u: S3(w, u),
-                         lambda w, u: S4(w, u),
-                         lambda u, v: S6(u, v),
-                         lambda u, v: S6(u, v))
+tfi_grid = LinearTFI3D(lambda v, w: S1(v, w),
+                       lambda v, w: sf(1.0 - v, w),
+                       lambda w, u: S3(w, u),
+                       lambda w, u: S4(w, u),
+                       lambda u, v: S6(u, v),
+                       lambda u, v: S6(u, v))
 
-write_uniform_p3d(tfi_grid, 15, 8, 6)
+write_uniform_p3d(tfi_grid, 45, 28, 16)

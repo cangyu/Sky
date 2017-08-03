@@ -4,7 +4,7 @@ import math
 from src.aircraft.wing import Airfoil
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.msh.elliptic import Laplace2D
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.spacing import single_exponential, double_exponential
 
@@ -70,10 +70,8 @@ def write_airfoil_msh(foil, L, R, U, V, fn="", delta_zeta=1.0, delta_eta=1.0):
 
     u_list = double_exponential(U + 1, 0.5, -1.5, 0.5)
     v_list = single_exponential(V + 1, 3)
-
-    grid = Linear_TFI_2D(c1, c2, c3, c4)
-    ppu, ppv = np.meshgrid(u_list, v_list, indexing='ij')
-    grid.calc_grid(ppu, ppv)
+    grid = LinearTFI2D(c1, c2, c3, c4)
+    grid.calc_grid(u_list, v_list)
     lgrid = Laplace2D(grid.get_grid())
     lgrid.calc_grid()
 

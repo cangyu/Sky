@@ -1,11 +1,11 @@
 import numpy as np
 import unittest
 import math
-from src.msh.tfi import Linear_TFI_3D
+from src.msh.tfi import LinearTFI3D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 
-def write_uniform_p3d(msh: Linear_TFI_3D, U: int, V: int, W: int, fn="msh_p3d.xyz"):
+def write_uniform_p3d(msh: LinearTFI3D, U: int, V: int, W: int, fn="msh_p3d.xyz"):
     u_list = np.linspace(0, 1.0, U + 1)
     v_list = np.linspace(0, 1.0, V + 1)
     w_list = np.linspace(0, 1.0, W + 1)
@@ -32,7 +32,7 @@ def cuboid(L, W, H):
     s5 = lambda u, v: np.array([u * L, v * W, 0])
     s6 = lambda u, v: np.array([u * L, v * W, H])
 
-    return Linear_TFI_3D(s1, s2, s3, s4, s5, s6)
+    return LinearTFI3D(s1, s2, s3, s4, s5, s6)
 
 
 def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX):
@@ -73,7 +73,7 @@ def sect(R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX):
                                 share(u, R_MIN, R_MAX) * math.sin(math.radians(share(v, THETA_MIN, THETA_MAX))),
                                 H_MAX])
 
-    return Linear_TFI_3D(s1, s2, s3, s4, s5, s6)
+    return LinearTFI3D(s1, s2, s3, s4, s5, s6)
 
 
 class T3L_WritePlot3D_Test(unittest.TestCase):

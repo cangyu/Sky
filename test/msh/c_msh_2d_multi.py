@@ -4,7 +4,7 @@ from src.nurbs.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
 from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 
 airfoil = 'M6'
@@ -118,9 +118,8 @@ pu = [double_exponential(N[0], 0.5, -1.5, 0.5),  # c0, c1
 
 msh = PLOT3D()
 """翼型前缘"""
-grid1 = Linear_TFI_2D(c0, c2, c1, c3)
-ppu1, ppv1 = np.meshgrid(pu[0], pu[1], indexing='ij')
-grid1.calc_grid(ppu1, ppv1)
+grid1 = LinearTFI2D(c0, c2, c1, c3)
+grid1.calc_grid(pu[0], pu[1])
 laplace_grid1 = Laplace2D(grid1.get_grid())
 laplace_grid1.calc_grid()
 tm_grid1 = ThomasMiddlecoff2D(grid1.get_grid())
@@ -130,27 +129,24 @@ g1blk.set_area_iblank([0, N[0] - 1], range(1, N[1] - 1), [0], -2)  # c2,c3
 msh.add_block(g1blk)
 
 """翼型后缘上部"""
-grid2 = Linear_TFI_2D(c6, c4, c7, c2)
-ppu2, ppv2 = np.meshgrid(pu[2], pu[1], indexing='ij')
-grid2.calc_grid(ppu2, ppv2)
+grid2 = LinearTFI2D(c6, c4, c7, c2)
+grid2.calc_grid(pu[2], pu[1])
 g2blk = PLOT3D_Block.build_from_2d(grid2.get_grid())
 g2blk.set_area_iblank([N[2] - 1], range(1, N[1] - 1), [0], -1)  # c2
 g2blk.set_area_iblank(range(1, N[2] - 1), [0], [0], -4)  # c6
 msh.add_block(g2blk)
 
 """翼型后缘下部"""
-grid3 = Linear_TFI_2D(c8, c5, c9, c3)
-ppu3, ppv3 = np.meshgrid(pu[2], pu[1], indexing='ij')
-grid3.calc_grid(ppu3, ppv3)
+grid3 = LinearTFI2D(c8, c5, c9, c3)
+grid3.calc_grid(pu[2], pu[1])
 g3blk = PLOT3D_Block.build_from_2d(grid3.get_grid())
 g2blk.set_area_iblank([N[2] - 1], range(1, N[1] - 1), [0], -1)  # c3
 g2blk.set_area_iblank(range(1, N[2] - 1), [0], [0], -4)  # c8
 msh.add_block(g3blk)
 
 """钝尾缘部分"""
-grid4 = Linear_TFI_2D(c8, c11, c6, c10)
-ppu4, ppv4 = np.meshgrid(pu[2], pu[3], indexing='ij')
-grid4.calc_grid(ppu4, ppv4)
+grid4 = LinearTFI2D(c8, c11, c6, c10)
+grid4.calc_grid(pu[2], pu[3])
 g4blk = PLOT3D_Block.build_from_2d(grid4.get_grid())
 g4blk.set_area_iblank(range(1, N[2] - 1), [0], [0], -3)  # c8
 g4blk.set_area_iblank(range(1, N[2] - 1), [N[3] - 1], [0], -2)  # c6

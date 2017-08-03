@@ -4,7 +4,7 @@ from src.nurbs.curve import Line, Arc
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
 from src.msh.elliptic import ThomasMiddlecoff2D
-from src.msh.tfi import Linear_TFI_2D
+from src.msh.tfi import LinearTFI2D
 from src.msh.fluent import XF_MSH, BCType
 
 
@@ -40,26 +40,22 @@ def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
           np.linspace(0.0, 1.0, N[3])]  # c10, c11
 
     '''翼型前缘'''
-    grid1 = Linear_TFI_2D(c0, c2, c1, c3)
-    ppu1, ppv1 = np.meshgrid(pu[0], pu[1], indexing='ij')
-    grid1.calc_grid(ppu1, ppv1)
+    grid1 = LinearTFI2D(c0, c2, c1, c3)
+    grid1.calc_grid(pu[0], pu[1])
     tm_grid1 = ThomasMiddlecoff2D(grid1.get_grid())
     tm_grid1.calc_grid()
 
     '''翼型后缘上部'''
-    grid2 = Linear_TFI_2D(c6, c4, c7, c2)
-    ppu2, ppv2 = np.meshgrid(pu[2], pu[1], indexing='ij')
-    grid2.calc_grid(ppu2, ppv2)
+    grid2 = LinearTFI2D(c6, c4, c7, c2)
+    grid2.calc_grid(pu[2], pu[1])
 
     '''翼型后缘下部'''
-    grid3 = Linear_TFI_2D(c8, c5, c9, c3)
-    ppu3, ppv3 = np.meshgrid(pu[2], pu[1], indexing='ij')
-    grid3.calc_grid(ppu3, ppv3)
+    grid3 = LinearTFI2D(c8, c5, c9, c3)
+    grid3.calc_grid(pu[2], pu[1])
 
     '''钝尾缘部分'''
-    grid4 = Linear_TFI_2D(c8, c11, c6, c10)
-    ppu4, ppv4 = np.meshgrid(pu[2], pu[3], indexing='ij')
-    grid4.calc_grid(ppu4, ppv4)
+    grid4 = LinearTFI2D(c8, c11, c6, c10)
+    grid4.calc_grid(pu[2], pu[3])
 
     '''网格, 边界条件, 邻接关系'''
     blk = [tm_grid1.get_grid(), grid2.get_grid(), grid3.get_grid(), grid4.get_grid()]
