@@ -1,7 +1,7 @@
 import numpy as np
 from abc import abstractmethod
 from enum import Enum, unique
-from copy import deepcopy
+import platform
 
 
 class XF_Section(object):
@@ -22,12 +22,17 @@ class XF_Section(object):
     def content(self):
         return self.formatted_content
 
+    @abstractmethod
+    def write(self, out_stream):
+        pass
+
 
 class XF_Comment(XF_Section):
     def __init__(self, msg=''):
         """
         注释
         :param msg: 注释信息 
+        :type msg: str
         """
 
         super(XF_Comment, self).__init__(0)
@@ -36,26 +41,34 @@ class XF_Comment(XF_Section):
     def build_content(self):
         self.formatted_content = "({} \"{}\")".format(self.index, self.msg)
 
+    def write(self, out_stream):
+        out_stream.write("({} \"{}\")".format(self.index, self.msg))
+
 
 class XF_Header(XF_Section):
-    def __init__(self, info='Grid generated with Python 3.x'):
+    def __init__(self, info=''):
         """
         To identify the program that wrote the file.
         :param info: Header info.
+        :type info: str
         """
 
         super(XF_Header, self).__init__(1)
-        self.info = info
+        self.info = "Grid generated with Python " + platform.python_version() if info == '' else info
 
     def build_content(self):
         self.formatted_content = "({} \"{}\")".format(self.index, self.info)
 
+    def write(self, out_stream):
+        out_stream.write("({} \"{}\")".format(self.index, self.info))
+
 
 class XF_Dimension(XF_Section):
-    def __init__(self, dim: int):
+    def __init__(self, dim):
         """
         Dimension info of the grid.
         :param dim: Dimension 
+        :type dim: int
         """
 
         super(XF_Dimension, self).__init__(2)
@@ -63,6 +76,9 @@ class XF_Dimension(XF_Section):
 
     def build_content(self):
         self.formatted_content = "({} {})".format(self.index, self.ND)
+
+    def write(self, out_stream):
+        out_stream.write("({} {})".format(self.index, self.ND))
 
 
 @unique
@@ -106,6 +122,18 @@ class XF_Node(XF_Section):
     @classmethod
     def declaration(cls, num):
         return cls(0, 1, num, NodeType.Virtual, 0)
+
+    def write(self, out_stream):
+        if self.pts is None:
+            out_stream.write("({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:]))
+        else:
+            out_stream.write("({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.node_type)[2:], self.ND))
+            n, dim = self.pts.shape
+            for i in range(n):
+                out_stream.write("\n{}".format(self.pts[i][0]))
+                for d in range(1, self.ND):
+                    out_stream.write(" {}".format(self.pts[i][d]))
+            out_stream.write("))")
 
 
 class BCType(Enum):
@@ -176,6 +204,18 @@ class XF_Face(XF_Section):
     def declaration(cls, num):
         return cls(0, 1, num, BCType.Inactive, FaceType.Mixed)
 
+    def write(self, out_stream):
+        if self.face_info is not None:
+            out_stream.write("({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.bc_type)[2:], hex(self.face_type)[2:]))
+            for fc in self.face_info:
+                out_stream.write("\n{}".format(hex(fc[0])[2:]))
+                cfn = len(fc)
+                for cfi in range(1, cfn):
+                    out_stream.write(" {}".format(hex(fc[cfi])[2:]))
+            out_stream.write('))')
+        else:
+            out_stream.write("({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.face_type)[2:]))
+
 
 @unique
 class CellType(Enum):
@@ -233,6 +273,20 @@ class XF_Cell(XF_Section):
     def declaration(cls, num):
         return cls(0, 1, num, CellType.Dead, CellElement.Mixed)
 
+    def write(self, out_stream):
+        if self.cell_info is not None:
+            out_stream.write("({} ({} {} {} {} {})(".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:], hex(self.elem_type)[2:]))
+            out_stream.write("\n{}".format(hex(self.cell_info[0])[2:]))
+            cn = len(self.cell_info)
+            for ci in range(1, cn):
+                out_stream.write(" {}".format(hex(self.cell_info[ci])[2:]))
+            out_stream.write("))")
+        else:
+            if self.cell_type == 0:
+                out_stream.write("({} ({} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:]))  # declaration
+            else:
+                out_stream.write("({} ({} {} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:], hex(self.elem_type)[2:]))
+
 
 class XF_MSH(object):
     def __init__(self):
@@ -262,8 +316,8 @@ class XF_MSH(object):
 
         msh = open(fn, 'w')
         for sec in self.section_list:
-            sec.build_content()
-            msh.write("{}\n".format(sec.content))
+            sec.write(msh)
+            msh.write("\n")
         msh.close()
 
     @staticmethod
