@@ -378,10 +378,11 @@ class ClampedNURBSCrv(object):
         else:
             return ClampedNURBSCrv(nU, nPw)
 
-    def elevate(self, t: int, self_update=False, return_raw=False):
+    def elevate(self, t, self_update=False, return_raw=False):
         """
         将曲线升阶t次
         :param t: 升阶次数
+        :type t: int
         :param self_update: 是否更新自己
         :param return_raw: 是否返回原始形式的数据(节点矢量与带权控制点)
         :return 根据不同的选项返回不同形式的结果
@@ -438,6 +439,19 @@ class ClampedNURBSCrv(object):
             return nU, nPw
         else:
             return ClampedNURBSCrv(nU, nPw)
+
+    def segment(self, a, b):
+        """
+        提取其中一段
+        :param a: 起始节点
+        :type a: float
+        :param b: 终止节点
+        :type b: float
+        :return: 曲线上的一段
+        :rtype: ClampedNURBSCrv
+        """
+
+        pass
 
 
 class BezierCrv(ClampedNURBSCrv):
