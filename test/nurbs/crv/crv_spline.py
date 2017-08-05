@@ -2,9 +2,9 @@ import unittest
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from src.aircraft.wing import Airfoil
 from src.nurbs.curve import Spline, GlobalInterpolatedCrv
 from src.iges.iges_core import IGES_Model
-from settings import AIRFOIL_DIR
 
 try:
     from src.misc.catia import view
@@ -15,16 +15,8 @@ else:
     auto_view = True
 
 
-def get_airfoil_pts(airfoil):
-    fn = AIRFOIL_DIR + '/' + airfoil + '.dat'
-    fin = open(fn)
-    pnt_list = []
-    for pnt in fin:
-        x, y, z = pnt.split()
-        pnt_list.append([float(x), float(y), float(z)])
-    fin.close()
-
-    return np.copy(pnt_list)
+def get_airfoil_pts(foil):
+    return Airfoil.read_pts(foil)
 
 
 def write_airfoil(airfoil):
@@ -37,8 +29,8 @@ def write_airfoil(airfoil):
         view(fn)
 
 
-def compare_airfoil(airfoil, d, N=1000):
-    pts = get_airfoil_pts(airfoil)
+def compare_airfoil(foil, d, N=1000):
+    pts = get_airfoil_pts(foil)
     spline_foil = Spline(pts)
     ginterp_foil = GlobalInterpolatedCrv(pts)
 

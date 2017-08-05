@@ -1,13 +1,12 @@
+from copy import deepcopy
 from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline, make_interp_spline
 from scipy.integrate import romberg
 from scipy.misc import comb
-from scipy.special import factorial
 from src.nurbs.utility import *
 from src.nurbs.transform import DCM, Quaternion
 from src.iges.iges_entity110 import IGES_Entity110
-from src.iges.iges_entity112 import IGES_Entity112
 from src.iges.iges_entity126 import IGES_Entity126
 
 
@@ -62,8 +61,9 @@ class ClampedNURBSCrv(object):
         求控制点
         """
 
-        ans = np.zeros((len(self.Pw), 3))
-        for i in range(len(self.Pw)):
+        tn = len(self.Pw)
+        ans = np.zeros((tn, 3))
+        for i in range(tn):
             ans[i] = to_cartesian(self.Pw[i])
         return ans
 
@@ -440,18 +440,71 @@ class ClampedNURBSCrv(object):
         else:
             return ClampedNURBSCrv(nU, nPw)
 
-    def segment(self, a, b):
+    def reparameterization(self, alpha, beta, gamma, delta):
         """
-        提取其中一段
-        :param a: 起始节点
-        :type a: float
-        :param b: 终止节点
-        :type b: float
-        :return: 曲线上的一段
-        :rtype: ClampedNURBSCrv
+        使用线性有理函数进行重新参数化
+        Denote 'u' as current parameter, 's' as target parameter,
+        relations between 's' and 'u' are given as follows:
+            alpha*u + beta
+        s = ---------------
+            gamma*u + delta
+        :param alpha: Linear rational reparameterization parameter
+        :type alpha: float
+        :param beta: Linear rational reparameterization parameter
+        :type beta: float
+        :param gamma: Linear rational reparameterization parameter
+        :type gamma: float
+        :param delta: Linear rational reparameterization parameter
+        :type delta: float
+        :return: None
         """
 
-        pass
+        nu = np.copy(list(map(lambda u: (alpha * u + beta) / (gamma * u + delta), self.U)))
+        cur_cpt = self.cpt
+        wt = self.weight
+
+        wn = len(wt)
+        tp = self.p
+
+        # TODO
+
+    def split(self, break_pts):
+        """
+
+        :param break_pts:
+        :return:
+        """
+
+        sbp = sorted(break_pts)
+        bkt = []
+
+        val, cnt = np.unique(self.U, return_counts=True)
+        knot_dict = dict(zip(val, cnt))
+
+        cp = self.p
+        for u in sbp:
+            if u <= 0 or u >= 1:
+                raise ValueError("Invalid break knot.")
+            tc = cp - knot_dict.get(u) if u in knot_dict else cp
+            for k in range(tc):
+                bkt.append(u)
+
+        self.refine(np.copy(bkt))
+        ret = []
+
+        sbp.append(self.U[-1])
+        cki = 0
+        cpi = 0
+        for u in sbp:
+            ck = []
+            while self.U[cki] <= u:
+                ck.append(self.U[cki])
+                cki += 1
+
+            cpn = len(ck) - cp - 1
+            cpi_next = cpi + cpn
+            ret.append(ClampedNURBSCrv(ck, self.Pw[cpi:cpi_next]))
+            cpi = cpi_next
 
 
 class BezierCrv(ClampedNURBSCrv):
@@ -622,6 +675,29 @@ def calc_ctrl_pts(U, p, pts, param):
     return ctrl_pts
 
 
+class Spline(ClampedNURBSCrv):
+    def __init__(self, pts, p=3, bc=([(2, (0, 0, 0))], [(2, (0, 0, 0))]), method='centripetal'):
+        """
+        带端点切矢量的全局曲线插值
+        Note:
+        此处也可以将bc取为None，从而和GlobalInterpolatedCrv功能相同,
+        但SciPy中的默认参数化方法可能不一样, 经测试其构造knot的方法可能不是简单地取平均，有待考证
+        :param pts: 待插值数据点
+        :param p: 插值曲线次数
+        :type p: int
+        :param bc: 在两端点处的边界条件，默认取自然边界条件
+        """
+
+        sp = calc_pnt_param(pts, method)
+        f = make_interp_spline(sp, pts, k=p, bc_type=bc)
+        pw = np.ones((len(f.t) - p - 1, 4), float)
+        for k, pnt in enumerate(f.c):
+            for d in range(3):
+                pw[k][d] = pnt[d]
+
+        super(Spline, self).__init__(f.t, pw)
+
+
 class Line(ClampedNURBSCrv):
     def __init__(self, a, b):
         """
@@ -746,75 +822,3 @@ class Arc(ClampedNURBSCrv):
         '''Reconstruct'''
         arc.reset(arc.U, pw)
         return arc
-
-
-class Spline(object):
-    def __init__(self, pts, p=3, bc_x=([(2, 0)], [(2, 0)]), bc_y=([(2, 0)], [(2, 0)]), bc_z=([(2, 0)], [(2, 0)])):
-        """
-        3次样条曲线,利用SciPy中的BSpline插值，
-        与NURBS_Curve相比不同之处在于其节点不是Clamped,
-        与GlobalInterpolatedCrv相比不同之处在于能够控制端点的高阶导数.
-        """
-
-        '''Natural coordinates'''
-        self.n = len(pts)
-        self.U = np.zeros(self.n, float)
-        for i in range(1, self.n):
-            self.U[i] = pnt_dist(pts[i], pts[i - 1]) + self.U[i - 1]
-        self.n -= 1
-
-        '''Interpolation Function'''
-        self.p = int(p)
-        fx = make_interp_spline(self.U, pts[:, 0], k=self.p, bc_type=bc_x)
-        fy = make_interp_spline(self.U, pts[:, 1], k=self.p, bc_type=bc_y)
-        fz = make_interp_spline(self.U, pts[:, 2], k=self.p, bc_type=bc_z)
-        self.f = [fx, fy, fz]
-
-    def x(self, u, d=0):
-        """
-        Normalized representation of x dimension
-        """
-
-        return self.f[0](u * self.U[-1], d)
-
-    def y(self, u, d=0):
-        """
-        Normalized representation of y dimension
-        """
-
-        return self.f[1](u * self.U[-1], d)
-
-    def z(self, u, d=0):
-        """
-        Normalized representation of z dimension
-        """
-
-        return self.f[2](u * self.U[-1], d)
-
-    def __call__(self, u, d=0):
-        """
-        求指定位置上的导矢量
-        :param u: 目标参数
-        :param d: 求导次数
-        :return: 曲线在u处的d阶导矢
-        """
-
-        return np.array([self.x(u, d), self.y(u, d), self.z(u, d)])
-
-    def to_iges(self):
-        """
-        将3次样条曲线以IGES标准中第112号实体呈现
-        :return: 曲线的IGES实体表示
-        :rtype IGES_Entity112
-        """
-
-        if self.p != 3:
-            raise AttributeError('Should be cubic curve!')
-
-        coefficient_matrix = np.zeros((self.n + 1, 3, self.p + 1))
-        for k in range(self.n + 1):
-            for i in range(3):
-                for j in range(self.p + 1):
-                    coefficient_matrix[k][i][j] = self.f[i](self.U[k], j) / factorial(j)
-
-        return IGES_Entity112(self.U, coefficient_matrix)
