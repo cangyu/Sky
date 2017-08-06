@@ -470,17 +470,18 @@ class ClampedNURBSCrv(object):
 
     def split(self, break_pts):
         """
-
-        :param break_pts:
-        :return:
+        Split the curve into several segments.
+        :param break_pts: Splitting knots
+        :return: Curve segments
         """
 
-        sbp = sorted(break_pts)
-        bkt = []
-
+        '''Count current knots'''
         val, cnt = np.unique(self.U, return_counts=True)
         knot_dict = dict(zip(val, cnt))
 
+        '''Calculate knots to be inserted'''
+        sbp = sorted(break_pts)
+        bkt = []
         cp = self.p
         for u in sbp:
             if u <= 0 or u >= 1:
@@ -489,9 +490,11 @@ class ClampedNURBSCrv(object):
             for k in range(tc):
                 bkt.append(u)
 
+        '''Insert breaking knots'''
         self.refine(np.copy(bkt))
-        ret = []
 
+        '''Extract each segment'''
+        ret = []
         sbp.append(self.U[-1])
         cki = 0
         cpi = 0
