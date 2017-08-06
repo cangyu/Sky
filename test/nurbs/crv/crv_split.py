@@ -24,9 +24,9 @@ pts = np.array([[0, 0, 0],
 
 crv1 = GlobalInterpolatedCrv(pts, 3)
 
-crv2 = crv1.decompose()
-
-print(crv2.m)
-print(crv2.U)
-print(crv2.n)
-print(crv2.Pw)
+crv_list = ClampedNURBSCrv.split(crv1, [0.2, 0.6])
+for k, crv in enumerate(crv_list):
+    print('Seg{}:'.format(k + 1))
+    print(crv.U)
+    print(crv.weight)
+    print(crv.cpt)

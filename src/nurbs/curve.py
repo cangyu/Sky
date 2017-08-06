@@ -443,6 +443,7 @@ class ClampedNURBSCrv(object):
     def reparameterization(self, alpha, beta, gamma, delta):
         """
         使用线性有理函数进行重新参数化
+        不需要改变控制点，但权系数需要改变
         Denote 'u' as current parameter, 's' as target parameter,
         relations between 's' and 'u' are given as follows:
             alpha*u + beta
@@ -459,55 +460,108 @@ class ClampedNURBSCrv(object):
         :return: None
         """
 
-        nu = np.copy(list(map(lambda u: (alpha * u + beta) / (gamma * u + delta), self.U)))
+        if not alpha * delta - gamma * beta > 0:
+            raise AssertionError("Bad reparameterization.")
+
+        def mu(u):
+            return gamma * u + delta
+
+        '''Calculate new knot'''
+        old_knot = self.U
+        new_knot = np.copy(list(map(lambda u: (alpha * u + beta) / (gamma * u + delta), old_knot)))
+
+        '''Calculate new weight'''
+        old_wt = self.weight
+        new_wt = np.empty_like(old_wt)
+
+        cp = self.p
+        factor = 1.0
+        for i in range(cp):
+            factor *= mu(old_knot[i])
+
+        wn = len(old_wt)
+        for i in range(wn):
+            factor /= mu(old_knot[i])
+            factor *= mu(old_knot[i + cp])
+            new_wt[i] = old_wt[i] / factor
+
+        '''Calculate new weighted-control-pts'''
         cur_cpt = self.cpt
-        wt = self.weight
+        wpt = np.empty((wn, 4), float)
+        for i in range(wn):
+            wpt[i] = to_homogeneous(cur_cpt[i], new_wt[i])
 
-        wn = len(wt)
-        tp = self.p
+        '''Update'''
+        self.reset(new_knot, wpt)
 
-        # TODO
+    def standard_reparameterize(self):
+        """
+        通过线性变换，将节点转为[0, 1]上的标准参数化
+        :return: None
+        """
 
-    def split(self, break_pts):
+        a = self.U[0]
+        b = self.U[-1]
+        alpha = 1.0
+        beta = -a
+        gamma = 0.0
+        delta = b - a
+
+        self.reparameterization(alpha, beta, gamma, delta)
+
+    @classmethod
+    def split(cls, crv, break_pts):
         """
         Split the curve into several segments.
+        :param crv: NURBS curve to be split
+        :type crv: ClampedNURBSCrv
         :param break_pts: Splitting knots
         :return: Curve segments
         """
 
         '''Count current knots'''
-        val, cnt = np.unique(self.U, return_counts=True)
+        val, cnt = np.unique(crv.U, return_counts=True)
         knot_dict = dict(zip(val, cnt))
 
         '''Calculate knots to be inserted'''
         sbp = sorted(break_pts)
+        if sbp[0] <= crv.U[0] or sbp[-1] >= crv.U[-1]:
+            raise ValueError("Invalid break knot.")
+
         bkt = []
-        cp = self.p
+        cp = crv.p
         for u in sbp:
-            if u <= 0 or u >= 1:
-                raise ValueError("Invalid break knot.")
             tc = cp - knot_dict.get(u) if u in knot_dict else cp
             for k in range(tc):
                 bkt.append(u)
 
         '''Insert breaking knots'''
-        self.refine(np.copy(bkt))
+        crv0 = deepcopy(crv)
+        crv0.refine(np.copy(bkt))
 
         '''Extract each segment'''
         ret = []
-        sbp.append(self.U[-1])
-        cki = 0
+        sbp.append(crv0.U[-1])
+        prev_knot = crv0.U[0]
+        cki = cp + 1
         cpi = 0
         for u in sbp:
             ck = []
-            while self.U[cki] <= u:
-                ck.append(self.U[cki])
+            for i in range(cp + 1):
+                ck.append(prev_knot)
+            while crv0.U[cki] <= u:
+                ck.append(crv0.U[cki])
                 cki += 1
-
+            ck.append(u)
+            prev_knot = u
             cpn = len(ck) - cp - 1
             cpi_next = cpi + cpn
-            ret.append(ClampedNURBSCrv(ck, self.Pw[cpi:cpi_next]))
-            cpi = cpi_next
+            csg = ClampedNURBSCrv(ck, crv0.Pw[cpi:cpi_next])
+            csg.standard_reparameterize()
+            ret.append(csg)
+            cpi = cpi_next - 1
+
+        return ret
 
 
 class BezierCrv(ClampedNURBSCrv):
