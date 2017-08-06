@@ -494,7 +494,7 @@ class ClampedNURBSCrv(object):
         '''Update'''
         self.reset(new_knot, wpt)
 
-    def standard_reparameterize(self):
+    def standard_reparameterization(self):
         """
         通过线性变换，将节点转为[0, 1]上的标准参数化
         :return: None
@@ -531,7 +531,8 @@ class ClampedNURBSCrv(object):
         bkt = []
         cp = crv.p
         for u in sbp:
-            tc = cp - knot_dict.get(u) if u in knot_dict else cp
+            exist_cnt = knot_dict.get(u) if u in knot_dict else 0
+            tc = cp - exist_cnt
             for k in range(tc):
                 bkt.append(u)
 
@@ -542,6 +543,7 @@ class ClampedNURBSCrv(object):
         '''Extract each segment'''
         ret = []
         sbp.append(crv0.U[-1])
+        knot_num = crv0.m + 1
         prev_knot = crv0.U[0]
         cki = cp + 1
         cpi = 0
@@ -549,15 +551,16 @@ class ClampedNURBSCrv(object):
             ck = []
             for i in range(cp + 1):
                 ck.append(prev_knot)
-            while crv0.U[cki] <= u:
+            while cki < knot_num and crv0.U[cki] <= u:
                 ck.append(crv0.U[cki])
                 cki += 1
-            ck.append(u)
+            if cki < knot_num:
+                ck.append(u)
             prev_knot = u
             cpn = len(ck) - cp - 1
             cpi_next = cpi + cpn
             csg = ClampedNURBSCrv(ck, crv0.Pw[cpi:cpi_next])
-            csg.standard_reparameterize()
+            csg.standard_reparameterization()
             ret.append(csg)
             cpi = cpi_next - 1
 
