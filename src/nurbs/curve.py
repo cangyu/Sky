@@ -566,6 +566,10 @@ class ClampedNURBSCrv(object):
 
         return ret
 
+    @classmethod
+    def joint(cls, crv_list):
+        pass
+
 
 class BezierCrv(ClampedNURBSCrv):
     def __init__(self, a, b, p, pw):
@@ -882,3 +886,52 @@ class Arc(ClampedNURBSCrv):
         '''Reconstruct'''
         arc.reset(arc.U, pw)
         return arc
+
+
+class ConicArc(ClampedNURBSCrv):
+    def __init__(self, _p0, _t0, _p2, _t2, _p):
+        """
+        单段有理Bezier圆锥截线弧
+        :param _p0: 起始点
+        :param _t0: 起始点处切矢量
+        :param _p2: 终止点
+        :param _t2: 终止点处切矢量
+        :param _p: 曲线上一点坐标
+        """
+
+        p0 = np.copy(_p0)
+        t0 = np.copy(_t0)
+        p2 = np.copy(_p2)
+        t2 = np.copy(_t2)
+        p = np.copy(_p)
+
+        '''Knots'''
+        nu = np.array([0, 0, 0, 1, 1, 1], float)
+
+        '''Calculate mid-pnt weight and coordinate'''
+        v02 = p2 - p0
+        if not np.cross(t0, t2).any():
+            w1 = 0.0
+            alf0, alf2, p1 = line_intersection(p, t0, p0, v02, True)
+            a = math.sqrt(alf2 / (1 - alf2))
+            u = a / (1 + a)
+            b = 2 * u * (1 - u)
+            b = -alf0 * (1 - b) / b
+            p1 = b * t0
+        else:
+            p1 = line_intersection(p0, t0, p2, t2)
+            v1p = p - p1
+            alf0, alf2, tmp = line_intersection(p1, v1p, p0, v02, True)
+            a = math.sqrt(alf2 / (1 - alf2))
+            u = a / (1 + a)
+            num = math.pow(1 - u, 2) * np.dot(p - p0, p1 - p) + math.pow(u, 2) * np.dot(p - p2, p1 - p)
+            den = 2 * u * (1 - u) * np.dot(p1 - p, p1 - p)
+            w1 = num / den
+
+        npw = np.empty((3, 4), float)
+        npw[0] = to_homogeneous(p0, 1)
+        npw[1] = to_homogeneous(p1, w1)
+        npw[2] = to_homogeneous(p2, 1)
+
+        '''Set-up'''
+        super(ConicArc, self).__init__(nu, npw)
