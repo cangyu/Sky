@@ -567,8 +567,21 @@ class ClampedNURBSCrv(object):
         return ret
 
     @classmethod
-    def joint(cls, crv_list):
-        pass
+    def joint(cls, crv_list, p, sample_num=30):
+        pts = []
+        u_dist = chebshev_dist(0, 1, sample_num)
+        prev_ending = crv_list[0](0)
+        pts.append(prev_ending)
+        slope0 = crv_list[0](0, 1)
+        slope1 = crv_list[-1](1, 1)
+        for crv in crv_list:
+            if not equal(norm(crv(0) - prev_ending), 0):
+                raise AssertionError("Not continous.")
+            for i in range(1, sample_num):
+                pts.append(crv(u_dist[i]))
+            prev_ending = pts[-1]
+
+        return Spline(np.copy(pts), p, bc=([(1, slope0)], [(1, slope1)]))
 
 
 class BezierCrv(ClampedNURBSCrv):

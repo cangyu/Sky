@@ -206,3 +206,24 @@ def point_to_line(target, center, axis):
     t = normalize(axis)
     b = np.inner(a, t) * t
     return b + center
+
+
+def chebshev_dist(start, end, n):
+    """
+    生成切比雪夫点
+    :param start: 起始值
+    :type start: float
+    :param end: 终止值
+    :type end: float
+    :param n: 采样点数量
+    :type n: int
+    :return: n个点
+    """
+
+    ang = np.linspace(math.pi, 0, n)
+    pr = np.zeros(n)
+    for i in range(n):
+        pr[i] = math.cos(ang[i])
+        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
+
+    return pr
