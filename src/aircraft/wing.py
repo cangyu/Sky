@@ -1,5 +1,6 @@
 import math
 import os
+import matplotlib.pyplot as plt
 from copy import deepcopy
 import numpy as np
 from numpy.linalg import norm
@@ -75,6 +76,12 @@ class Airfoil(object):
     def pnt_num(self):
         return len(self.pts)
 
+    def show(self):
+        (px, py, pz) = zip(*self.pts)
+        plt.plot(px, py)
+        plt.gca().set_aspect('equal')
+        plt.show()
+
     def nurbs_rep(self, p=5, method='centripetal'):
         """
         NURBS Representation
@@ -106,7 +113,7 @@ class Airfoil(object):
         return ret
 
     @classmethod
-    def from_file(cls, fn):
+    def from_database(cls, fn):
         """
         Construct airfoil from file.
         :param fn: File name
@@ -369,6 +376,6 @@ class Wing(object):
 
 
 if __name__ == '__main__':
-    af = Airfoil.from_file('M6')
+    af = Airfoil.from_database('M6')
     print(af)
     print(repr(af))

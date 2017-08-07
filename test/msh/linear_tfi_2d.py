@@ -58,7 +58,7 @@ def airfoil(foil, L, R):
     """
 
     '''Read airfoil data'''
-    af = Airfoil.from_file(foil)
+    af = Airfoil.from_database(foil)
 
     '''Extend'''
     for i in range(len(af.pts)):
