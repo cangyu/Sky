@@ -274,7 +274,7 @@ class ClampedNURBSSurf(object):
             return ClampedNURBSCrv(self.V, nqw)
 
         else:
-            npw = np.zeros(self.n + 1, 4)
+            npw = np.zeros((self.n + 1, 4))
             for i in range(self.n + 1):
                 spl = BSpline(self.V, self.Pw[i, :, :], self.q)
                 npw[i] = spl(uv)
