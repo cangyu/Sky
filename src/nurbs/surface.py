@@ -362,6 +362,9 @@ class ClampedNURBSSurf(object):
 
             self.reset(self.U, crv_list[0].U, npw)
 
+    def standard_reparameterization(self):
+        pass
+
     @classmethod
     def split(cls, surf, ubrk, vbrk):
         """
@@ -373,38 +376,100 @@ class ClampedNURBSSurf(object):
         :return:
         """
 
+        cp = surf.p
+        cq = surf.q
+
+        '''Pre-check'''
+        if len(ubrk) != 0 and (min(ubrk) <= 0 or max(ubrk) >= 1):
+            raise AssertionError("Invalid input.")
+
+        if len(vbrk) != 0 and (min(vbrk) <= 0 or max(vbrk) >= 1):
+            raise AssertionError("Invalid input.")
+
+        '''Copy back break knot info'''
+        uspk = sorted(ubrk)
+        uspk.append(1.0)
+        vspk = sorted(vbrk)
+        vspk.append(1.0)
+
+        '''Statistic current surf knot info'''
         uval, ucnt = np.unique(surf.U, return_counts=True)
         ukdt = dict(zip(uval, ucnt))
 
         vval, vcnt = np.unique(surf.V, return_counts=True)
         vkdt = dict(zip(vval, vcnt))
 
+        '''Construct knot to be inserted'''
         uek = []
-        vek = []
-        cp = surf.p
-        cq = surf.q
-
-        for u in ubrk:
+        for u in uspk:
             exist_cnt = ukdt.get(u) if u in ukdt else 0
             tc = cp - exist_cnt
-            for k in range(tc):
-                uek.append(u)
+            if tc > 0:
+                for k in range(tc):
+                    uek.append(u)
 
-        for v in vbrk:
+        vek = []
+        for v in vspk:
             exist_cnt = vkdt.get(v) if v in vkdt else 0
             tc = cq - exist_cnt
-            for k in range(tc):
-                vek.append(v)
+            if tc > 0:
+                for k in range(tc):
+                    vek.append(v)
 
+        '''Insert knots'''
         vsrf = deepcopy(surf)
         vsrf.refine('U', np.copy(uek))
         vsrf.refine('V', np.copy(vek))
 
-        uspn = len(ubrk) + 1
-        vspn = len(vbrk) + 1
-        ret = []
+        '''Build knot segment'''
+        usdt = []
+        uprev = 0.0
+        ucki = cp + 1
+        for u in uspk:
+            cu = []
+            for k in range(cp + 1):
+                cu.append(uprev)
+            while ucki < len(vsrf.U) and vsrf.U[ucki] <= u:
+                cu.append(vsrf.U[ucki])
+                ucki += 1
+            if ucki < len(vsrf.U):
+                cu.append(u)
+            uprev = u
+            usdt.append(cu)
 
-        # TODO
+        vsdt = []
+        vprev = 0.0
+        vcki = cq + 1
+        for v in vspk:
+            cv = []
+            for k in range(cq + 1):
+                cv.append(vprev)
+            while vcki < len(vsrf.V) and vsrf.V[vcki] <= v:
+                cv.append(vsrf.V[vcki])
+                vcki += 1
+            if vcki < len(vsrf.V):
+                cv.append(v)
+            vprev = v
+            vsdt.append(cv)
+
+        '''Extract control points'''
+        ret = []
+        ucpis = 0
+        for useg in usdt:
+            ucpn = len(useg) - cp - 1
+            vcpis = 0
+            csrf_seg = []
+            for vseg in vsdt:
+                vcpn = len(vseg) - cq - 1
+                cpt = vsrf.Pw[ucpis:ucpis + ucpn, vcpis:vcpis + vcpn]
+                vcpis += vcpn - 1
+                csrf = ClampedNURBSSurf(useg, vseg, cpt)
+                csrf.standard_reparameterization()
+                csrf_seg.append(csrf)
+            ucpis += ucpn - 1
+            ret.append(csrf_seg)
+
+        return ret
 
 
 class GlobalInterpolatedSurf(ClampedNURBSSurf):

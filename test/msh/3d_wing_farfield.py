@@ -55,10 +55,10 @@ wsf = wg.surf()
 
 '''Grid parameters'''
 la = length[0]
-lt = 40 * la
-r = 20 * la
+lt = 30 * la
+r = 10 * la
 ispn = z_offset[-1]
-ospn = 10 * ispn
+ospn = 20 * ispn
 
 crv_root = wsf.extract('V', 0)
 crv_tip = wsf.extract('V', 1)
