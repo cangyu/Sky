@@ -99,7 +99,7 @@ p[7][0] += lt
 p[9] = p[1]
 p[9][2] += ispn
 
-p[11] = p[8]
+p[11] = p[3]
 p[11][2] += ispn
 
 p[13] = p[5]
@@ -158,59 +158,102 @@ p[33] = outer_tip(obrk_tip[1])
 p[34] = outer_far(obrk_far[0])
 p[35] = outer_far(obrk_far[1])
 
-l0 = Line(p[0], p[1])
-l1 = Line(p[2], p[3])
-l2 = Line(p[4], p[5])
-l3 = Line(p[6], p[7])
-l4 = Line(p[8], p[9])
-l5 = Line(p[10], p[11])
-l6 = Line(p[12], p[13])
-l7 = Line(p[14], p[15])
-l8 = Line(p[16], p[17])
-l9 = Line(p[18], p[19])
-l10 = Line(p[20], p[21])
-l11 = Line(p[22], p[23])
-l12 = Line(p[1], p[9])
-l13 = Line(p[3], p[11])
-l14 = Line(p[5], p[13])
-l15 = Line(p[7], p[15])
-l16 = Line(p[9], p[17])
-l17 = Line(p[11], p[19])
-l18 = Line(p[13], p[21])
-l19 = Line(p[15], p[23])
-l20 = Line(p[0], p[8])
-l21 = Line(p[6], p[14])
-l22 = Line(p[8], p[16])
-l23 = Line(p[10], p[18])
-l24 = Line(p[12], p[20])
-l25 = Line(p[14], p[22])
-l26 = Line(p[3], p[1])
-l27 = Line(p[5], p[3])
-l28 = Line(p[5], p[7])
-l29 = Line(p[11], p[9])
-l30 = Line(p[13], p[11])
-l31 = Line(p[13], p[15])
-l32 = Line(p[19], p[17])
-l33 = Line(p[21], p[19])
-l34 = Line(p[21], p[23])
-l35 = Line(p[2], p[0])
-l36 = Line(p[4], p[6])
-l37 = Line(p[10], p[8])
-l38 = Line(p[12], p[14])
-l39 = Line(p[4], p[2])
-l40 = Line(p[12], p[10])
-l41 = Line(p[18], p[16])
-l42 = Line(p[20], p[18])
-l43 = Line(p[20], p[22])
-l44 = Line(p[24], p[30])
-l45 = Line(p[25], p[31])
-l46 = Line(p[26], p[32])
-l47 = Line(p[27], p[33])
-l48 = Line(p[28], p[34])
-l49 = Line(p[29], p[35])
+l = [Line(p[0], p[1]),  # 0
+     Line(p[2], p[3]),  # 1
+     Line(p[4], p[5]),  # 2
+     Line(p[6], p[7]),  # 3
+     Line(p[8], p[9]),  # 4
+     Line(p[10], p[11]),  # 5
+     Line(p[12], p[13]),  # 6
+     Line(p[14], p[15]),  # 7
+     Line(p[16], p[17]),  # 8
+     Line(p[18], p[19]),  # 9
+     Line(p[20], p[21]),  # 10
+     Line(p[22], p[23]),  # 11
+     Line(p[1], p[9]),  # 12
+     Line(p[3], p[11]),  # 13
+     Line(p[5], p[13]),  # 14
+     Line(p[7], p[15]),  # 15
+     Line(p[9], p[17]),  # 16
+     Line(p[11], p[19]),  # 17
+     Line(p[13], p[21]),  # 18
+     Line(p[15], p[23]),  # 19
+     Line(p[0], p[8]),  # 20
+     Line(p[6], p[14]),  # 21
+     Line(p[8], p[16]),  # 22
+     Line(p[10], p[18]),  # 23
+     Line(p[12], p[20]),  # 24
+     Line(p[14], p[22]),  # 25
+     Line(p[3], p[1]),  # 26
+     Line(p[5], p[3]),  # 27
+     Line(p[5], p[7]),  # 28
+     Line(p[11], p[9]),  # 29
+     Line(p[13], p[11]),  # 30
+     Line(p[13], p[15]),  # 31
+     Line(p[19], p[17]),  # 32
+     Line(p[21], p[19]),  # 33
+     Line(p[21], p[23]),  # 34
+     Line(p[2], p[0]),  # 35
+     Line(p[4], p[6]),  # 36
+     Line(p[10], p[8]),  # 37
+     Line(p[12], p[14]),  # 38
+     Line(p[4], p[2]),  # 39
+     Line(p[12], p[10]),  # 40
+     Line(p[18], p[16]),  # 41
+     Line(p[20], p[18]),  # 42
+     Line(p[20], p[22]),  # 43
+     Line(p[24], p[30]),  # 44
+     Line(p[25], p[31]),  # 45
+     Line(p[26], p[32]),  # 46
+     Line(p[27], p[33]),  # 47
+     Line(p[28], p[34]),  # 48
+     Line(p[29], p[35])  # 49
+     ]
 
-c0 = wsf.extract('U', 0)
-c1 = wsf.extract('U', 1)
+c = [wsf.extract('U', 0), wsf.extract('U', 1)]
+c2, c3, c4 = ClampedNURBSCrv.split(outer_root, obrk_root)
+c5, c6, c7 = ClampedNURBSCrv.split(outer_tip, obrk_tip)
+c8, c9, c10 = ClampedNURBSCrv.split(outer_far, obrk_far)
+c11, c12, c13 = ClampedNURBSCrv.split(crv_root, brk_root)
+c14, c15, c16 = ClampedNURBSCrv.split(crv_tip, brk_tip)
+c17, c18, c19 = ClampedNURBSCrv.split(crv_far, brk_far)
+
+c4.reverse()
+c7.reverse()
+c10.reverse()
+c13.reverse()
+c16.reverse()
+c19.reverse()
+
+c.append(c2)
+c.append(c3)
+c.append(c4)
+
+c.append(c5)
+c.append(c6)
+c.append(c7)
+
+c.append(c8)
+c.append(c9)
+c.append(c10)
+
+c.append(c11)
+c.append(c12)
+c.append(c13)
+
+c.append(c14)
+c.append(c15)
+c.append(c16)
+
+c.append(c17)
+c.append(c18)
+c.append(c19)
+
+for _ln in l:
+    model.add_entity(_ln.to_iges())
+
+for _cv in c:
+    model.add_entity(_cv.to_iges())
 
 model.write()
 if auto_view:

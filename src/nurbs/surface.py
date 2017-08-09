@@ -362,6 +362,50 @@ class ClampedNURBSSurf(object):
 
             self.reset(self.U, crv_list[0].U, npw)
 
+    @classmethod
+    def split(cls, surf, ubrk, vbrk):
+        """
+        将曲面分割成若干子部分
+        :param surf: Surface to be split
+        :type surf: ClampedNURBSSurf
+        :param ubrk:
+        :param vbrk:
+        :return:
+        """
+
+        uval, ucnt = np.unique(surf.U, return_counts=True)
+        ukdt = dict(zip(uval, ucnt))
+
+        vval, vcnt = np.unique(surf.V, return_counts=True)
+        vkdt = dict(zip(vval, vcnt))
+
+        uek = []
+        vek = []
+        cp = surf.p
+        cq = surf.q
+
+        for u in ubrk:
+            exist_cnt = ukdt.get(u) if u in ukdt else 0
+            tc = cp - exist_cnt
+            for k in range(tc):
+                uek.append(u)
+
+        for v in vbrk:
+            exist_cnt = vkdt.get(v) if v in vkdt else 0
+            tc = cq - exist_cnt
+            for k in range(tc):
+                vek.append(v)
+
+        vsrf = deepcopy(surf)
+        vsrf.refine('U', np.copy(uek))
+        vsrf.refine('V', np.copy(vek))
+
+        uspn = len(ubrk) + 1
+        vspn = len(vbrk) + 1
+        ret = []
+
+        # TODO
+
 
 class GlobalInterpolatedSurf(ClampedNURBSSurf):
     def __init__(self, pts, p, q, u_method='centripetal', v_method='chord'):
