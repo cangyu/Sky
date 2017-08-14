@@ -5,7 +5,7 @@ from src.aircraft.wing import Wing, Airfoil, WingProfile
 from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.nurbs.utility import pnt_dist
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc, Spline
-from src.nurbs.surface import Coons, BilinearSurf
+from src.nurbs.surface import Coons, BilinearSurf, ClampedNURBSSurf, RuledSurf
 from src.iges.iges_core import IGES_Model
 from src.msh.tfi import LinearTFI3D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
@@ -64,10 +64,11 @@ ospn = 20 * ispn
 crv_root = wsf.extract('V', 0)
 crv_tip = wsf.extract('V', 1)
 crv_far = WingProfile.from_geom_param(foil[-1], ispn + ospn, length[0], 0, 0, 0, thickness_factor=3).nurbs_rep()
+fsf = RuledSurf(crv_tip, crv_far)
 
-brk_root = [0.44, 0.56]
-brk_tip = [0.44, 0.56]
-brk_far = [0.44, 0.56]
+brk_root = np.array([0.44, 0.56])
+brk_tip = brk_root
+brk_far = brk_root
 
 obrk_root = [0.3, 0.72]
 obrk_tip = [0.3, 0.72]
@@ -208,7 +209,13 @@ l = [Line(p[0], p[1]),  # 0
      Line(p[26], p[32]),  # 46
      Line(p[27], p[33]),  # 47
      Line(p[28], p[34]),  # 48
-     Line(p[29], p[35])  # 49
+     Line(p[29], p[35]),  # 49
+     Line(p[26], p[28]),  # 50
+     Line(p[27], p[29]),  # 51
+     Line(p[30], p[32]),  # 52
+     Line(p[31], p[33]),  # 53
+     Line(p[32], p[34]),  # 54
+     Line(p[33], p[35])  # 55
      ]
 
 c = [wsf.extract('U', 0), wsf.extract('U', 1)]
@@ -257,6 +264,7 @@ for _cv in c:
     model.add_entity(_cv.to_iges())
 
 model.add_entity(wsf.to_iges())
+model.add_entity(fsf.to_iges())
 model.write()
 if auto_view:
     view(fn)
@@ -301,7 +309,7 @@ b1_s2 = Coons(l[27], l[30], l[14], l[13])
 b1_s3 = Coons(c[1], l[14], l[2], l[6])
 b1_s4 = Coons(c[0], l[13], l[1], l[5])
 b1_s5 = Coons(l[2], l[1], l[39], l[27])
-b1_s6 = Coons(l[6], l[2], l[40], l[30])
+b1_s6 = Coons(l[6], l[5], l[40], l[30])
 
 b1_tfi_grid = LinearTFI3D(lambda v, w: b1_s1(v, w),
                           lambda v, w: b1_s2(v, w),
@@ -310,10 +318,10 @@ b1_tfi_grid = LinearTFI3D(lambda v, w: b1_s1(v, w),
                           lambda u, v: b1_s5(u, v),
                           lambda u, v: b1_s6(u, v))
 
-b2_s1 = Coons(l[2], l[6], c[1], l[4])
+b2_s1 = Coons(l[2], l[6], c[1], l[14])
 b2_s2 = Coons(l[3], l[7], l[21], l[15])
 b2_s3 = Coons(c[1], l[21], l[36], l[38])
-b2_s4 = Coons(l[14], l[15], l[38], l[31])
+b2_s4 = Coons(l[14], l[15], l[28], l[31])
 b2_s5 = Coons(l[36], l[28], l[2], l[3])
 b2_s6 = Coons(l[38], l[31], l[6], l[7])
 
@@ -340,7 +348,7 @@ b3_tfi_grid = LinearTFI3D(lambda v, w: b3_s1(v, w),
 
 b4_s1 = Coons(l[40], l[42], l[24], l[23])
 b4_s2 = Coons(l[30], l[33], l[18], l[17])
-b4_s3 = Coons(l[24], l[18], l[16], l[10])
+b4_s3 = Coons(l[24], l[18], l[6], l[10])
 b4_s4 = Coons(l[23], l[17], l[5], l[9])
 b4_s5 = Coons(l[6], l[5], l[40], l[30])
 b4_s6 = Coons(l[10], l[9], l[42], l[33])
@@ -365,3 +373,99 @@ b5_tfi_grid = LinearTFI3D(lambda v, w: b5_s1(v, w),
                           lambda w, u: b5_s4(w, u),
                           lambda u, v: b5_s5(u, v),
                           lambda u, v: b5_s6(u, v))
+
+ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
+s0 = ts1[0][0]
+s1 = ts1[1][0]
+s2 = ts1[2][0]
+
+ts2 = ClampedNURBSSurf.split(fsf, brk_tip, [])
+s3 = ts2[0][0]
+s4 = ts2[1][0]
+s5 = ts2[2][0]
+
+s = [s0, s1, s2, s3, s4, s5]
+
+b6_s1 = Coons(l[35], l[37], c[0], l[20])
+b6_s2 = Coons(l[26], l[29], l[13], l[12])
+b6_s3 = Coons(c[0], l[13], l[1], l[5])
+b6_s4 = Coons(l[20], l[12], l[0], l[4])
+b6_s5 = Coons(l[1], l[0], l[35], l[26])
+b6_s6 = Coons(l[5], l[4], l[37], l[29])
+
+b6_tfi_grid = LinearTFI3D(lambda v, w: b6_s1(v, w),
+                          lambda v, w: b6_s2(v, w),
+                          lambda w, u: b6_s3(w, u),
+                          lambda w, u: b6_s4(w, u),
+                          lambda u, v: b6_s5(u, v),
+                          lambda u, v: b6_s6(u, v))
+
+b7_s1 = Coons(l[39], l[40], c[1], c[0])
+b7_s2 = Coons(l[27], l[30], l[14], l[13])
+b7_s3 = Coons(c[1], l[14], l[2], l[6])
+b7_s4 = Coons(c[0], l[13], l[1], l[5])
+b7_s5 = Coons(l[2], l[1], l[39], l[27])
+b7_s6 = Coons(l[6], l[5], l[40], l[30])
+
+b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w),
+                          lambda v, w: b7_s2(v, w),
+                          lambda w, u: b7_s3(w, u),
+                          lambda w, u: b7_s4(w, u),
+                          lambda u, v: b7_s5(u, v),
+                          lambda u, v: b7_s6(u, v))
+
+b8_s1 = Coons(l[2], l[6], c[1], l[14])
+b8_s2 = Coons(l[3], l[7], l[21], l[15])
+b8_s3 = Coons(c[1], l[21], l[36], l[38])
+b8_s4 = Coons(l[14], l[15], l[28], l[31])
+b8_s5 = Coons(l[36], l[28], l[2], l[3])
+b8_s6 = Coons(l[38], l[31], l[6], l[7])
+
+b8_tfi_grid = LinearTFI3D(lambda v, w: b8_s1(v, w),
+                          lambda v, w: b8_s2(v, w),
+                          lambda w, u: b8_s3(w, u),
+                          lambda w, u: b8_s4(w, u),
+                          lambda u, v: b8_s5(u, v),
+                          lambda u, v: b8_s6(u, v))
+
+b9_s1 = Coons(l[37], l[41], l[23], l[22])
+b9_s2 = Coons(l[29], l[32], l[17], l[16])
+b9_s3 = Coons(l[23], l[17], l[5], l[9])
+b9_s4 = Coons(l[22], l[16], l[4], l[8])
+b9_s5 = Coons(l[5], l[4], l[37], l[29])
+b9_s6 = Coons(l[9], l[8], l[41], l[32])
+
+b9_tfi_grid = LinearTFI3D(lambda v, w: b9_s1(v, w),
+                          lambda v, w: b9_s2(v, w),
+                          lambda w, u: b9_s3(w, u),
+                          lambda w, u: b9_s4(w, u),
+                          lambda u, v: b9_s5(u, v),
+                          lambda u, v: b9_s6(u, v))
+
+b10_s1 = Coons(l[40], l[42], l[24], l[23])
+b10_s2 = Coons(l[30], l[33], l[18], l[17])
+b10_s3 = Coons(l[24], l[18], l[6], l[10])
+b10_s4 = Coons(l[23], l[17], l[5], l[9])
+b10_s5 = Coons(l[6], l[5], l[40], l[30])
+b10_s6 = Coons(l[10], l[9], l[42], l[33])
+
+b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w),
+                           lambda v, w: b10_s2(v, w),
+                           lambda w, u: b10_s3(w, u),
+                           lambda w, u: b10_s4(w, u),
+                           lambda u, v: b10_s5(u, v),
+                           lambda u, v: b10_s6(u, v))
+
+b11_s1 = Coons(l[6], l[10], l[24], l[18])
+b11_s2 = Coons(l[7], l[11], l[25], l[19])
+b11_s3 = Coons(l[24], l[25], l[38], l[43])
+b11_s4 = Coons(l[18], l[19], l[31], l[34])
+b11_s5 = Coons(l[38], l[31], l[6], l[7])
+b11_s6 = Coons(l[43], l[34], l[10], l[11])
+
+b11_tfi_grid = LinearTFI3D(lambda v, w: b11_s1(v, w),
+                           lambda v, w: b11_s2(v, w),
+                           lambda w, u: b11_s3(w, u),
+                           lambda w, u: b11_s4(w, u),
+                           lambda u, v: b11_s5(u, v),
+                           lambda u, v: b11_s6(u, v))

@@ -266,7 +266,7 @@ class Wing(object):
 
         return GlobalInterpolatedCrv(front_pts, q, method)
 
-    def surf(self, p=3, q=3):
+    def surf(self, p=5, q=3):
         """
         构建机翼轮廓曲线、曲面
         :param p: U方向次数

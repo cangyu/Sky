@@ -22,7 +22,7 @@ Pw = np.array([[[0, 0, 0, 1], [0, 1, 1, 1], [0, 2, 3, 1], [0, 3, 2, 1]],
                [[3, 0, 0, 1], [3, 1, 1, 1], [3, 2, 2, 1], [3, 3, 3, 1]]], float)
 
 s0 = ClampedNURBSSurf(U, V, Pw)
-spt = ClampedNURBSSurf.split(s0, (0.2, 0.3), (0.4, 0.5, 0.6))
+spt = ClampedNURBSSurf.split(s0, (0.4, 0.5, 0.6), [])
 
 fn0 = 'origin.igs'
 model0 = IGES_Model(fn0)
