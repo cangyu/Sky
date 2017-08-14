@@ -362,8 +362,85 @@ class ClampedNURBSSurf(object):
 
             self.reset(self.U, crv_list[0].U, npw)
 
+    def reparameterization(self, alpha, beta, gamma, delta, direction):
+        """
+        使用齐次有理函数将曲面重新参数化
+             alpha * u + beta
+        s = -------------------
+             gamma * u + delta
+        :param alpha: parameter
+        :type alpha: float
+        :param beta: parameter
+        :type beta: float
+        :param gamma: parameter
+        :type gamma: float
+        :param delta: parameter
+        :type delta: float
+        :param direction: parameter
+        :type direction: str
+        :return: None
+        """
+
+        if direction not in ('U', 'u', 'V', 'v'):
+            raise AssertionError("Invalid direction parameter.")
+
+        def g(x):
+            return (alpha * x + beta) / (gamma * x + delta)
+
+        def nbla(x):
+            return gamma * x - alpha
+
+        cpt = self.cpt
+        npw = np.empty_like(self.Pw)
+        wb = self.weight
+        factor = 1.0
+
+        if direction in ('U', 'u'):
+            s = np.copy(list(map(g, self.U)))
+            for k in range(self.p):
+                factor *= nbla(s[k])
+            for i in range(self.n + 1):
+                factor /= nbla(s[i])
+                factor *= nbla(s[i + self.p])
+                for j in range(self.m + 1):
+                    wb[i][j] *= factor
+                    npw[i][j] = to_homogeneous(cpt[i][j], wb[i][j])
+            self.reset(s, self.V, npw)
+        else:
+            t = np.copy(list(map(g, self.V)))
+            for k in range(self.q):
+                factor *= nbla(t[k])
+            for j in range(self.m + 1):
+                factor /= nbla(t[j])
+                factor *= nbla(t[j + self.q])
+                for i in range(self.n + 1):
+                    wb[i][j] *= factor
+                    npw[i][j] = to_homogeneous(cpt[i][j], wb[i][j])
+            self.reset(self.U, t, npw)
+
     def standard_reparameterization(self):
-        pass
+        """
+        将U,V两个方向的节点都统一到[0, 1]
+        :return: None
+        """
+
+        '''U direction reparameterization'''
+        a = self.U[0]
+        b = self.U[-1]
+        alpha = 1.0
+        beta = -a
+        gamma = 0.0
+        delta = b - a
+        self.reparameterization(alpha, beta, gamma, delta, 'U')
+
+        '''V direction reparameterization'''
+        a = self.V[0]
+        b = self.V[-1]
+        alpha = 1.0
+        beta = -a
+        gamma = 0.0
+        delta = b - a
+        self.reparameterization(alpha, beta, gamma, delta, 'V')
 
     @classmethod
     def split(cls, surf, ubrk, vbrk):
@@ -371,9 +448,9 @@ class ClampedNURBSSurf(object):
         将曲面分割成若干子部分
         :param surf: Surface to be split
         :type surf: ClampedNURBSSurf
-        :param ubrk:
-        :param vbrk:
-        :return:
+        :param ubrk: breaking knot in u-direction
+        :param vbrk: breaking knot in v-direction
+        :return: Collection of split surf
         """
 
         cp = surf.p
