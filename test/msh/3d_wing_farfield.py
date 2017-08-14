@@ -10,6 +10,7 @@ from src.iges.iges_core import IGES_Model
 from src.msh.tfi import LinearTFI3D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.fluent import XF_MSH, BCType
+from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent, hyperbolic_sine
 
 try:
     from src.misc.catia import view
@@ -255,6 +256,112 @@ for _ln in l:
 for _cv in c:
     model.add_entity(_cv.to_iges())
 
+model.add_entity(wsf.to_iges())
 model.write()
 if auto_view:
     view(fn)
+
+n0 = 50
+n1 = 50
+n2 = 50
+n3 = 50
+n4 = 50
+n5 = 50
+n6 = 50
+n7 = 50
+n = np.array([n0, n1, n2, n3, n4, n5, n6, n7])
+
+u0 = np.linspace(0, 1, n0)
+u1 = np.linspace(0, 1, n1)
+u2 = np.linspace(0, 1, n2)
+u3 = np.linspace(0, 1, n3)
+u4 = np.linspace(0, 1, n4)
+u5 = np.linspace(0, 1, n5)
+u6 = np.linspace(0, 1, n6)
+u7 = np.linspace(0, 1, n7)
+knot_dist = [u0, u1, u2, u3, u4, u5, u6, u7]
+
+'''Construct blocks'''
+b0_s1 = Coons(l[35], l[37], c[0], l[20])
+b0_s2 = Coons(l[26], l[29], l[13], l[12])
+b0_s3 = Coons(c[0], l[13], l[1], l[5])
+b0_s4 = Coons(l[20], l[12], l[0], l[4])
+b0_s5 = Coons(l[1], l[0], l[35], l[26])
+b0_s6 = Coons(l[5], l[4], l[37], l[29])
+
+b0_tfi_grid = LinearTFI3D(lambda v, w: b0_s1(v, w),
+                          lambda v, w: b0_s2(v, w),
+                          lambda w, u: b0_s3(w, u),
+                          lambda w, u: b0_s4(w, u),
+                          lambda u, v: b0_s5(u, v),
+                          lambda u, v: b0_s6(u, v))
+
+b1_s1 = Coons(l[39], l[40], c[1], c[0])
+b1_s2 = Coons(l[27], l[30], l[14], l[13])
+b1_s3 = Coons(c[1], l[14], l[2], l[6])
+b1_s4 = Coons(c[0], l[13], l[1], l[5])
+b1_s5 = Coons(l[2], l[1], l[39], l[27])
+b1_s6 = Coons(l[6], l[2], l[40], l[30])
+
+b1_tfi_grid = LinearTFI3D(lambda v, w: b1_s1(v, w),
+                          lambda v, w: b1_s2(v, w),
+                          lambda w, u: b1_s3(w, u),
+                          lambda w, u: b1_s4(w, u),
+                          lambda u, v: b1_s5(u, v),
+                          lambda u, v: b1_s6(u, v))
+
+b2_s1 = Coons(l[2], l[6], c[1], l[4])
+b2_s2 = Coons(l[3], l[7], l[21], l[15])
+b2_s3 = Coons(c[1], l[21], l[36], l[38])
+b2_s4 = Coons(l[14], l[15], l[38], l[31])
+b2_s5 = Coons(l[36], l[28], l[2], l[3])
+b2_s6 = Coons(l[38], l[31], l[6], l[7])
+
+b2_tfi_grid = LinearTFI3D(lambda v, w: b2_s1(v, w),
+                          lambda v, w: b2_s2(v, w),
+                          lambda w, u: b2_s3(w, u),
+                          lambda w, u: b2_s4(w, u),
+                          lambda u, v: b2_s5(u, v),
+                          lambda u, v: b2_s6(u, v))
+
+b3_s1 = Coons(l[37], l[41], l[23], l[22])
+b3_s2 = Coons(l[29], l[32], l[17], l[16])
+b3_s3 = Coons(l[23], l[17], l[5], l[9])
+b3_s4 = Coons(l[22], l[16], l[4], l[8])
+b3_s5 = Coons(l[5], l[4], l[37], l[29])
+b3_s6 = Coons(l[9], l[8], l[41], l[32])
+
+b3_tfi_grid = LinearTFI3D(lambda v, w: b3_s1(v, w),
+                          lambda v, w: b3_s2(v, w),
+                          lambda w, u: b3_s3(w, u),
+                          lambda w, u: b3_s4(w, u),
+                          lambda u, v: b3_s5(u, v),
+                          lambda u, v: b3_s6(u, v))
+
+b4_s1 = Coons(l[40], l[42], l[24], l[23])
+b4_s2 = Coons(l[30], l[33], l[18], l[17])
+b4_s3 = Coons(l[24], l[18], l[16], l[10])
+b4_s4 = Coons(l[23], l[17], l[5], l[9])
+b4_s5 = Coons(l[6], l[5], l[40], l[30])
+b4_s6 = Coons(l[10], l[9], l[42], l[33])
+
+b4_tfi_grid = LinearTFI3D(lambda v, w: b4_s1(v, w),
+                          lambda v, w: b4_s2(v, w),
+                          lambda w, u: b4_s3(w, u),
+                          lambda w, u: b4_s4(w, u),
+                          lambda u, v: b4_s5(u, v),
+                          lambda u, v: b4_s6(u, v))
+
+b5_s1 = Coons(l[6], l[10], l[24], l[18])
+b5_s2 = Coons(l[7], l[11], l[25], l[19])
+b5_s3 = Coons(l[24], l[25], l[38], l[43])
+b5_s4 = Coons(l[18], l[19], l[31], l[34])
+b5_s5 = Coons(l[38], l[31], l[6], l[7])
+b5_s6 = Coons(l[43], l[34], l[10], l[11])
+
+b5_tfi_grid = LinearTFI3D(lambda v, w: b5_s1(v, w),
+                          lambda v, w: b5_s2(v, w),
+                          lambda w, u: b5_s3(w, u),
+                          lambda w, u: b5_s4(w, u),
+                          lambda u, v: b5_s5(u, v),
+                          lambda u, v: b5_s6(u, v))
