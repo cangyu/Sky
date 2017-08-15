@@ -6,6 +6,7 @@ __pycache__
 *.msh
 *.iges
 *.nb
+*.fmt
 XFOIL6.99/
 tmp/
 .vs/
