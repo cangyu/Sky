@@ -35,16 +35,11 @@ print('Control points:')
 print(C0.Pw)
 
 '''Bezier Decompose'''
-C1 = C0.decompose(return_raw=False)
+C1 = ClampedNURBSCrv.decompose(C0)
 model = IGES_Model('after.igs')
-model.add_entity(C1.to_iges())
+for crv in C1:
+    model.add_entity(crv.to_iges())
 model.write()
-
-print('C1:')
-print('Knot vector:')
-print(C1.U)
-print('Control points:')
-print(C1.Pw)
 
 if auto_view:
     view('before.igs')

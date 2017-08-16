@@ -17,9 +17,9 @@ def pnt_dist(lhs, rhs):
     计算两点之间距离
     """
 
-    dim = min(len(lhs), len(rhs))
     ans = 0.0
-    for i in range(0, dim):
+    dim = min(len(lhs), len(rhs))
+    for i in range(dim):
         ans += math.pow(lhs[i] - rhs[i], 2)
 
     ans = math.sqrt(ans)

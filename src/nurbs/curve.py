@@ -312,133 +312,214 @@ class ClampedNURBSCrv(object):
 
         self.reset(nu, npw)
 
-    def decompose(self, self_update=False, return_raw=False):
+    def remove_knot(self, u, num, delta=1e-6):
         """
-        将NURBS曲线分解为Bezier曲线段
-        :return: 分解后的节点矢量与控制点
+        Remove specified knot 'num' times.
+        :param u: Knot to be removed
+        :type u: float
+        :param num: Times of removal
+        :type num: int
+        :param delta: Max expected derivation
+        :type delta: float
+        :return: Times of actual removal
+        :rtype: int
+        """
+
+        '''Defensive check'''
+        if not (u in self.U):
+            raise ValueError("Target knot not exist.")
+        if equal(u, 0) or equal(u, 1):
+            raise ValueError("Invalid input.")
+
+        '''Find position and duplication'''
+        r = 0
+        while not equal(self.U[r], u):
+            r += 1
+
+        s = 0
+        while equal(self.U[r], u):
+            s += 1
+            r += 1
+        r -= 1
+
+        '''Tolerance'''
+        TOL = math.fabs(delta * min(self.weight) / (1 + max(list(map(lambda _p: norm(_p), self.cpt)))))
+
+        '''Basic variables'''
+        p = self.p
+        m = self.m
+        n = self.n
+        ord = p + 1
+        fout = (2 * r - s - p) // 2
+        last = r - s
+        first = r - p
+
+        '''Temp'''
+        temp = np.empty((2 * p + 1, 4), float)
+
+        '''Removal'''
+        t = 0
+        while t < num:
+            off = first - 1
+            temp[0] = self.Pw[off]
+            temp[last + 1 - off] = self.Pw[last + 1]
+            i = first
+            j = last
+            ii = 1
+            jj = last - off
+            while j - i > t:
+                alfi = (u - self.U[i]) / (self.U[i + ord + t] - self.U[i])
+                alfj = (u - self.U[j - t]) / (self.U[j + ord] - self.U[j - t])
+                temp[ii] = (self.Pw[i] - (1 - alfi) * temp[ii - 1]) / alfi
+                temp[jj] = (self.Pw[j] - alfj * temp[jj + 1]) / (1 - alfj)
+                i += 1
+                ii += 1
+                j -= 1
+                jj -= 1
+
+            if j - i < t:
+                remflag = pnt_dist(temp[ii - 1], temp[jj + 1]) <= TOL
+            else:
+                alfi = (u - self.U[i]) / (self.U[i + ord + t] - self.U[i])
+                tpnt = alfi * temp[ii + t + 1] + (1 - alfi) * temp[ii - 1]
+                remflag = pnt_dist(self.Pw[i], tpnt) <= TOL
+
+            if not remflag:
+                break
+            else:
+                i = first
+                j = last
+                while j - i > t:
+                    self.Pw[i] = temp[i - off]
+                    self.Pw[j] = temp[j - off]
+                    i += 1
+                    j -= 1
+
+            first -= 1
+            last += 1
+            t += 1
+
+        if t == 0:
+            return t
+
+        for k in range(r + 1, m + 1):
+            self.U[k - t] = self.U[k]
+
+        j = fout
+        i = j
+        for k in range(1, t):
+            if k % 2 == 0:
+                j -= 1
+            else:
+                i += 1
+
+        for k in range(i + 1, n + 1):
+            self.Pw[j] = self.Pw[k]
+            j += 1
+
+        '''Drop tailing knot and control point'''
+        if t != 0:
+            self.reset(self.U[:-t], self.Pw[:-t])
+
+        return t
+
+    @classmethod
+    def decompose(cls, crv):
+        """
+        Decompose the NURBS curve into several bezier segments.
+        This is knot insertion in essence, just on its intrinsic knots.
+        Optimization are performed especially.
+        :param crv: Curve to be decomposed
+        :type crv: ClampedNURBSCrv
+        :return: Bezier segments
         """
 
         '''New knot vector and control points'''
-        val = np.unique(self.U)
-        nU = np.empty((self.p + 1) * len(val), float)
-        Qw = np.empty((len(val) - 1, self.p + 1, 4), float)
-
-        k = 0
-        for v in val:
-            for j in range(self.p + 1):
-                nU[k] = v
-                k += 1
+        val = np.unique(crv.U)
+        sorted(val)
+        Qw = np.empty((len(val) - 1, crv.p + 1, 4), float)
 
         '''Calculate new control points'''
-        alphas = np.empty(self.p, float)
-        a = self.p
-        b = self.p + 1
+        alphas = np.empty(crv.p, float)
+        a = crv.p
+        b = crv.p + 1
         nb = 0
-        for i in range(self.p + 1):
-            Qw[nb][i] = np.copy(self.Pw[i])
+        for i in range(crv.p + 1):
+            Qw[nb][i] = np.copy(crv.Pw[i])
 
-        while b < self.m:
+        while b < crv.m:
             i = b
-            while b < self.m and equal(self.U[b + 1], self.U[b]):
+            while b < crv.m and equal(crv.U[b + 1], crv.U[b]):
                 b += 1
             mult = b - i + 1
-            if mult < self.p:
-                numer = self.U[b] - self.U[a]
-                for j in range(self.p, mult, -1):
-                    alphas[j - mult - 1] = numer / (self.U[a + j] - self.U[a])
-                r = self.p - mult
+            if mult < crv.p:
+                numer = crv.U[b] - crv.U[a]
+                j = crv.p
+                while j > mult:
+                    alphas[j - mult - 1] = numer / (crv.U[a + j] - crv.U[a])
+                    j -= 1
+                r = crv.p - mult
                 for j in range(1, r + 1):
                     save = r - j
                     s = mult + j
-                    for k in range(self.p, s - 1, -1):
+                    k = crv.p
+                    while k >= s:
                         alpha = alphas[k - s]
                         Qw[nb][k] = alpha * Qw[nb][k] + (1.0 - alpha) * Qw[nb][k - 1]
-                    if b < self.m:
-                        Qw[nb + 1][save] = np.copy(Qw[nb][self.p])
+                        k -= 1
+                    if b < crv.m:
+                        Qw[nb + 1][save] = np.copy(Qw[nb][crv.p])
 
             nb += 1
-            if b < self.m:
-                for i in range(self.p - mult, self.p + 1):
-                    Qw[nb][i] = np.copy(self.Pw[b - self.p + i])
+            if b < crv.m:
+                for i in range(crv.p - mult, crv.p + 1):
+                    Qw[nb][i] = np.copy(crv.Pw[b - crv.p + i])
                 a = b
                 b += 1
 
-        nPw = np.empty((len(Qw) * (self.p + 1), 4), float)
-        k = 0
-        for i in range(len(Qw)):
-            for j in range(self.p + 1):
-                nPw[k] = np.copy(Qw[i][j])
-                k += 1
+        '''Defensive Check'''
+        if nb != len(Qw):
+            raise AssertionError("Internal Error.")
 
-        if self_update:
-            self.reset(nU, nPw)
+        ret = []
+        kidx = 0
+        for i in range(nb):
+            crv = BezierCrv(val[kidx], val[kidx + 1], crv.p, Qw[i])
+            ret.append(crv)
+            kidx += 1
 
-        if return_raw:
-            return nU, nPw
-        else:
-            return ClampedNURBSCrv(nU, nPw)
+        return ret
 
-    def elevate(self, t, self_update=False, return_raw=False):
+    def elevate(self, t):
         """
         将曲线升阶t次
         :param t: 升阶次数
         :type t: int
-        :param self_update: 是否更新自己
-        :param return_raw: 是否返回原始形式的数据(节点矢量与带权控制点)
-        :return 根据不同的选项返回不同形式的结果
+        :return: Elevated curve
+        :rtype: ClampedNURBSCrv
         """
 
         if t <= 0:
             return
 
+        p = self.p
+        val, cnt = np.unique(self.U, return_counts=True)
+
         '''Decompose'''
-        nU, nPw = self.decompose(return_raw=True)
-        pp1 = self.p + 1
-        k = 0
-        bezier_seg = []
-        while k + pp1 < len(nU):
-            cbs = BezierCrv(nU[k], nU[k + pp1], self.p, nPw[k:k + pp1])
-            bezier_seg.append(cbs)
-            k += pp1
+        bezier_seg = ClampedNURBSCrv.decompose(self)
 
-        '''Elevate each bezier segment'''
-        bseg_num = len(bezier_seg)
-        for i in range(bseg_num):
-            bezier_seg[i].elevate(t)
+        '''Merge with degree elevation'''
+        new_crv = ClampedNURBSCrv.merge(bezier_seg, p + t)
 
-        '''Eliminate unnecessary knots'''
-        ppt = self.p + t
+        '''Elimination'''
+        for k, u in enumerate(val):
+            rts = p - cnt[k]
+            if rts > 0:
+                arts = new_crv.remove_knot(u, rts)
+                if arts != rts:
+                    raise RuntimeError("Failed to eliminate knot {}".format(u))
 
-        nU = np.empty((bseg_num + 1) * ppt + 2, float)
-        nU[0] = bezier_seg[0].a
-        k = 1
-        for bsg in bezier_seg:
-            tmp = bsg.a
-            for i in range(ppt):
-                nU[k] = tmp
-                k += 1
-
-        tmp = bezier_seg[-1].b
-        for i in range(ppt + 1):
-            nU[k] = tmp
-            k += 1
-
-        nPw = np.empty((bseg_num * ppt + 1, 4), float)
-        k = 0
-        for bsg in bezier_seg:
-            for i in range(bsg.n):
-                nPw[k] = np.copy(bsg.Pw[i])
-                k += 1
-
-        nPw[-1] = np.copy(bezier_seg[-1].Pw[-1])
-
-        if self_update:
-            self.reset(nU, nPw)
-
-        if return_raw:
-            return nU, nPw
-        else:
-            return ClampedNURBSCrv(nU, nPw)
+        return new_crv
 
     def reparameterization(self, alpha, beta, gamma, delta):
         """
@@ -567,21 +648,41 @@ class ClampedNURBSCrv(object):
         return ret
 
     @classmethod
-    def joint(cls, crv_list, p, sample_num=30):
-        pts = []
-        u_dist = chebshev_dist(0, 1, sample_num)
-        prev_ending = crv_list[0](0)
-        pts.append(prev_ending)
-        slope0 = crv_list[0](0, 1)
-        slope1 = crv_list[-1](1, 1)
-        for crv in crv_list:
-            if not equal(norm(crv(0) - prev_ending), 0):
-                raise AssertionError("Not continous.")
-            for i in range(1, sample_num):
-                pts.append(crv(u_dist[i]))
-            prev_ending = pts[-1]
+    def merge(cls, crv_list, p=None):
+        """
+        Merge several bezier curves into one NURBS curve.
+        :param crv_list: Bezier curve list
+        :param p: Target order
+        :type p: int
+        :return: Merged curve
+        :rtype: ClampedNURBSCrv
+        """
 
-        return Spline(np.copy(pts), p, bc=([(1, slope0)], [(1, slope1)]))
+        '''Do not affect original data'''
+        bezier_list = deepcopy(crv_list)
+
+        '''Check continuity'''
+        prev_ending = bezier_list[0].start
+        for crv in bezier_list:
+            if not isinstance(crv, BezierCrv):
+                raise AssertionError("Invalid input.")
+            if not equal(norm(crv.start - prev_ending), 0):
+                raise AssertionError("Not continous.")
+            prev_ending = crv.end
+
+        '''Check Order'''
+        crv_order = 0 if p is None else p
+        for crv in bezier_list:
+            crv_order = max(crv_order, crv.p)
+
+        '''Degree elevation'''
+        for k, crv in enumerate(bezier_list):
+            t = crv_order - crv.p
+            if t > 0:
+                bezier_list[k].elevate(t)
+
+        '''Assembly'''
+        return bezier_merge(bezier_list)
 
 
 class BezierCrv(ClampedNURBSCrv):
@@ -602,31 +703,87 @@ class BezierCrv(ClampedNURBSCrv):
     def b(self):
         return self.U[-1]
 
-    def elevate(self, t: int):
+    def elevate(self, t):
         """
         将Bezier曲线升阶t次
         :param t: 升阶次数
+        :type t: int
         :return: None.
         """
 
-        if t <= 0:
-            return
+        bezier_deg_elev(self, t)
 
-        nh = self.p + t + 1
-        npw = np.zeros((nh, 4))
-        for i in range(nh):
-            for j in range(max(0, i - t), min(self.p, i) + 1):
-                cc = comb(self.p, j, exact=True) * comb(t, i - j, exact=True) / comb(self.p + t, i, exact=True)
-                npw[i] += cc * self.Pw[j]
 
-        kv = []
-        ph = self.p + t + 1
-        for i in range(ph):
-            kv.append(self.a)
-        for i in range(ph):
-            kv.append(self.b)
+def bezier_deg_elev(crv, t):
+    """
+    Degree elevation of an Bezier curve
+    :param crv: Bezier curve to be elevated
+    :type crv: BezierCrv
+    :param t: Elevation level
+    :type t: int
+    :return: None
+    """
 
-        self.reset(kv, npw)
+    if t <= 0:
+        return
+
+    nh = ph = crv.p + t + 1
+    npw = np.zeros((nh, 4))
+    kv = []
+
+    '''Knots'''
+    for i in range(ph):
+        kv.append(crv.a)
+    for i in range(ph):
+        kv.append(crv.b)
+
+    '''Control points'''
+    for i in range(nh):
+        for j in range(max(0, i - t), min(crv.p, i) + 1):
+            cc = comb(crv.p, j, exact=True) * comb(t, i - j, exact=True) / comb(crv.p + t, i, exact=True)
+            npw[i] += cc * crv.Pw[j]
+
+    '''Update'''
+    crv.reset(kv, npw)
+
+
+def bezier_merge(bezier_list):
+    """
+    Merge a set of bezier curves.
+    We assume that the input curve set is continous and have same order.
+    :param bezier_list: A set of bezier curves to be merge
+    :return: Curve with eliminated knots
+    :rtype: ClampedNURBSCrv
+    """
+
+    crv_order = bezier_list[0].p
+    seg_num = len(bezier_list)
+
+    '''Construct knots'''
+    nU = np.empty((seg_num + 1) * crv_order + 2, float)
+    nU[0] = bezier_list[0].a
+    k = 1
+    for bsg in bezier_list:
+        tmp = bsg.a
+        for i in range(crv_order):
+            nU[k] = tmp
+            k += 1
+    tmp = bezier_list[-1].b
+    for i in range(crv_order + 1):
+        nU[k] = tmp
+        k += 1
+
+    '''Construct control points'''
+    nPw = np.empty((seg_num * crv_order + 1, 4), float)
+    k = 0
+    for bsg in bezier_list:
+        for i in range(bsg.n):
+            nPw[k] = np.copy(bsg.Pw[i])
+            k += 1
+    nPw[-1] = np.copy(bezier_list[-1].Pw[-1])
+
+    '''Construct NURBS curve'''
+    return ClampedNURBSCrv(nU, nPw)
 
 
 class GlobalInterpolatedCrv(ClampedNURBSCrv):
