@@ -868,7 +868,7 @@ class Skinned(ClampedNURBSSurf):
         crv_list = []
         for c in crv:
             cc = deepcopy(c)
-            cc.elevate(p - cc.p, self_update=True)
+            cc.elevate(p - cc.p)
             crv_list.append(cc)
 
         '''Merge all knot vectors in U direction'''

@@ -26,7 +26,7 @@ def write_wing(foil, N, L, p, q, with_foil=True):
     """
 
     N += 1
-    pts = Airfoil(foil).pts
+    pts = Airfoil.read_pts(foil)
     m, dim = pts.shape
     all_pts = np.zeros((N, m, dim))
     for i in range(N):
