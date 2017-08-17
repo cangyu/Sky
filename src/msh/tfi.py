@@ -1,5 +1,23 @@
 import numpy as np
+from scipy.linalg import norm
 from copy import deepcopy
+
+
+def equal_check(*args):
+    if len(args) < 2:
+        return True
+
+    prev = args[0]
+    for k, crd in enumerate(args):
+        if k == 0:
+            continue
+
+        if not norm(prev - crd) < 1e-8:
+            return False
+        else:
+            prev = crd
+
+    return True
 
 
 class TFI(object):
@@ -22,11 +40,23 @@ class LinearTFI2D(TFI):
 
         super(LinearTFI2D, self).__init__()
 
+        '''Defensive Check'''
+        if not equal_check(c1(0), c2(0)):
+            raise AssertionError("C1 start and C2 start not meet.")
+        if not equal_check(c1(1), c4(0)):
+            raise AssertionError("C1 end and C4 start not meet.")
+        if not equal_check(c4(1), c3(1)):
+            raise AssertionError("C4 end and C3 end not meet.")
+        if not equal_check(c2(1), c3(0)):
+            raise AssertionError("C2 end and C3 start not meet.")
+
+        '''Copy back in case the parameters get changed outside'''
         self.c1 = deepcopy(c1)
         self.c2 = deepcopy(c2)
         self.c3 = deepcopy(c3)
         self.c4 = deepcopy(c4)
 
+        '''Compute intersections in advance'''
         self.P12 = self.c1(0)  # c1与c2交点
         self.P14 = self.c1(1)  # c1与c4交点
         self.P23 = self.c3(0)  # c2与c3交点
@@ -113,6 +143,16 @@ class LinearTFI3D(TFI):
 
         super(LinearTFI3D, self).__init__()
 
+        '''Defensive check'''
+        assert equal_check(s1(0, 0), s3(0, 0), s5(0, 0))
+        assert equal_check(s2(0, 0), s3(0, 1), s5(1, 0))
+        assert equal_check(s2(1, 0), s4(0, 1), s5(1, 1))
+        assert equal_check(s1(1, 0), s4(0, 0), s5(0, 1))
+        assert equal_check(s1(0, 1), s3(1, 0), s6(0, 0))
+        assert equal_check(s2(0, 1), s3(1, 1), s6(1, 0))
+        assert equal_check(s2(1, 1), s4(1, 1), s6(1, 1))
+        assert equal_check(s1(1, 1), s4(1, 0), s6(0, 1))
+
         self.s1 = deepcopy(s1)
         self.s2 = deepcopy(s2)
         self.s3 = deepcopy(s3)
@@ -149,6 +189,26 @@ class LinearTFI3D(TFI):
         self.VW = lambda u, v, w: (1 - v) * (1 - w) * self.c35(u) + (1 - v) * w * self.c36(u) + v * (1 - w) * self.c45(u) + v * w * self.c46(u)
         self.WU = lambda u, v, w: (1 - w) * (1 - u) * self.c15(v) + (1 - w) * u * self.c25(v) + w * (1 - u) * self.c16(v) + w * u * self.c26(v)
         self.UVW = lambda u, v, w: (1 - u) * (1 - v) * (1 - w) * self.p135 + (1 - u) * (1 - v) * w * self.p136 + (1 - u) * v * (1 - w) * self.p145 + (1 - u) * v * w * self.p146 + u * (1 - v) * (1 - w) * self.p235 + u * (1 - v) * w * self.p236 + u * v * (1 - w) * self.p245 + u * v * w * self.p246
+
+    @classmethod
+    def from_edges(cls, *args):
+        """
+        Construct 3D TFI from its boundary edges.
+        :param args: The set of boundary edges
+        :return: 3D TFI
+        :rtype: LinearTFI3D
+        """
+
+        assert len(args) == 12
+
+        s1 = LinearTFI2D(args[3], args[8], args[7], args[11])
+        s2 = LinearTFI2D(args[1], args[9], args[5], args[10])
+        s3 = LinearTFI2D(args[8], args[0], args[9], args[4])
+        s4 = LinearTFI2D(args[11], args[2], args[10], args[6])
+        s5 = LinearTFI2D(args[0], args[3], args[2], args[1])
+        s6 = LinearTFI2D(args[4], args[7], args[6], args[5])
+
+        return cls(s1, s2, s3, s4, s5, s6)
 
     def __call__(self, u, v, w):
         """
