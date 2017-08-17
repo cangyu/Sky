@@ -494,3 +494,61 @@ p3d_grid.add_block(PLOT3D_Block.build_from_3d(b12_tfi_grid.get_grid()))
 report_process(12)
 
 p3d_grid.write('3d_wing.xyz')
+
+'''网格, 边界条件, 邻接关系'''
+blk = [b0_tfi_grid.get_grid(),
+       b1_tfi_grid.get_grid(),
+       b2_tfi_grid.get_grid(),
+       b3_tfi_grid.get_grid(),
+       b4_tfi_grid.get_grid(),
+       b5_tfi_grid.get_grid(),
+       b6_tfi_grid.get_grid(),
+       b7_tfi_grid.get_grid(),
+       b8_tfi_grid.get_grid(),
+       b9_tfi_grid.get_grid(),
+       b10_tfi_grid.get_grid(),
+       b11_tfi_grid.get_grid(),
+       b12_tfi_grid.get_grid()]
+
+bc = [(BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField, BCType.Symmetry, BCType.Interior),  # b0
+      (BCType.Wall, BCType.PressureFarField, BCType.Interior, BCType.Interior, BCType.Symmetry, BCType.Interior),  # b1
+      (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField, BCType.Symmetry, BCType.Interior),  # b2
+      (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField),  # b3
+      (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Interior, BCType.Interior, BCType.PressureFarField),  # b4
+      (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField),  # b5
+      (BCType.Wall, BCType.PressureFarField, BCType.Interior, BCType.Interior, BCType.Symmetry, BCType.Interior),  # b6
+      (BCType.Interior, BCType.Interior, BCType.Wall, BCType.PressureFarField, BCType.Symmetry, BCType.Interior),  # b7
+      (BCType.Interior, BCType.Interior, BCType.Wall, BCType.PressureFarField, BCType.Symmetry, BCType.Interior),  # b8
+      (BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Interior, BCType.Interior, BCType.PressureFarField),  # b9
+      (BCType.Interior, BCType.Interior, BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField),  # b10
+      (BCType.Interior, BCType.Interior, BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.PressureFarField),  # b11
+      (BCType.Interior, BCType.Interior, BCType.Interior, BCType.Interior, BCType.Wall, BCType.PressureFarField)  # b12
+      ]
+
+adj = [((0, 0), (0, 1), 0, False),
+       ((0, 2), (0, 0), 0, False),
+       ((1, 1), (0, 3), 1, True),
+       ((0, 4), (2, 3), 0, False),
+       ((0, 0), (0, 5), 0, False),
+       ((0, 6), (0, 0), 0, False),
+
+       ((1, 2), (0, 0), 0, False),
+       ((3, 1), (1, 3), 1, True),
+       ((1, 4), (0, 0), 0, False),
+       ((0, 0), (1, 5), 0, False),
+       ((1, 6), (0, 0), 0, False),
+
+       ((3, 2), (2, 1), 1, False),
+       ((2, 2), (0, 0), 0, False),
+       ((2, 4), (0, 0), 0, False),
+       ((0, 0), (2, 5), 0, False),
+       ((2, 6), (0, 0), 0, False),
+
+       ((0, 0), (3, 3), 0, False),
+       ((3, 4), (0, 0), 0, False),
+       ((0, 0), (3, 5), 0, False),
+       ((3, 6), (0, 0), 0, False)]
+
+'''构建MSH文件'''
+msh = XF_MSH.from_str3d_multi(blk, bc, adj)
+msh.save('3d_multi_blk.msh')
