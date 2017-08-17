@@ -5,7 +5,7 @@ from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc
 from src.nurbs.surface import Coons, ClampedNURBSSurf, RuledSurf
 from src.iges.iges_core import IGES_Model
-from src.msh.tfi import LinearTFI3D
+from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.fluent import XF_MSH, BCType
 from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent, hyperbolic_sine

@@ -495,8 +495,7 @@ class ClampedNURBSCrv(object):
         将曲线升阶t次
         :param t: 升阶次数
         :type t: int
-        :return: Elevated curve
-        :rtype: ClampedNURBSCrv
+        :return: None
         """
 
         if t <= 0:
@@ -519,7 +518,8 @@ class ClampedNURBSCrv(object):
                 if arts != rts:
                     raise RuntimeError("Failed to eliminate knot {}".format(u))
 
-        return new_crv
+        '''Update'''
+        self.reset(new_crv.U, new_crv.Pw)
 
     def reparameterization(self, alpha, beta, gamma, delta):
         """

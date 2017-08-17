@@ -336,7 +336,7 @@ class ClampedNURBSSurf(object):
             crv_list = []
             for j in range(self.m + 1):
                 cc = ClampedNURBSCrv(self.U, self.Pw[:, j, :])
-                cc.elevate(tu, self_update=True)
+                cc.elevate(tu)
                 crv_list.append(cc)
 
             nh = len(crv_list[0].Pw)
@@ -351,7 +351,7 @@ class ClampedNURBSSurf(object):
             crv_list = []
             for i in range(self.n + 1):
                 cc = ClampedNURBSCrv(self.V, self.Pw[i, :, :])
-                cc.elevate(tv, self_update=True)
+                cc.elevate(tv)
                 crv_list.append(cc)
 
             mh = len(crv_list[0].Pw)
@@ -667,14 +667,18 @@ class ExtrudedSurf(ClampedNURBSSurf):
 
 
 class RuledSurf(ClampedNURBSSurf):
-    def __init__(self, c1, c2):
+    def __init__(self, _c1, _c2):
         """
         生成V方向的直纹面,即两条曲线之间的线性插值
-        :param c1: 第1条曲线
-        :type c1: ClampedNURBSCrv
-        :param c2: 第2条曲线
-        :type c2:NURBS_Curve
+        :param _c1: 第1条曲线
+        :type _c1: ClampedNURBSCrv
+        :param _c2: 第2条曲线
+        :type _c2: ClampedNURBSCrv
         """
+
+        '''Not change original curve'''
+        c1 = deepcopy(_c1)
+        c2 = deepcopy(_c2)
 
         '''Check'''
         if not equal(c1.U[0], c2.U[0]):
@@ -684,8 +688,8 @@ class RuledSurf(ClampedNURBSSurf):
 
         '''Knot vector'''
         p = max(c1.p, c2.p)
-        c1.elevate(p - c1.p, self_update=True, return_raw=True)
-        c2.elevate(p - c2.p, self_update=True, return_raw=True)
+        c1.elevate(p - c1.p)
+        c2.elevate(p - c2.p)
 
         if len(c1.U) != len(c2.U) or not equal(norm(c1.U - c2.U), 0):
             all_knot = merge_knot(c1.U, c2.U)

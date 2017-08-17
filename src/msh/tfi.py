@@ -36,9 +36,14 @@ class LinearTFI2D(TFI):
         self.V = lambda u, v: (1 - v) * self.c1(u) + v * self.c3(u)
         self.UV = lambda u, v: (1 - u) * (1 - v) * self.P12 + u * v * self.P34 + (1 - u) * v * self.P23 + (1 - v) * u * self.P14
 
-    def __call__(self, u: float, v: float):
+    def __call__(self, u, v):
         """
         曲面在(u,v)处的坐标
+        :param u: U方向参数
+        :type u: float
+        :param v: V方向参数
+        :type v: float
+        :return: Coordinate at (u, v)
         """
 
         return self.U(u, v) + self.V(u, v) - self.UV(u, v)

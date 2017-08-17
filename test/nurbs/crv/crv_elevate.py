@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from copy import deepcopy
 from src.nurbs.utility import equal
 from src.nurbs.curve import ClampedNURBSCrv
 from src.iges.iges_core import IGES_Model
@@ -34,7 +35,8 @@ print('Original Control points:')
 print(C0.Pw)
 
 '''提升2阶'''
-C1 = C0.elevate(2)
+C1 = deepcopy(C0)
+C1.elevate(2)
 model = IGES_Model('after.igs')
 model.add_entity(C1.to_iges())
 model.write()
