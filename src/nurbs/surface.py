@@ -123,12 +123,14 @@ class ClampedNURBSSurf(object):
             raise ValueError('Invalid direction choice!')
 
         if direction in ('U', 'UV'):
-            self.U = np.ones(self.U.shape) - self.U
+            self.U = np.full(self.U.shape, self.U[0] + self.U[-1]) - self.U[::-1]
             self.Pw = self.Pw[::-1, :, :]
 
         if direction in ('V', 'UV'):
-            self.V = np.ones(self.V.shape) - self.V
+            self.V = np.full(self.V.shape, self.V[0] + self.V[-1]) - self.V[::-1]
             self.Pw = self.Pw[:, ::-1, :]
+
+        self.reset(self.U, self.V, self.Pw)
 
     def swap(self):
         """
@@ -140,6 +142,7 @@ class ClampedNURBSSurf(object):
         self.U = self.V[:]
         self.V = tmp
         self.Pw = np.transpose(self.Pw, (1, 0, 2))
+        self.reset(self.U, self.V, self.Pw)
 
     def __repr__(self):
         return '\nU Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)

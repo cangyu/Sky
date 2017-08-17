@@ -126,8 +126,8 @@ class ClampedNURBSCrv(object):
         曲线反向
         """
 
+        nu = np.full(self.m + 1, self.U[0] + self.U[-1]) - self.U[::-1]
         npw = self.Pw[::-1, :]
-        nu = np.ones(self.m + 1) - self.U[::-1]
         self.reset(nu, npw)
 
     def pan(self, delta):
