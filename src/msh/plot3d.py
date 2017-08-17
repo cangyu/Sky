@@ -37,11 +37,17 @@ class PLOT3D(object):
 
         fout = open(fn, 'w')
         fout.write("{}".format(self.blk_num))
+        print("Writing grid: \'{}\' with {} block(s) ...".format(fn, self.blk_num))
+
         for blk in self.blk_list:
             fout.write("\n{} {} {}".format(blk.I, blk.J, blk.K))
-        for blk in self.blk_list:
+
+        for k, blk in enumerate(self.blk_list):
+            print("Writing block \'{}\' with dimension \'{}\' ...".format(k, repr(blk)))
             blk.write(fout, with_iblank)
+
         fout.close()
+        print("Grid output done!")
 
 
 """
@@ -90,6 +96,12 @@ class PLOT3D_Block(object):
         """
 
         return self.data.shape[2]
+
+    def __repr__(self):
+        if self.K == 1:
+            return "{} x {}".format(self.I, self.J)
+        else:
+            return "{} x {} x {}".format(self.I, self.J, self.K)
 
     @property
     def pnt_num(self):
