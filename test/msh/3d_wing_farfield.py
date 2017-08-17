@@ -20,7 +20,7 @@ else:
 
 
 def report_process(idx):
-    print('Block {} done!'.format(idx))
+    print('Block {} calculation done!'.format(idx))
 
 
 '''Plot3D Representation'''
@@ -306,89 +306,35 @@ u7 = np.linspace(0, 1, n7)
 knot_dist = [u0, u1, u2, u3, u4, u5, u6, u7]
 
 '''Construct blocks'''
-b0_s1 = Coons(l[35], l[37], c[0], l[20])
-b0_s2 = Coons(l[26], l[29], l[13], l[12])
-b0_s3 = Coons(c[0], l[13], l[1], l[5])
-b0_s4 = Coons(l[20], l[12], l[0], l[4])
-b0_s5 = Coons(l[1], l[0], l[35], l[26])
-b0_s6 = Coons(l[5], l[4], l[37], l[29])
+b0_tfi_grid = LinearTFI3D.from_edges(l[1], l[26], l[0], l[35], l[5], l[29], l[4], l[37], c[0], l[13], l[12], l[20])
+b0_tfi_grid.calc_grid(knot_dist[3], knot_dist[0], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b0_tfi_grid.get_grid()))
+report_process(0)
 
-b0_tfi_grid = LinearTFI3D(lambda v, w: b0_s1(v, w),
-                          lambda v, w: b0_s2(v, w),
-                          lambda w, u: b0_s3(w, u),
-                          lambda w, u: b0_s4(w, u),
-                          lambda u, v: b0_s5(u, v),
-                          lambda u, v: b0_s6(u, v))
+b1_tfi_grid = LinearTFI3D.from_edges(l[2], l[27], l[1], l[39], l[6], l[30], l[5], l[40], c[1], l[14], l[13], c[0])
+b1_tfi_grid.calc_grid(knot_dist[3], knot_dist[7], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b1_tfi_grid.get_grid()))
+report_process(1)
 
-b1_s1 = Coons(l[39], l[40], c[1], c[0])
-b1_s2 = Coons(l[27], l[30], l[14], l[13])
-b1_s3 = Coons(c[1], l[14], l[2], l[6])
-b1_s4 = Coons(c[0], l[13], l[1], l[5])
-b1_s5 = Coons(l[2], l[1], l[39], l[27])
-b1_s6 = Coons(l[6], l[5], l[40], l[30])
+b2_tfi_grid = LinearTFI3D.from_edges(l[36], l[3], l[28], l[2], l[38], l[7], l[31], l[6], c[1], l[21], l[15], l[14])
+b2_tfi_grid.calc_grid(knot_dist[0], knot_dist[3], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b2_tfi_grid.get_grid()))
+report_process(2)
 
-b1_tfi_grid = LinearTFI3D(lambda v, w: b1_s1(v, w),
-                          lambda v, w: b1_s2(v, w),
-                          lambda w, u: b1_s3(w, u),
-                          lambda w, u: b1_s4(w, u),
-                          lambda u, v: b1_s5(u, v),
-                          lambda u, v: b1_s6(u, v))
+b3_tfi_grid = LinearTFI3D.from_edges(l[5], l[29], l[4], l[37], l[9], l[32], l[8], l[41], l[23], l[17], l[16], l[22])
+b3_tfi_grid.calc_grid(knot_dist[3], knot_dist[0], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b3_tfi_grid.get_grid()))
+report_process(3)
 
-b2_s1 = Coons(l[2], l[6], c[1], l[14])
-b2_s2 = Coons(l[3], l[7], l[21], l[15])
-b2_s3 = Coons(c[1], l[21], l[36], l[38])
-b2_s4 = Coons(l[14], l[15], l[28], l[31])
-b2_s5 = Coons(l[36], l[28], l[2], l[3])
-b2_s6 = Coons(l[38], l[31], l[6], l[7])
+b4_tfi_grid = LinearTFI3D.from_edges(l[6], l[30], l[5], l[40], l[10], l[33], l[9], l[42], l[24], l[18], l[17], l[23])
+b4_tfi_grid.calc_grid(knot_dist[3], knot_dist[7], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b4_tfi_grid.get_grid()))
+report_process(4)
 
-b2_tfi_grid = LinearTFI3D(lambda v, w: b2_s1(v, w),
-                          lambda v, w: b2_s2(v, w),
-                          lambda w, u: b2_s3(w, u),
-                          lambda w, u: b2_s4(w, u),
-                          lambda u, v: b2_s5(u, v),
-                          lambda u, v: b2_s6(u, v))
-
-b3_s1 = Coons(l[37], l[41], l[23], l[22])
-b3_s2 = Coons(l[29], l[32], l[17], l[16])
-b3_s3 = Coons(l[23], l[17], l[5], l[9])
-b3_s4 = Coons(l[22], l[16], l[4], l[8])
-b3_s5 = Coons(l[5], l[4], l[37], l[29])
-b3_s6 = Coons(l[9], l[8], l[41], l[32])
-
-b3_tfi_grid = LinearTFI3D(lambda v, w: b3_s1(v, w),
-                          lambda v, w: b3_s2(v, w),
-                          lambda w, u: b3_s3(w, u),
-                          lambda w, u: b3_s4(w, u),
-                          lambda u, v: b3_s5(u, v),
-                          lambda u, v: b3_s6(u, v))
-
-b4_s1 = Coons(l[40], l[42], l[24], l[23])
-b4_s2 = Coons(l[30], l[33], l[18], l[17])
-b4_s3 = Coons(l[24], l[18], l[6], l[10])
-b4_s4 = Coons(l[23], l[17], l[5], l[9])
-b4_s5 = Coons(l[6], l[5], l[40], l[30])
-b4_s6 = Coons(l[10], l[9], l[42], l[33])
-
-b4_tfi_grid = LinearTFI3D(lambda v, w: b4_s1(v, w),
-                          lambda v, w: b4_s2(v, w),
-                          lambda w, u: b4_s3(w, u),
-                          lambda w, u: b4_s4(w, u),
-                          lambda u, v: b4_s5(u, v),
-                          lambda u, v: b4_s6(u, v))
-
-b5_s1 = Coons(l[6], l[10], l[24], l[18])
-b5_s2 = Coons(l[7], l[11], l[25], l[19])
-b5_s3 = Coons(l[24], l[25], l[38], l[43])
-b5_s4 = Coons(l[18], l[19], l[31], l[34])
-b5_s5 = Coons(l[38], l[31], l[6], l[7])
-b5_s6 = Coons(l[43], l[34], l[10], l[11])
-
-b5_tfi_grid = LinearTFI3D(lambda v, w: b5_s1(v, w),
-                          lambda v, w: b5_s2(v, w),
-                          lambda w, u: b5_s3(w, u),
-                          lambda w, u: b5_s4(w, u),
-                          lambda u, v: b5_s5(u, v),
-                          lambda u, v: b5_s6(u, v))
+b5_tfi_grid = LinearTFI3D.from_edges(l[38], l[7], l[31], l[6], l[43], l[11], l[34], l[10], l[24], l[25], l[19], l[18])
+b5_tfi_grid.calc_grid(knot_dist[0], knot_dist[3], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b5_tfi_grid.get_grid()))
+report_process(5)
 
 ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
 s0 = ts1[0][0]
@@ -407,11 +353,11 @@ s5.swap()
 s = [s0, s1, s2, s3, s4, s5]
 
 b6_s1 = s[0]
-b6_s2 = Coons(c[2], c[5], l[20], l[52])
-b6_s3 = Coons(c[0], l[20], l[35], l[37])
-b6_s4 = Coons(c[20], l[52], l[44], l[46])
-b6_s5 = Coons(l[35], l[44], c[11], c[2])
-b6_s6 = Coons(l[37], l[46], c[14], c[5])
+b6_s2 = LinearTFI2D(c[2], l[20], c[5], l[52])
+b6_s3 = LinearTFI2D(c[0], l[35], l[20], l[37])
+b6_s4 = LinearTFI2D(c[20], l[44], l[52], l[46])
+b6_s5 = LinearTFI2D(l[35], c[11], l[44], c[2])
+b6_s6 = LinearTFI2D(l[37], c[14], l[46], c[5])
 
 b6_tfi_grid = LinearTFI3D(lambda v, w: b6_s1(v, w),
                           lambda v, w: b6_s2(v, w),
@@ -420,12 +366,16 @@ b6_tfi_grid = LinearTFI3D(lambda v, w: b6_s1(v, w),
                           lambda u, v: b6_s5(u, v),
                           lambda u, v: b6_s6(u, v))
 
+b6_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b6_tfi_grid.get_grid()))
+report_process(6)
+
 b7_s1 = s[1]
-b7_s2 = Coons(c[3], c[6], l[52], l[53])
-b7_s3 = Coons(c[20], l[52], l[44], l[46])
-b7_s4 = Coons(c[21], l[53], l[45], l[47])
-b7_s5 = Coons(l[44], l[45], c[12], c[3])
-b7_s6 = Coons(l[46], l[47], c[15], c[6])
+b7_s2 = LinearTFI2D(c[3], l[52], c[6], l[53])
+b7_s3 = LinearTFI2D(c[20], l[44], l[52], l[46])
+b7_s4 = LinearTFI2D(c[21], l[45], l[53], l[47])
+b7_s5 = LinearTFI2D(l[44], c[12], l[45], c[3])
+b7_s6 = LinearTFI2D(l[46], c[15], l[47], c[6])
 
 b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w),
                           lambda v, w: b7_s2(v, w),
@@ -434,12 +384,16 @@ b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w),
                           lambda u, v: b7_s5(u, v),
                           lambda u, v: b7_s6(u, v))
 
-b8_s1 = Coons(l[36], l[38], c[1], l[21])
-b8_s2 = Coons(l[45], l[47], c[21], l[53])
+b7_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b7_tfi_grid.get_grid()))
+report_process(7)
+
+b8_s1 = LinearTFI2D(l[36], c[1], l[38], l[21])
+b8_s2 = LinearTFI2D(l[45], c[21], l[47], l[53])
 b8_s3 = s[2]
-b8_s4 = Coons(l[21], l[53], c[4], c[7])
-b8_s5 = Coons(c[13], c[4], l[36], l[45])
-b8_s6 = Coons(c[16], c[7], l[38], l[47])
+b8_s4 = LinearTFI2D(l[21], c[4], l[53], c[7])
+b8_s5 = LinearTFI2D(c[13], l[36], c[4], l[45])
+b8_s6 = LinearTFI2D(c[16], l[38], c[7], l[47])
 
 b8_tfi_grid = LinearTFI3D(lambda v, w: b8_s1(v, w),
                           lambda v, w: b8_s2(v, w),
@@ -448,12 +402,16 @@ b8_tfi_grid = LinearTFI3D(lambda v, w: b8_s1(v, w),
                           lambda u, v: b8_s5(u, v),
                           lambda u, v: b8_s6(u, v))
 
+b8_tfi_grid.calc_grid(knot_dist[6], knot_dist[0], knot_dist[2])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b8_tfi_grid.get_grid()))
+report_process(8)
+
 b9_s1 = s[3]
-b9_s2 = Coons(c[5], c[8], l[22], l[54])
-b9_s3 = Coons(l[23], l[22], l[37], l[41])
-b9_s4 = Coons(c[22], l[54], l[46], l[48])
-b9_s5 = Coons(l[37], l[46], c[14], c[5])
-b9_s6 = Coons(l[41], l[48], c[17], c[8])
+b9_s2 = LinearTFI2D(c[5], l[22], c[8], l[54])
+b9_s3 = LinearTFI2D(l[23], l[37], l[22], l[41])
+b9_s4 = LinearTFI2D(c[22], l[46], l[54], l[48])
+b9_s5 = LinearTFI2D(l[37], c[14], l[46], c[5])
+b9_s6 = LinearTFI2D(l[41], c[17], l[48], c[8])
 
 b9_tfi_grid = LinearTFI3D(lambda v, w: b9_s1(v, w),
                           lambda v, w: b9_s2(v, w),
@@ -462,12 +420,16 @@ b9_tfi_grid = LinearTFI3D(lambda v, w: b9_s1(v, w),
                           lambda u, v: b9_s5(u, v),
                           lambda u, v: b9_s6(u, v))
 
+b9_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b9_tfi_grid.get_grid()))
+report_process(9)
+
 b10_s1 = s[4]
-b10_s2 = Coons(c[6], c[9], l[54], l[55])
-b10_s3 = Coons(c[22], l[54], l[46], l[48])
-b10_s4 = Coons(c[23], l[55], l[47], l[49])
-b10_s5 = Coons(l[46], l[47], c[15], c[6])
-b10_s6 = Coons(l[48], l[49], c[18], c[9])
+b10_s2 = LinearTFI2D(c[6], l[54], c[9], l[55])
+b10_s3 = LinearTFI2D(c[22], l[46], l[54], l[48])
+b10_s4 = LinearTFI2D(c[23], l[47], l[55], l[49])
+b10_s5 = LinearTFI2D(l[46], c[15], l[47], c[6])
+b10_s6 = LinearTFI2D(l[48], c[18], l[49], c[9])
 
 b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w),
                            lambda v, w: b10_s2(v, w),
@@ -476,12 +438,16 @@ b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w),
                            lambda u, v: b10_s5(u, v),
                            lambda u, v: b10_s6(u, v))
 
-b11_s1 = Coons(l[38], l[43], l[24], l[25])
-b11_s2 = Coons(l[47], l[49], c[23], l[55])
+b10_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b10_tfi_grid.get_grid()))
+report_process(10)
+
+b11_s1 = LinearTFI2D(l[38], l[24], l[43], l[25])
+b11_s2 = LinearTFI2D(l[47], c[23], l[49], l[55])
 b11_s3 = s[5]
-b11_s4 = Coons(l[25], l[55], c[7], c[10])
-b11_s5 = Coons(c[16], c[7], l[38], l[47])
-b11_s6 = Coons(c[19], c[10], l[43], l[49])
+b11_s4 = LinearTFI2D(l[25], c[7], l[55], c[10])
+b11_s5 = LinearTFI2D(c[16], l[38], c[7], l[47])
+b11_s6 = LinearTFI2D(c[19], l[43], c[10], l[49])
 
 b11_tfi_grid = LinearTFI3D(lambda v, w: b11_s1(v, w),
                            lambda v, w: b11_s2(v, w),
@@ -490,52 +456,26 @@ b11_tfi_grid = LinearTFI3D(lambda v, w: b11_s1(v, w),
                            lambda u, v: b11_s5(u, v),
                            lambda u, v: b11_s6(u, v))
 
-b0_tfi_grid.calc_grid(knot_dist[3], knot_dist[0], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b0_tfi_grid.get_grid()))
-report_process(0)
-
-b1_tfi_grid.calc_grid(knot_dist[3], knot_dist[7], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b1_tfi_grid.get_grid()))
-report_process(1)
-
-b2_tfi_grid.calc_grid(knot_dist[0], knot_dist[3], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b2_tfi_grid.get_grid()))
-report_process(2)
-
-b3_tfi_grid.calc_grid(knot_dist[3], knot_dist[0], knot_dist[4])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b3_tfi_grid.get_grid()))
-report_process(3)
-
-b4_tfi_grid.calc_grid(knot_dist[3], knot_dist[7], knot_dist[4])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b4_tfi_grid.get_grid()))
-report_process(4)
-
-b5_tfi_grid.calc_grid(knot_dist[0], knot_dist[3], knot_dist[4])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b5_tfi_grid.get_grid()))
-report_process(5)
-
-b6_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b6_tfi_grid.get_grid()))
-report_process(6)
-
-b7_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b7_tfi_grid.get_grid()))
-report_process(7)
-
-b8_tfi_grid.calc_grid(knot_dist[6], knot_dist[0], knot_dist[2])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b8_tfi_grid.get_grid()))
-report_process(8)
-
-b9_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[4])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b9_tfi_grid.get_grid()))
-report_process(9)
-
-b10_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[4])
-p3d_grid.add_block(PLOT3D_Block.build_from_3d(b10_tfi_grid.get_grid()))
-report_process(10)
-
 b11_tfi_grid.calc_grid(knot_dist[6], knot_dist[0], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b11_tfi_grid.get_grid()))
 report_process(11)
+
+b12_s1 = LinearTFI2D(l[38], l[43], l[24], l[25])
+b12_s2 = LinearTFI2D(l[47], l[49], c[23], l[55])
+b12_s3 = s[5]
+b12_s4 = LinearTFI2D(l[25], l[55], c[7], c[10])
+b12_s5 = LinearTFI2D(c[16], c[7], l[38], l[47])
+b12_s6 = LinearTFI2D(c[19], c[10], l[43], l[49])
+
+b12_tfi_grid = LinearTFI3D(lambda v, w: b12_s1(v, w),
+                           lambda v, w: b12_s2(v, w),
+                           lambda w, u: b12_s3(w, u),
+                           lambda w, u: b12_s4(w, u),
+                           lambda u, v: b12_s5(u, v),
+                           lambda u, v: b12_s6(u, v))
+
+b12_tfi_grid.calc_grid(knot_dist[7], knot_dist[6], knot_dist[4])
+p3d_grid.add_block(PLOT3D_Block.build_from_3d(b12_tfi_grid.get_grid()))
+report_process(12)
 
 p3d_grid.write('3d_wing.xyz')
