@@ -1,9 +1,10 @@
 import numpy as np
 import math
+from copy import deepcopy
 from src.aircraft.wing import Wing, WingProfile
 from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc
-from src.nurbs.surface import Coons, ClampedNURBSSurf, RuledSurf
+from src.nurbs.surface import ClampedNURBSSurf, RuledSurf
 from src.iges.iges_core import IGES_Model
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
@@ -80,7 +81,7 @@ obrk_root = [0.3, 0.72]
 obrk_tip = [0.3, 0.72]
 obrk_far = [0.3, 0.72]
 
-'''Points, lines, curves'''
+'''Points, lines, curves, surfs'''
 p = np.zeros((36, 3))
 
 p[2] = wsf(0, 0)
@@ -236,11 +237,17 @@ c21 = wsf.extract('U', brk_root[1])
 c22 = fsf.extract('U', brk_tip[0])
 c23 = fsf.extract('U', brk_tip[1])
 
+c3.reverse()
 c4.reverse()
+c6.reverse()
 c7.reverse()
+c9.reverse()
 c10.reverse()
+c12.reverse()
 c13.reverse()
+c15.reverse()
 c16.reverse()
+c18.reverse()
 c19.reverse()
 
 c.append(c2)
@@ -273,14 +280,27 @@ c.append(c21)
 c.append(c22)
 c.append(c23)
 
+ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
+s0 = ts1[0][0]
+s1 = ts1[1][0]
+s2 = ts1[2][0]
+
+ts2 = ClampedNURBSSurf.split(fsf, brk_tip, [])
+s3 = ts2[0][0]
+s4 = ts2[1][0]
+s5 = ts2[2][0]
+
+s = [s0, s1, s2, s3, s4, s5]
+
 for _ln in l:
     model.add_entity(_ln.to_iges())
 
 for _cv in c:
     model.add_entity(_cv.to_iges())
 
-model.add_entity(wsf.to_iges())
-model.add_entity(fsf.to_iges())
+for _sf in s:
+    model.add_entity(_sf.to_iges())
+
 model.write()
 if auto_view:
     view(fn)
@@ -336,23 +356,7 @@ b5_tfi_grid.calc_grid(knot_dist[0], knot_dist[3], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b5_tfi_grid.get_grid()))
 report_process(5)
 
-ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
-s0 = ts1[0][0]
-s1 = ts1[1][0]
-s2 = ts1[2][0]
-s2.reverse('U')
-s2.swap()
-
-ts2 = ClampedNURBSSurf.split(fsf, brk_tip, [])
-s3 = ts2[0][0]
-s4 = ts2[1][0]
-s5 = ts2[2][0]
-s5.reverse('U')
-s5.swap()
-
-s = [s0, s1, s2, s3, s4, s5]
-
-b6_s1 = s[0]
+b6_s1 = deepcopy(s[0])
 b6_s2 = LinearTFI2D(c[2], l[20], c[5], l[52])
 b6_s3 = LinearTFI2D(c[0], l[35], l[20], l[37])
 b6_s4 = LinearTFI2D(c[20], l[44], l[52], l[46])
@@ -370,12 +374,14 @@ b6_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[2])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b6_tfi_grid.get_grid()))
 report_process(6)
 
-b7_s1 = s[1]
-b7_s2 = LinearTFI2D(c[3], l[52], c[6], l[53])
-b7_s3 = LinearTFI2D(c[20], l[44], l[52], l[46])
-b7_s4 = LinearTFI2D(c[21], l[45], l[53], l[47])
-b7_s5 = LinearTFI2D(l[44], c[12], l[45], c[3])
-b7_s6 = LinearTFI2D(l[46], c[15], l[47], c[6])
+b7_s1 = LinearTFI2D(l[45], c[21], l[47], l[53])
+b7_s2 = LinearTFI2D(l[44], c[20], l[46], l[52])
+b7_s3 = deepcopy(s[1])
+b7_s3.reverse('U')
+b7_s3.swap()
+b7_s4 = LinearTFI2D(l[53], c[3], l[52], c[6])
+b7_s5 = LinearTFI2D(c[12], l[45], c[3], l[44])
+b7_s6 = LinearTFI2D(c[15], l[47], c[6], l[46])
 
 b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w),
                           lambda v, w: b7_s2(v, w),
@@ -384,13 +390,15 @@ b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w),
                           lambda u, v: b7_s5(u, v),
                           lambda u, v: b7_s6(u, v))
 
-b7_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[2])
+b7_tfi_grid.calc_grid(knot_dist[5], knot_dist[0], knot_dist[2])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b7_tfi_grid.get_grid()))
 report_process(7)
 
 b8_s1 = LinearTFI2D(l[36], c[1], l[38], l[21])
 b8_s2 = LinearTFI2D(l[45], c[21], l[47], l[53])
-b8_s3 = s[2]
+b8_s3 = deepcopy(s[2])
+b8_s3.reverse('U')
+b8_s3.swap()
 b8_s4 = LinearTFI2D(l[21], c[4], l[53], c[7])
 b8_s5 = LinearTFI2D(c[13], l[36], c[4], l[45])
 b8_s6 = LinearTFI2D(c[16], l[38], c[7], l[47])
@@ -406,7 +414,7 @@ b8_tfi_grid.calc_grid(knot_dist[6], knot_dist[0], knot_dist[2])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b8_tfi_grid.get_grid()))
 report_process(8)
 
-b9_s1 = s[3]
+b9_s1 = deepcopy(s[3])
 b9_s2 = LinearTFI2D(c[5], l[22], c[8], l[54])
 b9_s3 = LinearTFI2D(l[23], l[37], l[22], l[41])
 b9_s4 = LinearTFI2D(c[22], l[46], l[54], l[48])
@@ -424,12 +432,14 @@ b9_tfi_grid.calc_grid(knot_dist[0], knot_dist[1], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b9_tfi_grid.get_grid()))
 report_process(9)
 
-b10_s1 = s[4]
-b10_s2 = LinearTFI2D(c[6], l[54], c[9], l[55])
-b10_s3 = LinearTFI2D(c[22], l[46], l[54], l[48])
-b10_s4 = LinearTFI2D(c[23], l[47], l[55], l[49])
-b10_s5 = LinearTFI2D(l[46], c[15], l[47], c[6])
-b10_s6 = LinearTFI2D(l[48], c[18], l[49], c[9])
+b10_s1 = LinearTFI2D(l[47], c[23], l[49], l[55])
+b10_s2 = LinearTFI2D(l[46], c[22], l[48], l[54])
+b10_s3 = deepcopy(s[4])
+b10_s3.reverse('U')
+b10_s3.swap()
+b10_s4 = LinearTFI2D(l[55], c[6], l[54], c[9])
+b10_s5 = LinearTFI2D(c[15], l[47], c[6], l[46])
+b10_s6 = LinearTFI2D(c[18], l[49], c[9], l[48])
 
 b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w),
                            lambda v, w: b10_s2(v, w),
@@ -438,13 +448,15 @@ b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w),
                            lambda u, v: b10_s5(u, v),
                            lambda u, v: b10_s6(u, v))
 
-b10_tfi_grid.calc_grid(knot_dist[0], knot_dist[5], knot_dist[4])
+b10_tfi_grid.calc_grid(knot_dist[5], knot_dist[0], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b10_tfi_grid.get_grid()))
 report_process(10)
 
 b11_s1 = LinearTFI2D(l[38], l[24], l[43], l[25])
 b11_s2 = LinearTFI2D(l[47], c[23], l[49], l[55])
-b11_s3 = s[5]
+b11_s3 = deepcopy(s[5])
+b11_s3.reverse('U')
+b11_s3.swap()
 b11_s4 = LinearTFI2D(l[25], c[7], l[55], c[10])
 b11_s5 = LinearTFI2D(c[16], l[38], c[7], l[47])
 b11_s6 = LinearTFI2D(c[19], l[43], c[10], l[49])
@@ -460,12 +472,15 @@ b11_tfi_grid.calc_grid(knot_dist[6], knot_dist[0], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b11_tfi_grid.get_grid()))
 report_process(11)
 
-b12_s1 = LinearTFI2D(l[38], l[43], l[24], l[25])
-b12_s2 = LinearTFI2D(l[47], l[49], c[23], l[55])
-b12_s3 = s[5]
-b12_s4 = LinearTFI2D(l[25], l[55], c[7], c[10])
-b12_s5 = LinearTFI2D(c[16], c[7], l[38], l[47])
-b12_s6 = LinearTFI2D(c[19], c[10], l[43], l[49])
+b12_s1 = deepcopy(s[5])
+b12_s1.reverse('U')
+b12_s2 = deepcopy(s[3])
+b12_s3 = LinearTFI2D(l[24], l[40], l[23], l[42])
+b12_s4 = deepcopy(s[4])
+b12_s4.reverse('U')
+b12_s4.swap()
+b12_s5 = LinearTFI2D(l[40], c[16], c[15], c[14])
+b12_s6 = LinearTFI2D(l[42], c[19], c[18], c[17])
 
 b12_tfi_grid = LinearTFI3D(lambda v, w: b12_s1(v, w),
                            lambda v, w: b12_s2(v, w),
