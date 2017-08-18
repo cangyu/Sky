@@ -493,7 +493,7 @@ b12_tfi_grid.calc_grid(knot_dist[7], knot_dist[6], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b12_tfi_grid.get_grid()))
 report_process(12)
 
-p3d_grid.write('3d_wing.xyz')
+p3d_grid.write('3D_Wing(with_farfield).xyz')
 
 '''网格, 边界条件, 邻接关系'''
 blk = [b0_tfi_grid.get_grid(),
@@ -525,30 +525,75 @@ bc = [(BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Pressur
       (BCType.Interior, BCType.Interior, BCType.Interior, BCType.Interior, BCType.Wall, BCType.PressureFarField)  # b12
       ]
 
-adj = [((0, 0), (0, 1), 0, False),
-       ((0, 2), (0, 0), 0, False),
-       ((1, 1), (0, 3), 1, True),
-       ((0, 4), (2, 3), 0, False),
-       ((0, 0), (0, 5), 0, False),
-       ((0, 6), (0, 0), 0, False),
+adj = [((6, 3), (0, 1), 1, True),
+       ((0, 1), (0, 0), 0, False),
+       ((1, 4), (0, 3), 1, False),
+       ((0, 4), (0, 0), 0, False),
+       ((0, 0), (0, 5), 1, False),
+       ((0, 6), (3, 5), 0, False),
 
+       ((0, 0), (1, 1), 1, False),
        ((1, 2), (0, 0), 0, False),
-       ((3, 1), (1, 3), 1, True),
-       ((1, 4), (0, 0), 0, False),
-       ((0, 0), (1, 5), 0, False),
-       ((1, 6), (0, 0), 0, False),
+       ((2, 1), (1, 3), 1, True),
+       ((0, 0), (1, 5), 1, False),
+       ((1, 6), (4, 5), 0, False),
 
-       ((3, 2), (2, 1), 1, False),
        ((2, 2), (0, 0), 0, False),
+       ((8, 1), (2, 3), 1, True),
        ((2, 4), (0, 0), 0, False),
-       ((0, 0), (2, 5), 0, False),
-       ((2, 6), (0, 0), 0, False),
+       ((0, 0), (2, 5), 1, False),
+       ((2, 6), (5, 5), 0, False),
 
-       ((0, 0), (3, 3), 0, False),
+       ((9, 3), (3, 1), 1, True),
+       ((3, 2), (0, 0), 0, False),
+       ((4, 4), (3, 3), 1, False),
        ((3, 4), (0, 0), 0, False),
-       ((0, 0), (3, 5), 0, False),
-       ((3, 6), (0, 0), 0, False)]
+       ((3, 6), (0, 0), 0, False),
+
+       ((12, 3), (4, 1), 1, True),
+       ((4, 2), (0, 0), 0, False),
+       ((5, 1), (4, 3), 1, True),
+       ((4, 6), (0, 0), 0, False),
+
+       ((5, 2), (0, 0), 0, False),
+       ((11, 1), (5, 3), 1, True),
+       ((5, 4), (0, 0), 0, False),
+       ((5, 6), (0, 0), 0, False),
+
+       ((0, 0), (6, 1), 1, False),
+       ((6, 2), (0, 0), 0, False),
+       ((6, 4), (7, 2), 0, True),
+       ((0, 0), (6, 5), 1, False),
+       ((6, 6), (9, 5), 0, False),
+
+       ((8, 2), (7, 1), 1, False),
+       ((0, 0), (7, 3), 1, False),
+       ((7, 4), (0, 0), 0, False),
+       ((0, 0), (7, 5), 0, False),
+       ((7, 6), (10, 5), 0, False),
+
+       ((0, 0), (8, 3), 1, False),
+       ((8, 4), (0, 0), 0, False),
+       ((0, 0), (8, 5), 1, False),
+       ((8, 6), (11, 5), 0, False),
+
+       ((12, 2), (9, 1), 1, False),
+       ((9, 2), (0, 0), 0, False),
+       ((9, 4), (10, 2), 0, True),
+       ((9, 6), (0, 0), 0, False),
+
+       ((11, 2), (10, 1), 1, False),
+       ((12, 4), (10, 3), 1, False),
+       ((10, 4), (0, 0), 0, False),
+       ((10, 6), (0, 0), 0, False),
+
+       ((12, 1), (11, 3), 1, True),
+       ((11, 4), (0, 0), 0, False),
+       ((11, 6), (0, 0), 0, False),
+
+       ((0, 0), (12, 5), 1, False),
+       ((12, 6), (0, 0), 0, False)]
 
 '''构建MSH文件'''
 msh = XF_MSH.from_str3d_multi(blk, bc, adj)
-msh.save('3d_multi_blk.msh')
+msh.save('3D_Wing(with_farfield).msh')

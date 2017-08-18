@@ -1468,7 +1468,7 @@ class XF_MSH(object):
                 raise ValueError("Invalid face index.")
 
         def invariant_coord(_nu, _nv, _nw, _f):
-            if _f in (1, 3, 6):
+            if _f in (1, 3, 5):
                 return 0
             elif _f == 2:
                 return _nu - 1
@@ -1477,7 +1477,7 @@ class XF_MSH(object):
             elif _f == 6:
                 return _nw - 1
             else:
-                raise ValueError("Invalid face index.")
+                raise ValueError("Invalid face index \'{}\'.".format(_f))
 
         def get_counterpart_pnt_coord(_f1, _b2, _f2, _crd, _swp):
             _nu2, _nv2, _nw2 = blk_shape[_b2]
@@ -1556,6 +1556,8 @@ class XF_MSH(object):
                 adj_desc[b2][f2 - 1][2] = swap
                 total_pnt -= boundary_node_num(blk_shape[b1], f1)
                 total_face -= boundary_face_num(blk_shape[b1], f1)
+
+        total_pnt += 500
 
         '''Initialize MSH file'''
         msh = cls()
