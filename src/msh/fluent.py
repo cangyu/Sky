@@ -314,11 +314,14 @@ class XF_MSH(object):
         :return: None
         """
 
+        print("Writing ANSYS Fluent MSH file: \'{}\' with {} zones ...".format(fn, len(self.section_list)))
         msh = open(fn, 'w')
-        for sec in self.section_list:
+        for k, sec in enumerate(self.section_list):
+            print("Writing zone \'{}\' ...".format(k + 1))
             sec.write(msh)
-            msh.write("\n")
+            msh.write("\n\n")
         msh.close()
+        print("MSH file \'{}\' output done!".format(fn))
 
     @staticmethod
     def pnt_idx_2d(i, j, u):
@@ -1531,6 +1534,8 @@ class XF_MSH(object):
         adj_desc = np.zeros((blk_num, 6, 3), int)
         cell_start = np.empty(blk_num, int)
 
+        print("Converting multi-block grid with {} block(s) into ANSYS Fluent MSH format ...".format(blk_num))
+
         for k, blk in enumerate(blk_list):
             blk_shape[k] = blk.shape[:3]
             u, v, w = blk_shape[k]
@@ -1557,13 +1562,78 @@ class XF_MSH(object):
                 total_pnt -= boundary_node_num(blk_shape[b1], f1)
                 total_face -= boundary_face_num(blk_shape[b1], f1)
 
-        total_pnt += 500
+        def edge_list_on_face(_f):
+            """
+            Get the 4 edge index on specified face.
+            :param _f: face index
+            :type _f: int
+            :return: Edge index list, starting from 1
+            """
+
+            if _f == 1:
+                return 2, 9, 6, 12
+            elif _f == 2:
+                return 4, 10, 8, 11
+            elif _f == 3:
+                return 9, 1, 10, 5
+            elif _f == 4:
+                return 12, 3, 11, 7
+            elif _f == 5:
+                return 1, 2, 3, 4
+            elif _f == 6:
+                return 5, 6, 7, 8
+            else:
+                raise ValueError("Invalid face index: \'{}\'.".format(_f))
+
+        '''node cnt fix'''
+        sub_cnt = np.zeros((blk_num, 12), int)
+        for k in range(1, blk_num):
+            for entry in adj_info:
+                b1, f1 = entry[0]
+                b2, f2 = entry[1]
+                if f1 != 0 and f2 != 0:
+                    if b1 < k and b2 == k:
+                        for e in edge_list_on_face(f2):
+                            sub_cnt[b2][e - 1] += 1
+                    if b2 < k and b1 == k:
+                        for e in edge_list_on_face(f1):
+                            sub_cnt[b1][e - 1] += 1
+
+        def pnt_num_on_edge(_k, _e):
+            """
+            Get the number of points on specified edge on certain block.
+            :param _k: Block index. (Starting from 0)
+            :type _k: int
+            :param _e: Edge index. (Starting from 1)
+            :type _e: int
+            :return: Number of points on that edge.
+            :rtype: int
+            """
+
+            _nu, _nv, _nw = blk_shape[_k]
+            if _e in (1, 5, 7, 3):
+                return _nu
+            elif _e in (2, 6, 8, 4):
+                return _nv
+            elif _e in (9, 10, 11, 12):
+                return _nw
+            else:
+                raise ValueError("Invalid edge index: \'{}\'.".format(_e))
+
+        for k in range(blk_num):
+            for e in range(12):
+                if sub_cnt[k][e] == 2:
+                    total_pnt += pnt_num_on_edge(k, e + 1)
+
+        print("MSH grid general info: {} nodes, {} faces, {} cells.".format(total_pnt, total_face, total_cell))
 
         '''Initialize MSH file'''
         msh = cls()
         msh.add_section(XF_Header())
         msh.add_section(XF_Comment("Dimension:"))
         msh.add_section(XF_Dimension(dim))
+
+        print("Building cells ...")
 
         '''Flush cell info to MSH file'''
         msh.add_section(XF_Comment("Cell Declaration:"))
@@ -1573,9 +1643,12 @@ class XF_MSH(object):
         msh.add_section(XF_Cell(zone_idx, 1, total_cell, CellType.Fluid, CellElement.Hexahedral))
 
         '''Points'''
+        print("Building nodes(2 steps) ...")
         pnt_desc = np.empty((total_pnt, 3), float)
         inter_pnt_start = np.empty(blk_num, int)
         pnt_cnt = 0
+
+        print("(1/2) Building interior nodes ...")
 
         '''Interior points in each block'''
         for k, blk in enumerate(blk_list):
@@ -1584,9 +1657,10 @@ class XF_MSH(object):
             for ck in range(1, w - 1):
                 for cj in range(1, v - 1):
                     for ci in range(1, u - 1):
-                        for d in range(dim):
-                            pnt_desc[pnt_cnt][d] = blk[ci][cj][ck][d]
+                        dimensional_copy(pnt_desc[pnt_cnt], blk[ci][cj][ck], dim)
                         pnt_cnt += 1
+
+        print("(2/2) Building boundary nodes ...")
 
         shell_pnt_idx = []
         shell_pnt_num = np.empty(blk_num, int)
@@ -1603,8 +1677,7 @@ class XF_MSH(object):
 
                 '''Record new pnt coordinate without duplication'''
                 ci, cj, ck = shell_pnt_coord_from_idx(k, pc)
-                for d in range(dim):
-                    pnt_desc[pnt_cnt][d] = blk[ci][cj][ck][d]
+                dimensional_copy(pnt_desc[pnt_cnt], blk[ci][cj][ck], dim)
                 pnt_cnt += 1
 
                 '''Find all adjacent point with BFS strategy'''
@@ -1635,9 +1708,13 @@ class XF_MSH(object):
         msh.add_section(XF_Comment("Point Coordinates:"))
         msh.add_section(XF_Node(zone_idx, 1, total_pnt, NodeType.Any, dim, pnt_desc))
 
+        print("Building faces(2 steps) ...")
+
         '''Flush face declaration to MSH file'''
         msh.add_section(XF_Comment("Face Declaration:"))
         msh.add_section(XF_Face.declaration(total_face))
+
+        print("(1/2) Building interior faces ...", end=' ')
 
         '''Interior Faces'''
         face_start = 1
@@ -1646,6 +1723,9 @@ class XF_MSH(object):
             ifn = internal_face_num(u, v, w)
             inter_face_desc = np.empty((ifn, 6), int)
             cur_face_cnt = 0
+
+            cbkn = k + 1
+            print(cbkn, end=' ' if cbkn != blk_num else '\n')
 
             for nu in range(1, u - 1):
                 for nv in range(v - 1):
@@ -1854,6 +1934,8 @@ class XF_MSH(object):
 
             return _ret
 
+        print("(2/2) Building boundary faces ...")
+
         '''Boundary Faces'''
         for k, entry in enumerate(adj_info):
             b1, f1 = entry[0]
@@ -1879,6 +1961,8 @@ class XF_MSH(object):
             zone_idx += 1
             msh.add_section(XF_Face(zone_idx, face_start, face_start + cur_face_cnt - 1, bc, FaceType.Quadrilateral, boundary_face_desc))
             face_start += cur_face_cnt
+
+        print("Conversion done!")
 
         return msh
 
