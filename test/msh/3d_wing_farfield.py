@@ -302,8 +302,8 @@ for _sf in s:
     model.add_entity(_sf.to_iges())
 
 model.write()
-if auto_view:
-    view(fn)
+# if auto_view:
+#     view(fn)
 
 n0 = 50
 n1 = 50
@@ -493,7 +493,7 @@ b12_tfi_grid.calc_grid(knot_dist[7], knot_dist[6], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b12_tfi_grid.get_grid()))
 report_process(12)
 
-p3d_grid.write('3D_Wing(with_farfield).xyz')
+# p3d_grid.write('3D_Wing(with_farfield).xyz')
 
 '''网格, 边界条件, 邻接关系'''
 blk = [b0_tfi_grid.get_grid(),
@@ -526,7 +526,7 @@ bc = [(BCType.Interior, BCType.PressureFarField, BCType.Interior, BCType.Pressur
       ]
 
 adj = [((6, 3), (0, 1), 1, True),
-       ((0, 1), (0, 0), 0, False),
+       ((0, 2), (0, 0), 0, False),
        ((1, 4), (0, 3), 1, False),
        ((0, 4), (0, 0), 0, False),
        ((0, 0), (0, 5), 1, False),
@@ -569,7 +569,7 @@ adj = [((6, 3), (0, 1), 1, True),
        ((8, 2), (7, 1), 1, False),
        ((0, 0), (7, 3), 1, False),
        ((7, 4), (0, 0), 0, False),
-       ((0, 0), (7, 5), 0, False),
+       ((0, 0), (7, 5), 1, False),
        ((7, 6), (10, 5), 0, False),
 
        ((0, 0), (8, 3), 1, False),
