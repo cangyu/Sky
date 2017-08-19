@@ -314,12 +314,11 @@ class XF_MSH(object):
         :return: None
         """
 
-        print("Writing ANSYS Fluent MSH file: \'{}\' with {} zones ...".format(fn, len(self.section_list)))
+        print("Writing ANSYS Fluent MSH file: \'{}\' ...".format(fn))
         msh = open(fn, 'w')
-        for k, sec in enumerate(self.section_list):
-            print("Writing zone \'{}\' ...".format(k + 1))
+        for sec in self.section_list:
             sec.write(msh)
-            msh.write("\n\n")
+            msh.write("\n")
         msh.close()
         print("MSH file \'{}\' output done!".format(fn))
 
