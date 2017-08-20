@@ -9,7 +9,7 @@ from src.iges.iges_core import IGES_Model
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.fluent import XF_MSH, BCType
-from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent, hyperbolic_sine
+from src.msh.spacing import *
 
 try:
     from src.misc.catia import view
@@ -313,16 +313,18 @@ n4 = 50
 n5 = 50
 n6 = 50
 n7 = 50
+
 n = np.array([n0, n1, n2, n3, n4, n5, n6, n7])
 
-u0 = np.linspace(0, 1, n0)
-u1 = np.linspace(0, 1, n1)
-u2 = np.linspace(0, 1, n2)
-u3 = np.linspace(0, 1, n3)
-u4 = np.linspace(0, 1, n4)
-u5 = np.linspace(0, 1, n5)
-u6 = np.linspace(0, 1, n6)
-u7 = np.linspace(0, 1, n7)
+u0 = hyperbolic_tangent(n0, 5)
+u1 = double_exponential(n1, 0.5, 1.5, 0.5)
+u2 = uniform(n2)
+u3 = single_exponential(n3, 5)
+u4 = hyperbolic_tangent(n4, 5)
+u5 = double_exponential(n5, 0.5, 1.2, 0.5)
+u6 = double_exponential(n6, 0.5, 1.5, 0.5)
+u7 = uniform(n7)
+
 knot_dist = [u0, u1, u2, u3, u4, u5, u6, u7]
 
 '''Construct blocks'''
@@ -493,8 +495,6 @@ b12_tfi_grid.calc_grid(knot_dist[7], knot_dist[6], knot_dist[4])
 p3d_grid.add_block(PLOT3D_Block.build_from_3d(b12_tfi_grid.get_grid()))
 report_process(12)
 
-# p3d_grid.write('3D_Wing(with_farfield).xyz')
-
 '''网格, 边界条件, 邻接关系'''
 blk = [b0_tfi_grid.get_grid(),
        b1_tfi_grid.get_grid(),
@@ -595,5 +595,6 @@ adj = [((6, 3), (0, 1), 1, True),
        ((12, 6), (0, 0), 0, False)]
 
 '''构建MSH文件'''
+p3d_grid.write('3D_Wing(with_farfield).xyz')
 msh = XF_MSH.from_str3d_multi(blk, bc, adj)
 msh.save('3D_Wing(with_farfield).msh')
