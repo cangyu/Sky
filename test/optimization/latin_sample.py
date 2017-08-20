@@ -1,5 +1,5 @@
 import numpy as np
-from src.opt.latin_cube import latin_sample
+from src.opt.latin import LatinHyperCube
 
 
 class Person(object):
@@ -25,6 +25,7 @@ c = ('I', 'II', 'III', 'IV', 'V', 'VI')
 d = np.array([1.1, 2.2, 3.3, 4.4, 5.5, 6.6])
 e = (Person('ggsmd', 21), Person('sbtty', 22), Person('smdhx', 23), Person('shzyh', 24), Person('sgdb', 25), Person('tltbpa', 26))
 
-sample = latin_sample([a, b, c, d, e])
+lhc = LatinHyperCube([a, b, c, d, e])
+sample = lhc.sample()
 for k, item in enumerate(sample):
     print("{} {}".format(k, repr(item)))
