@@ -88,7 +88,7 @@ class Kriging(SurrogateModel):
             b[i] = r0[i]
         b[-1] = 1
 
-        '''Solve'''
+        '''Solve linear system: 'Ax = b' '''
         x = np.dot(b, inv(A.transpose()))
 
         '''Assemble'''
