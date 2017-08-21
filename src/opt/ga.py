@@ -13,6 +13,7 @@ class Chromosome(object):
         """
 
         self.idx = idx
+        self.param = None
         self.fitness = float(0)
         self.value = float(0)
 
@@ -25,34 +26,7 @@ class Chromosome(object):
         pass
 
 
-class RealCodedChromosome(Chromosome):
-    def __init__(self, idx, n):
-        """
-        Parameters inside a chromosome are normalized to [0, 1].
-        :param idx: Index of this chromosome.
-        :type idx: int
-        :param n: Number of parameters in this chromosome.
-        :type n: int
-        """
-
-        super(RealCodedChromosome, self).__init__(idx)
-        self.param = np.empty(n, float)
-        for i in range(n):
-            self.param[i] = random()
-
-    def calc_value(self, obj_func):
-        self.value = obj_func(self.param)
-
-    def calc_fitness(self, eval_func):
-        self.fitness = eval_func(self.param)
-
-    def mutate(self):
-        n = len(self.param)
-        for i in range(n):
-            self.param[i] = random()
-
-
-class GA(object):
+class GeneticAlgorithm(object):
     def __init__(self, obj_func, eval_func):
         """
         Genetic Algorithm.
@@ -69,10 +43,10 @@ class GA(object):
         self.f_eval = eval_func
 
         '''Population set'''
-        self.individual = None
+        self.cur_generation = []
 
 
-class RealCodedGA(GA):
+class RealCodedGA(GeneticAlgorithm):
     def __init__(self, arg_rg, obj_func, eval_func):
         """
         Real coded Genetic Algorithm.
@@ -92,31 +66,46 @@ class RealCodedGA(GA):
 
         '''Parameter ranges'''
         self.param_range = np.empty((n, 2), float)
-
         for k, rg in enumerate(arg_rg):
             if len(rg) != 2 or rg[0] > rg[1]:
                 raise AssertionError("Invalid input.")
-            else:
-                self.param_range[k] = rg
+
+            self.param_range[k] = rg
+
+    class RealCodedChromosome(Chromosome):
+        def __init__(self, idx, n):
+            """
+            Parameters inside a chromosome are normalized to [0, 1].
+            :param idx: Index of this chromosome.
+            :type idx: int
+            :param n: Number of parameters in this chromosome.
+            :type n: int
+            """
+
+            super(RealCodedGA.RealCodedChromosome, self).__init__(idx)
+            self.param = np.empty(n, float)
+            for i in range(n):
+                self.param[i] = random()
+
+        def calc_value(self, obj_func):
+            self.value = obj_func(self.param)
+
+        def calc_fitness(self, eval_func):
+            self.fitness = eval_func(self.param)
+
+        def mutate(self):
+            n = len(self.param)
+            for i in range(n):
+                self.param[i] = random()
 
     @property
     def param_num(self):
         return len(self.param_range)
 
-    def generate_population(self, n):
-        """
-        Generate a set of chromosome.
-        :param n: Number of chromosome.
-        :type n: int
-        :return: List of chromosomes.
-        """
-
-        return [RealCodedChromosome(i, self.param_num) for i in range(n)]
-
     def find_optimal(self, n, rd, pc, pm):
         """
         Try to find the global optimal with given settings.
-        :param n: Number of chromosome in the individual.
+        :param n: Number of chromosome in the cur_generation.
         :type n: int
         :param rd: Number of iteration.
         :type rd: int
@@ -136,11 +125,11 @@ class RealCodedGA(GA):
             raise ValueError("Invalid \'pm\' setting.")
 
         '''Init'''
-        self.individual = self.generate_population(n)
-        for k, chromosome in enumerate(self.individual):
-            self.individual[k].calc_value(self.f_obj)
-            self.individual[k].calc_fitness(self.f_eval)
-        self.individual.sort()
+        self.cur_generation = [self.RealCodedChromosome(i, self.param_num) for i in range(n)]
+        for k, chromosome in enumerate(self.cur_generation):
+            self.cur_generation[k].calc_value(self.f_obj)
+            self.cur_generation[k].calc_fitness(self.f_eval)
+        self.cur_generation.sort()
 
         '''Iterate'''
         elite_num = 3
@@ -150,7 +139,7 @@ class RealCodedGA(GA):
 
             '''Elitist Migration'''
             for i in range(elite_num):
-                next_gen.append(self.individual[i])
+                next_gen.append(self.cur_generation[i])
 
             '''Tournament Selection'''
             for i in range(n):
@@ -159,11 +148,11 @@ class RealCodedGA(GA):
                     c1 = randint(0, n)
                     c2 = randint(0, n)
 
-                f1 = self.individual[c1].fitness
-                f2 = self.individual[c2].fitness
-                next_gen.append(self.individual[c1] if f1 > f2 else self.individual[c2])
+                f1 = self.cur_generation[c1].fitness
+                f2 = self.cur_generation[c2].fitness
+                next_gen.append(self.cur_generation[c1] if f1 > f2 else self.cur_generation[c2])
 
-            '''Cross-Over'''
+            '''Simple Cross-Over'''
             cross_flag = [False] * n
             for i in range(n):
                 c1, c2 = 0, 0
@@ -182,4 +171,4 @@ class RealCodedGA(GA):
                     next_gen[i].mutate()
 
             '''Sort for next generation'''
-            self.individual = sorted(next_gen)
+            self.cur_generation = sorted(next_gen)
