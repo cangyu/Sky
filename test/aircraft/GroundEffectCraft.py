@@ -2,7 +2,7 @@ import numpy as np
 import math
 from src.iges.iges_core import IGES_Model
 from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc, Spline
-from src.nurbs.surface import Coons, ExtrudedSurf
+from src.nurbs.surface import Coons, ExtrudedSurf, RuledSurf
 from src.aircraft.wing import Airfoil, WingProfile
 
 try:
@@ -39,7 +39,7 @@ p3 = np.array([nl, hu, 0])
 crv1 = Arc.from_2pnt(p0, p1, theta1, (0, 0, -1))
 crv2 = ConicArc(p1, t1, p2, t2, p12)
 crv3 = Line(p2, p3)
-crv4 = ClampedNURBSCrv.joint([crv1, crv2, crv3], 3)
+crv4 = ClampedNURBSCrv.merge([crv1, crv2, crv3])
 gec.add_entity(crv4.to_iges())
 
 r3 = 0.3
@@ -58,7 +58,7 @@ p7 = np.array([nl, hd, 0])
 crv5 = Arc.from_2pnt(p4, p5, theta2, (0, 0, 1))
 crv6 = ConicArc(p5, t5, p6, t6, p13)
 crv7 = Line(p6, p7)
-crv8 = ClampedNURBSCrv.joint([crv5, crv6, crv7], 3)
+crv8 = ClampedNURBSCrv.merge([crv5, crv6, crv7], 3)
 gec.add_entity(crv8.to_iges())
 
 crv9 = Arc.from_2pnt(p0, p4, 180, (1, 0, 0))
@@ -102,10 +102,9 @@ gec.add_entity(fuselage_surf.to_iges())
 
 '''Tail'''
 
-
 '''Wing'''
 foil = ['M6', 'M6']
-z_offset = np.array([0, , 9.2])
+z_offset = np.array([0,, 9.2])
 length = np.array([3.3, 3.3, 1.6])
 sweep_back = np.array([0, 0, 3], float)
 twist = np.array([0, 0, 3], float)
@@ -123,7 +122,6 @@ crv_list.append(crv)
 
 inner_surf = RuledSurf(crv_list[0], crv_list[1])
 outer_surf = RuledSurf(crv_list[1], crv_list[2])
-
 
 gec.write()
 if auto_view:

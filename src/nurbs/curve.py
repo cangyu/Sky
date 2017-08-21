@@ -667,7 +667,7 @@ class ClampedNURBSCrv(object):
             if not isinstance(crv, BezierCrv):
                 raise AssertionError("Invalid input.")
             if not equal(norm(crv.start - prev_ending), 0):
-                raise AssertionError("Not continous.")
+                raise AssertionError("Not continuous.")
             prev_ending = crv.end
 
         '''Check Order'''
