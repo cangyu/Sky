@@ -27,10 +27,6 @@ def report_process(idx):
 '''Plot3D Representation'''
 p3d_grid = PLOT3D()
 
-'''Wire Frame'''
-fn = 'wireframe.igs'
-model = IGES_Model(fn)
-
 '''Shape parameters'''
 c_root = 10
 c_mid = 6
@@ -292,16 +288,20 @@ s5 = ts2[2][0]
 
 s = [s0, s1, s2, s3, s4, s5]
 
-for _ln in l:
-    model.add_entity(_ln.to_iges())
-
-for _cv in c:
-    model.add_entity(_cv.to_iges())
-
-for _sf in s:
-    model.add_entity(_sf.to_iges())
-
-model.write()
+'''Wire Frame'''
+# fn = 'wireframe.igs'
+# model = IGES_Model(fn)
+#
+# for _ln in l:
+#     model.add_entity(_ln.to_iges())
+#
+# for _cv in c:
+#     model.add_entity(_cv.to_iges())
+#
+# for _sf in s:
+#     model.add_entity(_sf.to_iges())
+#
+# model.write()
 # if auto_view:
 #     view(fn)
 
