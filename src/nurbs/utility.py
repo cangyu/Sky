@@ -167,12 +167,10 @@ def line_intersection(p1, u, p2, v, with_ratio=False):
     if not np.cross(U, V).any():
         raise AssertionError("No intersection!")
 
-    U90 = np.zeros(dim)
-    V90 = np.zeros(dim)
-    U90[0] = -U[1]
-    U90[1] = U[0]
-    V90[0] = -V[1]
-    V90[1] = V[0]
+    nu = normalize(U)
+    nv = normalize(V)
+    U90 = V - np.dot(nu, V) * nu
+    V90 = U - np.dot(nv, U) * nv
 
     alpha1 = np.inner(dP, V90) / np.inner(U, V90)
     alpha2 = -np.inner(dP, U90) / np.inner(V, U90)

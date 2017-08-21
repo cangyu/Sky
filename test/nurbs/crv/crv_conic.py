@@ -1,5 +1,6 @@
 from src.nurbs.curve import ConicArc
 from src.iges.iges_core import IGES_Model
+import math
 
 try:
     from src.misc.catia import view
@@ -27,5 +28,10 @@ def show(crv, fn):
         view(fn)
 
 
-arc0 = ConicArc((0, 0, 0), (0, 1, 0), (4.66, 2.41, 0), (1, 0, 0), (2.2, 2.2, 0))
+'''1/4 Ellipse Arc'''
+a = 10
+b = 6
+arc0 = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / math.sqrt(2), -b / math.sqrt(2), 0))
+print(arc0(0), arc0(0, 1))
+print(arc0(1), arc0(1, 1))
 show(arc0, 'arc0.igs')
