@@ -1,8 +1,7 @@
-import numpy as np
 import math
 from copy import deepcopy
 from src.aircraft.wing import Wing, WingProfile
-from src.aircraft.frame import BWBFrame, chebshev_dist_multi
+from src.aircraft.frame import BWBFrame
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc
 from src.nurbs.surface import ClampedNURBSSurf, RuledSurf
 from src.iges.iges_core import IGES_Model
@@ -44,8 +43,8 @@ u_mid = b_mid / b_tip
 u_dist = chebshev_dist_multi([0, u_mid, 1], [inner_sec_num, outer_sec_num])
 sec_num = len(u_dist)
 
-foil = ['M6' for x in range(sec_num)]
-foil[0] = foil[1] = 'NACA0012'
+foil = ['SC20610' for x in range(sec_num)]
+# foil[0] = foil[1] = 'NACA0012'
 z_offset = np.copy(list(map(frm.z, u_dist)))
 length = np.copy(list(map(lambda u: frm.x_tail(u) - frm.x_front(u), u_dist)))
 sweep_back = np.copy(list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist)))
@@ -289,19 +288,19 @@ s5 = ts2[2][0]
 s = [s0, s1, s2, s3, s4, s5]
 
 '''Wire Frame'''
-# fn = 'wireframe.igs'
-# model = IGES_Model(fn)
-#
-# for _ln in l:
-#     model.add_entity(_ln.to_iges())
-#
-# for _cv in c:
-#     model.add_entity(_cv.to_iges())
-#
-# for _sf in s:
-#     model.add_entity(_sf.to_iges())
-#
-# model.write()
+fn = 'WireFrame.igs'
+model = IGES_Model(fn)
+
+for _ln in l:
+    model.add_entity(_ln.to_iges())
+
+for _cv in c:
+    model.add_entity(_cv.to_iges())
+
+for _sf in s:
+    model.add_entity(_sf.to_iges())
+
+model.write()
 # if auto_view:
 #     view(fn)
 
