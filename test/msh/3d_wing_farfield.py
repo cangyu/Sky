@@ -305,18 +305,18 @@ s = [s0, s1, s2, s3, s4, s5]
 # if auto_view:
 #     view(fn)
 
-n0 = 50
-n1 = 50
-n2 = 50
-n3 = 50
-n4 = 50
-n5 = 50
-n6 = 50
-n7 = 50
+n0 = 60
+n1 = 60
+n2 = 60
+n3 = 60
+n4 = 60
+n5 = 60
+n6 = 60
+n7 = 60
 
 n = np.array([n0, n1, n2, n3, n4, n5, n6, n7])
 
-u0 = hyperbolic_tangent(n0, 5)
+u0 = hyperbolic_tangent(n0, 8)
 u1 = double_exponential(n1, 0.5, 1.5, 0.5)
 u2 = uniform(n2)
 u3 = single_exponential(n3, 5)
