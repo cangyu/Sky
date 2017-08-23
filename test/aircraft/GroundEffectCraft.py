@@ -1,9 +1,9 @@
-import numpy as np
-import math
+from copy import deepcopy
 from src.iges.iges_core import IGES_Model
-from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc, Spline
-from src.nurbs.surface import Coons, ExtrudedSurf, RuledSurf
-from src.aircraft.wing import Airfoil, WingProfile
+from src.nurbs.utility import *
+from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc
+from src.nurbs.surface import Coons, RuledSurf
+from src.aircraft.wing import WingProfile
 
 try:
     from src.misc.catia import view
@@ -13,116 +13,251 @@ except ImportError:
 else:
     auto_view = True
 
-fn = "GroundEffectCraft.igs"
-gec = IGES_Model(fn)
+sqrt2 = math.sqrt(2)
+
+fn = 'GEC-50.igs'
+model = IGES_Model(fn)
 
 fuselage_width = 2.93
 fuselage_height = 3.09
-
-hu = 2.472
-hd = hu - fuselage_height
-nl = 4.66
-nfr = 0.05
-r1 = 0.9
-theta1 = 15
-rtheta1 = math.radians(theta1)
-l1 = 0.16
-
-p0 = np.array([0, nfr, 0])
-p1 = np.array([r1 * (1 - math.cos(rtheta1)), nfr + r1 * math.sin(rtheta1), 0])
-t1 = np.array([math.cos(math.radians(90 - theta1)), math.sin(math.radians(90 - theta1)), 0])
-p2 = np.array([nl - l1, hu, 0])
-t2 = np.array([1.0, 0, 0])
-p12 = np.array([1.8, 1.77, 0])
-p3 = np.array([nl, hu, 0])
-
-crv1 = Arc.from_2pnt(p0, p1, theta1, (0, 0, -1))
-crv2 = ConicArc(p1, t1, p2, t2, p12)
-crv3 = Line(p2, p3)
-crv4 = ClampedNURBSCrv.merge([crv1, crv2, crv3])
-gec.add_entity(crv4.to_iges())
-
-r3 = 0.3
-theta2 = 62
-rtheta2 = math.radians(theta2)
-l2 = 0.36
-
-p4 = np.array([0, -nfr, 0])
-p5 = np.array([r3 * (1 - math.cos(rtheta2)), -(nfr + r3 * math.sin(rtheta2)), 0])
-t5 = np.array([math.sin(rtheta2), -math.cos(rtheta2), 0])
-p6 = np.array([nl - l2, hd, 0])
-t6 = np.array([1.0, 0, 0])
-p13 = np.array([2, -0.56, 0])
-p7 = np.array([nl, hd, 0])
-
-crv5 = Arc.from_2pnt(p4, p5, theta2, (0, 0, 1))
-crv6 = ConicArc(p5, t5, p6, t6, p13)
-crv7 = Line(p6, p7)
-crv8 = ClampedNURBSCrv.merge([crv5, crv6, crv7], 3)
-gec.add_entity(crv8.to_iges())
-
-crv9 = Arc.from_2pnt(p0, p4, 180, (1, 0, 0))
-gec.add_entity(crv9.to_iges())
-
-p8 = np.array([0, 0, nfr])
-p9 = np.array([nl, 0.5 * (p3[1] + p7[1]), fuselage_width / 2])
-
-crv9l0 = Arc.from_2pnt(p0, p8, 90, (1, 0, 0))
-crv9l1 = Arc.from_2pnt(p8, p4, 90, (1, 0, 0))
-
-
-def nose_side_off(y):
-    return nl, y, fuselage_width / 2 * math.sqrt(1 - math.pow((y - p9[1]) / (fuselage_height / 2), 2))
-
-
-c10l0ydst = np.linspace(hu, p9[1], 40)
-c10l1ydst = np.linspace(p9[1], hd, 40)
-c10ydst = np.linspace(hu, hd, 100)
-
-c10l0pnt = list(map(nose_side_off, c10l0ydst))
-c10l1pnt = list(map(nose_side_off, c10l1ydst))
-c10pnt = list(map(nose_side_off, c10ydst))
-
-crv10l0 = Spline(np.copy(c10l0pnt))
-crv10l1 = Spline(np.copy(c10l1pnt))
-crv10 = Spline(np.copy(c10pnt))
-
-crv11 = Arc.from_2pnt(p8, p9, 32, np.cross(p8 - p9, (0, 0, 1)))
-gec.add_entity(crv11.to_iges())
-
-nose_surf1 = Coons(crv4, crv11, crv9l0, crv10l0)
-nose_surf2 = Coons(crv11, crv8, crv9l1, crv10l1)
-gec.add_entity(nose_surf1.to_iges())
-gec.add_entity(nose_surf2.to_iges())
-
-'''Fuselage'''
 fuselage_len = 11.95
-fuselage_surf = ExtrudedSurf(crv10, (fuselage_len, 0, 0))
-gec.add_entity(fuselage_surf.to_iges())
 
-'''Tail'''
+nose_len = 4.66
+nose_front_radius = 0.05
+dh = 0.6
+
+tail_len = 7.91
+tail_up_frame_delta = 0.45
+tail_radius = 0.15
+tip_back_angle = math.radians(12)
+
+b = fuselage_width / 2
+a = fuselage_height / 2
+
+p0 = np.array([0, nose_front_radius, 0])
+t0 = np.array([0, 1, 0])
+p2 = np.array([nose_len, dh + a, 0])
+t2 = np.array([1, 0, 0])
+p1c = np.array([nose_len, nose_front_radius, 0])
+p1 = p1c + np.array([nose_len * math.cos(math.radians(135)), (p2[1] - nose_front_radius) * math.sin(math.radians(135)), 0])
+arc1 = ConicArc(p0, t0, p2, t2, p1)
+
+p3 = np.array([0, -nose_front_radius, 0])
+t3 = np.array([0, -1, 0])
+p5 = p2 - np.array([0, fuselage_height, 0])
+t5 = np.array([1, 0, 0])
+p4c = np.array([nose_len, -nose_front_radius, 0])
+p4 = p4c + np.array([nose_len * math.cos(math.radians(225)), (-nose_front_radius - p5[1]) * math.sin(math.radians(225)), 0])
+arc2 = ConicArc(p3, t3, p5, t5, p4)
+
+p9c = (p2 + p5) / 2
+p6 = np.array([0, 0, nose_front_radius])
+t6 = (0, 0, 1)
+p9 = np.array([0, 0, b]) + p9c
+p8 = np.array([p9[0], 0, p9[2]])
+t8 = (1, 0, 0)
+p7 = np.array([nose_len, 0, nose_front_radius]) + np.array([-nose_len / sqrt2, 0, (b - nose_front_radius) / sqrt2])
+
+arc3 = Arc.from_2pnt(p0, p3, 180, (1, 0, 0))
+arc5 = ConicArc(p6, t6, p8, t8, p7)
+for i in range(3):
+    arc5.Pw[i][1] = i / 2 * p9[1] * arc5.Pw[i][-1]
+arc5.reset(arc5.U, arc5.Pw)
+
+'''通过拉伸圆来构造椭圆'''
+arc4 = Arc.from_2pnt(p2, p5, 180, (1, 0, 0))
+arc4.reset(arc4.U, np.copy(list(map(lambda u: to_homogeneous(to_cartesian(u) * (1, 1, b / a), u[-1]), arc4.Pw))))
+
+arc3_1, arc3_2 = ClampedNURBSCrv.split(arc3, [0.5])
+arc4_1, arc4_2 = ClampedNURBSCrv.split(arc4, [0.5])
+
+model.add_entity(arc1.to_iges())
+model.add_entity(arc2.to_iges())
+model.add_entity(arc3_1.to_iges())
+model.add_entity(arc3_2.to_iges())
+model.add_entity(arc4_1.to_iges())
+model.add_entity(arc4_2.to_iges())
+model.add_entity(arc5.to_iges())
+
+arc6_1 = deepcopy(arc4_1)
+arc6_2 = deepcopy(arc4_2)
+arc6_1.pan((fuselage_len, 0, 0))
+arc6_2.pan((fuselage_len, 0, 0))
+model.add_entity(arc6_1.to_iges())
+model.add_entity(arc6_2.to_iges())
+
+line1 = Line(arc4_1(0), arc6_1(0))
+line2 = Line(arc4_2(0), arc6_2(0))
+line3 = Line(arc4_2(1), arc6_2(1))
+
+model.add_entity(line1.to_iges())
+model.add_entity(line2.to_iges())
+model.add_entity(line3.to_iges())
+
+fuselage_surf_up = Coons(arc4_1, arc6_1, line1, line2)
+model.add_entity(fuselage_surf_up.to_iges())
+fuselage_surf_up.mirror('z')
+model.add_entity(fuselage_surf_up.to_iges())
+
+fuselage_surf_down = Coons(arc4_2, arc6_2, line2, line3)
+model.add_entity(fuselage_surf_down.to_iges())
+fuselage_surf_down.mirror('z')
+model.add_entity(fuselage_surf_down.to_iges())
+
+p10 = arc6_1(0)
+t10 = (1, 0, 0)
+p11c = p10 - np.array([0, tail_up_frame_delta, 0])
+p12 = p11c + np.array([tail_len, 0, 0])
+t12 = (0, -1, 0)
+p11 = p11c + np.array([tail_len / sqrt2, tail_up_frame_delta / sqrt2, 0])
+arc6 = ConicArc(p10, t10, p12, t12, p11)
+model.add_entity(arc6.to_iges())
+
+p13 = arc6_2(1)
+t13 = (1, 0, 0)
+p15 = p12 - np.array([0, 2 * tail_radius, 0])
+t15 = (0, 1, 0)
+p14c = np.array([p13[0], p15[1], 0])
+p14 = p14c + np.array([tail_len / sqrt2, -(p15[1] - p13[1]) / sqrt2, 0])
+arc7 = ConicArc(p13, t13, p15, t15, p14)
+model.add_entity(arc7.to_iges())
+
+arc8 = Arc.from_2pnt(p12, p15, 180, (1, 0, 0))
+arc8_1, arc8_2 = ClampedNURBSCrv.split(arc8, [0.5])
+model.add_entity(arc8_1.to_iges())
+model.add_entity(arc8_2.to_iges())
+
+p16 = arc6_2.start
+t16 = (1, 0, 0)
+p18 = arc8_2.start
+p19 = np.array([p18[0], p16[1], p18[2]])
+t19 = (0, 0, -1)
+p17c = np.array([p16[0], p16[1], p19[2]])
+p17 = p17c + np.array([tail_len / sqrt2, 0, (p16[2] - p19[2]) / sqrt2])
+
+arc9 = ConicArc(p16, t16, p19, t19, p17)
+tmp = p18[1] - p16[1]
+n = len(arc9.Pw)
+for k, pw in enumerate(arc9.Pw):
+    w = pw[-1]
+    a, b, c = to_cartesian(pw)
+    b += k / (n - 1) * tmp
+    arc9.Pw[k] = to_homogeneous((a, b, c), w)
+arc9.reset(arc9.U, arc9.Pw)
+model.add_entity(arc9.to_iges())
 
 '''Wing'''
-foil = ['M6', 'M6']
-z_offset = np.array([0,, 9.2])
-length = np.array([3.3, 3.3, 1.6])
-sweep_back = np.array([0, 0, 3], float)
-twist = np.array([0, 0, 3], float)
-dihedral = np.array([0, 3, 5], float)
-twist_pos = np.array([0.25, 0.25, 0.25])
-y_ref = np.zeros(3)
-thickness_factor = np.array([1.1, 1.0, 0.9], float)
+inner_wing_pan = (7.2, -0.2, 0.8)
+foil = ['NACA5312', 'NACA5312']
+z_offset = np.array([0., 4.56])
+length = np.array([5.8, 5.8])
+sweep_back = np.array([0., 0.])
+twist = np.array([6., 6.])
+dihedral = np.array([0., 0.])
+twist_pos = np.array([0.25, 0.25])
+y_ref = np.zeros(2)
+thickness_factor = np.array([1., 1.])
 
 crv_list = []
-for k in range(3):
+for k in range(2):
     wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
-crv = wp.nurbs_rep()
-crv.pan(wing_pan_dir)
-crv_list.append(crv)
+    crv = wp.nurbs_rep()
+    crv.pan(inner_wing_pan)
+    crv_list.append(crv)
 
 inner_surf = RuledSurf(crv_list[0], crv_list[1])
-outer_surf = RuledSurf(crv_list[1], crv_list[2])
+model.add_entity(inner_surf.to_iges())
+inner_surf.mirror('z')
+model.add_entity(inner_surf.to_iges())
 
-gec.write()
+inner_tail_surf = Coons(inner_surf.extract('U', 0), inner_surf.extract('U', 1), Line(inner_surf(0, 0), inner_surf(1, 0)), Line(inner_surf(0, 1), inner_surf(1, 1)))
+model.add_entity(inner_tail_surf.to_iges())
+inner_tail_surf.mirror('z')
+model.add_entity(inner_tail_surf.to_iges())
+
+outer_wing_pan = (7.8, -0.1, inner_wing_pan[2] + 4.56)
+foil = ['M6', 'M6']
+z_offset = np.array([0., 4.48])
+length = np.array([3.9, 1.648])
+sweep_back = np.array([0., 22.])
+twist = np.array([4.5, 4.5])
+dihedral = np.array([10., 10.])
+twist_pos = np.array([0.25, 0.25])
+y_ref = np.zeros(2)
+thickness_factor = np.array([1., 1.])
+
+crv_list = []
+for k in range(2):
+    wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
+    crv = wp.nurbs_rep()
+    crv.pan(outer_wing_pan)
+    crv_list.append(crv)
+
+outer_surf = RuledSurf(crv_list[0], crv_list[1])
+model.add_entity(outer_surf.to_iges())
+outer_surf.mirror('z')
+model.add_entity(outer_surf.to_iges())
+
+outer_tail_surf = Coons(outer_surf.extract('U', 0), outer_surf.extract('U', 1), Line(outer_surf(0, 0), outer_surf(1, 0)), Line(outer_surf(0, 1), outer_surf(1, 1)))
+model.add_entity(outer_tail_surf.to_iges())
+outer_tail_surf.mirror('z')
+model.add_entity(outer_tail_surf.to_iges())
+
+'''Vertical tail'''
+v_tail_pan = (7.8 + 11.9, 0, 0)
+foil = ['NACA0012', 'NACA0012']
+z_offset = np.array([0., 2.9988])
+length = np.array([3.6812, 1.9151])
+sweep_back = np.array([0., 40.])
+twist = np.array([0., 0.])
+dihedral = np.array([0., 0.])
+twist_pos = np.array([0.25, 0.25])
+y_ref = np.zeros(2)
+thickness_factor = np.array([1., 1.])
+
+crv_list = []
+for k in range(2):
+    wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
+    crv = wp.nurbs_rep()
+    crv.pan(v_tail_pan)
+    crv_list.append(crv)
+
+vtail_surf = RuledSurf(crv_list[0], crv_list[1])
+vtail_surf.rotate((0, 0, 0), (-1, 0, 0), 90)
+vtail_surf.pan((0, 1.8, 0))
+model.add_entity(vtail_surf.to_iges())
+vtail_tail_surf = Coons(vtail_surf.extract('U', 0), vtail_surf.extract('U', 1), Line(vtail_surf(0, 0), vtail_surf(1, 0)), Line(vtail_surf(0, 1), vtail_surf(1, 1)))
+model.add_entity(vtail_tail_surf.to_iges())
+
+'''Horizontal tail'''
+h_tail_pan = (7.8 + 13.3, 4.8, 0)
+foil = ['NACA0012', 'NACA0012']
+z_offset = np.array([0., 9.742 / 2])
+length = np.array([3.2969, 1.7040])
+sweep_back = np.array([0., 10.])
+twist = np.array([0., 0.])
+dihedral = np.array([0., 0.])
+twist_pos = np.array([0.25, 0.25])
+y_ref = np.zeros(2)
+thickness_factor = np.array([1., 1.])
+
+crv_list = []
+for k in range(2):
+    wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
+    crv = wp.nurbs_rep()
+    crv.pan(h_tail_pan)
+    crv_list.append(crv)
+
+htail_surf = RuledSurf(crv_list[0], crv_list[1])
+model.add_entity(htail_surf.to_iges())
+htail_surf.mirror('z')
+model.add_entity(htail_surf.to_iges())
+
+htail_tail_surf = Coons(htail_surf.extract('U', 0), htail_surf.extract('U', 1), Line(htail_surf(0, 0), htail_surf(1, 0)), Line(htail_surf(0, 1), htail_surf(1, 1)))
+model.add_entity(htail_tail_surf.to_iges())
+htail_tail_surf.mirror('z')
+model.add_entity(htail_tail_surf.to_iges())
+
+model.write()
 if auto_view:
     view(fn)
