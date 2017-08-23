@@ -2,7 +2,9 @@ import math
 from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy import interpolate
+from scipy.interpolate import make_interp_spline
+from scipy.integrate import romberg
+from scipy.optimize import fsolve
 
 
 class WingFrame(object):
@@ -37,6 +39,9 @@ class WingFrame(object):
     def z(self, u):
         return self.f_z(u)
 
+    def chord_len(self, u):
+        return self.x_tail(u) - self.x_front(u)
+
     def show(self, n=1000):
         u_dist = np.linspace(0, 1.0, n)
         z = np.empty(n, float)
@@ -53,6 +58,26 @@ class WingFrame(object):
         plt.legend()
         plt.gca().invert_yaxis()
         plt.show()
+
+    @property
+    def area(self):
+        """
+        Total area of the planar wing. (Not a half)
+        :return: The area.
+        :rtype: float
+        """
+
+        return 2 * math.fabs(romberg(self.chord_len, 0, 1))
+
+    @property
+    def mean_aerodynamic_chord(self):
+        """
+        Get the mean aerodynamic chord length of the wing.
+        :return: The MAC.
+        :rtype: float
+        """
+
+        return math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
 
 
 class BWBFrame(WingFrame):
@@ -101,48 +126,72 @@ class BWBFrame(WingFrame):
         xt = np.array([tail_pnt[0][0], tail_pnt[1][0], tail_pnt[2][0]])
         yt = np.array([tail_pnt[0][1], tail_pnt[1][1], tail_pnt[2][1]])
 
-        super(BWBFrame, self).__init__(interpolate.make_interp_spline(u, xf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       interpolate.make_interp_spline(u, xt, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       interpolate.make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       interpolate.make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
+        super(BWBFrame, self).__init__(make_interp_spline(u, xf, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, xt, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
                                        lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
 
+    @classmethod
+    def from_area_mac(cls, area, c_mid, mac, b_mid, b_tip, alpha_mid, alpha_tip):
+        """
+        Construct the planar frame with constant Area and MAC.
+        :param area: Area of the wing. (Not a half)
+        :type area: float
+        :param c_mid: Length of the middle chord.
+        :type c_mid: float
+        :param mac: Mean aerodynamic chord length of the wing.
+        :type mac: float
+        :param b_mid: Width of the inner wing.
+        :type b_mid: float
+        :param b_tip: Width of the half of the span.
+        :type b_tip: float
+        :param alpha_mid: Averaged sweep back angle of the inner wing.
+        :type alpha_mid: float
+        :param alpha_tip: Averaged sweep back angle of the outer wing.
+        :type alpha_tip: float
+        :return: Constrained frame.
+        :rtype: BWBFrame
+        """
 
-def chebshev_dist(start, end, n):
-    """
-    生成切比雪夫点
-    :param start: 起始值
-    :type start: float
-    :param end: 终止值
-    :type end: float
-    :param n: 采样点数量
-    :type n: int
-    :return: n个点
-    """
+        '''Calculate pivots on each curve'''
+        area2 = area / 2
+        p = np.zeros((6, 3))
 
-    ang = np.linspace(math.pi, 0, n)
-    pr = np.zeros(n)
-    for i in range(0, n):
-        pr[i] = math.cos(ang[i])
-        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
+        p[1][0] = b_mid * math.tan(alpha_mid)
+        p[1][2] = b_mid
 
-    return pr
+        p[2][0] = p[1][0] + (b_tip - b_mid) * math.tan(alpha_tip)
+        p[5][2] = p[2][2] = b_tip
 
+        p[4] = p[1]
+        p[4][0] += c_mid
 
-def chebshev_dist_multi(seg, num):
-    """
-    多段Chebshev分布
-    :param seg: 分段点
-    :param num: 每个分段内点的数量(包括首尾)
-    :return: 多段Chebshev分布数组
-    """
+        u = np.array([0, b_mid / b_tip, 1.0])
+        xf = make_interp_spline(u, p[:3][0], 3, bc_type=([(1, 0)], [(2, 0)]))
 
-    if len(seg) != len(num) + 1:
-        raise AssertionError("Unmatched settings.")
+        def sp(_cr, _ct):
+            tc = make_interp_spline(u, [_cr, c_mid, _ct], 3, bc_type=([(1, 0)], [(2, 0)]))
+            ts = romberg(lambda _u: tc(_u) - xf(_u), 0, 1)
+            tmac = romberg(lambda _u: (tc(_u) - xf(_u)) ** 2, 0, 1) / ts
+            return ts - area2, tmac - mac
 
-    ret = chebshev_dist(seg[0], seg[1], num[0])
-    for k in range(1, len(num)):
-        csg = chebshev_dist(seg[k], seg[k + 1], num[k])
-        ret = np.concatenate((ret, csg[1:]))
+        taper_ratio = 5
+        pinit = np.array([taper_ratio, 1]) * (area / b_tip) / (1 + taper_ratio)
+        ans = fsolve(sp, pinit)
 
-    return ret
+        p[3][0] = ans[0]
+        p[5][0] = ans[1]
+
+        '''Build interpolated functions'''
+        z = p[0:3][2]
+        xf = p[0:3][0]
+        yf = p[0:3][1]
+        xt = p[3:6][0]
+        yt = p[3:6][1]
+
+        super(BWBFrame, self).__init__(make_interp_spline(u, xf, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, xt, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
+                                       lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
