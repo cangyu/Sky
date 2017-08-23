@@ -44,6 +44,10 @@ class Airfoil(object):
 
     @property
     def front(self):
+        """
+        The most front point of the airfoil.
+        """
+
         total = self.pnt_num
         cx = self.pts[0][0]
         k = 1
@@ -97,6 +101,12 @@ class Airfoil(object):
 
     @classmethod
     def read_pts(cls, fn):
+        """
+        Get the coordinates from local database.
+        :param fn: Name of the airfoil. (Capital case)
+        :return: n x 3 array with 'z' dimension being 0.
+        """
+
         pts = []
         fin = open(os.path.join(AIRFOIL_DIR, fn + '.dat'))
         for line in fin:
@@ -115,10 +125,10 @@ class Airfoil(object):
     @classmethod
     def from_database(cls, fn):
         """
-        Construct airfoil from file.
-        :param fn: File name
+        Construct airfoil from local database.
+        :param fn: Name of the airfoil. (Capital case).
         :type fn: str
-        :return: Airfoil Object
+        :return: Airfoil Object.
         :rtype: Airfoil
         """
 
@@ -138,10 +148,10 @@ class WingProfile(Airfoil):
     def __init__(self, foil, ends, thickness_factor=1.0):
         """
         3D profile at certain position.
-        :param foil: 翼型名称
+        :param foil: Airfoil name.
         :type foil: str
-        :param ends: 剖面起始端点
-        :param thickness_factor: 翼型纵向拉伸系数
+        :param ends: Starting and ending points of the section.
+        :param thickness_factor: Vertical stretching factor.
         :type thickness_factor: float
         """
 
@@ -373,9 +383,3 @@ class Wing(object):
         xt = list(map(frm.x_tail, u))
         yt = list(map(frm.y_tail, u))
         return cls.from_intrinsic_desc(airfoil, thickness, z, xf, yf, xt, yt)
-
-
-if __name__ == '__main__':
-    af = Airfoil.from_database('M6')
-    print(af)
-    print(repr(af))
