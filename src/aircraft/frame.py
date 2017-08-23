@@ -42,6 +42,47 @@ class WingFrame(object):
     def chord_len(self, u):
         return self.x_tail(u) - self.x_front(u)
 
+    @property
+    def area(self):
+        """
+        Total area of the planar wing. (Not a half)
+        :return: The area.
+        :rtype: float
+        """
+
+        return 2 * math.fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
+
+    @property
+    def mean_aerodynamic_chord(self):
+        """
+        Get the mean aerodynamic chord length of the wing.
+        :return: The MAC.
+        :rtype: float
+        """
+
+        return self.z(1) * math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
+
+    @property
+    def span(self):
+        return 2 * (self.z(1) - self.z(0))
+
+    @property
+    def root_chord_len(self):
+        return self.chord_len(0)
+
+    @property
+    def tip_chord_len(self):
+        return self.chord_len(1)
+
+    def __str__(self):
+        ret = "Wing Planar Frame Info:\n"
+        ret += "Area: {:.4f} m^2\n".format(self.area)
+        ret += "MAC: {:.3f} m\n".format(self.mean_aerodynamic_chord)
+        ret += "Span: {:.3f} m\n".format(self.span)
+        ret += "Root: {:.3f} m\n".format(self.root_chord_len)
+        ret += "Tip: {:.3f} m".format(self.tip_chord_len)
+        return ret
+
     def show(self, n=1000):
         u_dist = np.linspace(0, 1.0, n)
         z = np.empty(n, float)
@@ -58,26 +99,6 @@ class WingFrame(object):
         plt.legend()
         plt.gca().invert_yaxis()
         plt.show()
-
-    @property
-    def area(self):
-        """
-        Total area of the planar wing. (Not a half)
-        :return: The area.
-        :rtype: float
-        """
-
-        return 2 * math.fabs(romberg(self.chord_len, 0, 1))
-
-    @property
-    def mean_aerodynamic_chord(self):
-        """
-        Get the mean aerodynamic chord length of the wing.
-        :return: The MAC.
-        :rtype: float
-        """
-
-        return math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
 
 
 class BWBFrame(WingFrame):
@@ -179,19 +200,7 @@ class BWBFrame(WingFrame):
         taper_ratio = 5
         pinit = np.array([taper_ratio, 1]) * (area / b_tip) / (1 + taper_ratio)
         ans = fsolve(sp, pinit)
-
         p[3][0] = ans[0]
         p[5][0] = ans[1]
 
-        '''Build interpolated functions'''
-        z = p[0:3][2]
-        xf = p[0:3][0]
-        yf = p[0:3][1]
-        xt = p[3:6][0]
-        yt = p[3:6][1]
-
-        super(BWBFrame, self).__init__(make_interp_spline(u, xf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, xt, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
+        return BWBFrame(p[3][0], c_mid, p[5][0], b_mid, b_tip, alpha_mid, alpha_tip)

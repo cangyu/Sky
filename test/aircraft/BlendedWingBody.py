@@ -1,7 +1,8 @@
 import numpy as np
 import math
 from src.aircraft.wing import Wing
-from src.aircraft.frame import BWBFrame, chebshev_dist_multi
+from src.aircraft.frame import BWBFrame
+from src.msh.spacing import chebshev_dist_multi
 
 try:
     from src.misc.catia import view
@@ -19,6 +20,9 @@ b_tip = 13
 alpha_mid = 35
 alpha_tip = 30
 frm = BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
+
+print(frm)
+frm.show()
 
 inner_sec_num = 6
 outer_sec_num = 8
