@@ -34,6 +34,45 @@ def uniform(N):
     return np.linspace(0, 1, N)
 
 
+def chebshev_dist(start, end, n):
+    """
+    生成切比雪夫点
+    :param start: 起始值
+    :type start: float
+    :param end: 终止值
+    :type end: float
+    :param n: 采样点数量
+    :type n: int
+    :return: n个点
+    """
+
+    ang = np.linspace(np.pi, 0, n)
+    pr = np.cos(ang)
+    for i in range(0, n):
+        pr[i] = start + (end - start) / 2 * (pr[i] + 1)
+
+    return pr
+
+
+def chebshev_dist_multi(seg, num):
+    """
+    多段Chebshev分布
+    :param seg: 分段点
+    :param num: 每个分段内点的数量(包括首尾)
+    :return: 多段Chebshev分布数组
+    """
+
+    if len(seg) != len(num) + 1:
+        raise AssertionError("Unmatched settings.")
+
+    ret = chebshev_dist(seg[0], seg[1], num[0])
+    for k in range(1, len(num)):
+        csg = chebshev_dist(seg[k], seg[k + 1], num[k])
+        ret = np.concatenate((ret, csg[1:]))
+
+    return ret
+
+
 def single_exponential(N, A):
     """
     单指数分布
