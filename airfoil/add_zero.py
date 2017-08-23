@@ -2,7 +2,7 @@ import sys
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print('Usage python convert.py foil_file')
+        print("Usage \'python add_zero.py foil.dat\'")
         exit(-1)
     fn = sys.argv[1]
     f = open(fn)
