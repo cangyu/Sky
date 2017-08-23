@@ -4,6 +4,9 @@ from src.nurbs.utility import *
 from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc
 from src.nurbs.surface import Coons, RuledSurf
 from src.aircraft.wing import WingProfile
+from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
+import math
 
 try:
     from src.misc.catia import view
@@ -15,6 +18,227 @@ else:
 
 sqrt2 = math.sqrt(2)
 
+'''Wing Calculation'''
+'''Area and ratio'''
+s = 38.88
+sir = 0.68
+sor = 1.0 - sir
+si = sir * s
+so = sor * s
+
+'''inner'''
+icr = 5.8
+ispn = si / icr
+ieta = ispn / icr
+
+'''outer'''
+ocr = 3.9
+oeta = 1.15
+ospn = oeta * ocr
+octp = 2 * so / ospn - ocr
+ofswp = 22
+
+'''Geom param'''
+w1 = icr
+h1 = ispn
+w2 = 1.2
+w3 = ocr
+h2 = ospn
+theta = math.radians(ofswp)
+w4 = octp
+
+'''Points'''
+p0 = (0, 0)
+p1 = (0, w1)
+p2 = (h1, w1)
+p3 = (h1, 0)
+p4 = (h1, w2 + w3)
+p5 = (h1, w2)
+p6 = (h1 + h2, p4[1] - h2 * math.tan(theta))
+p7 = (p6[0], p6[1] - w4)
+
+'''Report'''
+print('单侧机翼总面积：{} m^2'.format(s))
+print('两段面积比：{} / {}'.format(sir, sor))
+print('内翼')
+print('面积：{} m^2'.format(si))
+print('根弦长：{} m'.format(icr))
+print('展长：{} m'.format(ispn))
+print('展弦比：{}'.format(ieta))
+print('外翼')
+print('面积：{} m^2'.format(so))
+print('根弦长：{} m'.format(ocr))
+print('梢弦长：{} m'.format(octp))
+print('展长：{} m'.format(ospn))
+print('展弦比：{}'.format(oeta))
+print('根梢比：{}'.format(ocr / octp))
+print('前缘后掠角：{}'.format(ofswp))
+
+'''Plot'''
+figure, ax = plt.subplots()
+ax.set_xlim(left=0, right=11)
+ax.set_ylim(bottom=-2, top=7)
+
+'''Line endings'''
+line1 = [p0, p1]
+line2 = [p1, p2]
+line3 = [p2, p3]
+line4 = [p3, p0]
+line5 = [p4, p6]
+line6 = [p5, p7]
+line7 = [p6, p7]
+
+(line1_xs, line1_ys) = zip(*line1)
+(line2_xs, line2_ys) = zip(*line2)
+(line3_xs, line3_ys) = zip(*line3)
+(line4_xs, line4_ys) = zip(*line4)
+(line5_xs, line5_ys) = zip(*line5)
+(line6_xs, line6_ys) = zip(*line6)
+(line7_xs, line7_ys) = zip(*line7)
+
+'''Create the lines'''
+ax.add_line(Line2D(line1_xs, line1_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line2_xs, line2_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line3_xs, line3_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line4_xs, line4_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line5_xs, line5_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line6_xs, line6_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line7_xs, line7_ys, linewidth=1, color='blue'))
+
+'''Show'''
+plt.plot()
+plt.show()
+
+'''Vertical-Tail calculation'''
+'''Design variable'''
+s = 6.866
+eta = 1.3
+nbla = 1.4
+fswp = 40
+
+spn = math.sqrt(s * eta)
+cr = (2 * s / spn) / (1 + nbla) * nbla
+ct = cr / nbla
+
+'''Geom param'''
+w1 = cr
+w2 = ct
+h1 = spn
+theta = math.radians(fswp)
+
+'''Report'''
+print("垂尾面积：{} m^2".format(s))
+print("展弦比：{}".format(eta))
+print("根梢比：{}".format(nbla))
+print("根弦长：{} m".format(cr))
+print("梢弦长：{} m".format(ct))
+print("高度：{} m".format(spn))
+print("后掠角：{}".format(fswp))
+
+'''Points'''
+p0 = (0, 0)
+p1 = (w1, 0)
+p3 = (h1 * math.tan(theta), h1)
+p2 = (p3[0] + w2, p3[1])
+
+'''Plot'''
+figure, ax = plt.subplots()
+# ax.set_xlim(left=-11, right=11)
+# ax.set_ylim(bottom=-2, top=7)
+
+'''Line endings'''
+line1 = [p0, p1]
+line2 = [p1, p2]
+line3 = [p2, p3]
+line4 = [p3, p0]
+
+(line1_xs, line1_ys) = zip(*line1)
+(line2_xs, line2_ys) = zip(*line2)
+(line3_xs, line3_ys) = zip(*line3)
+(line4_xs, line4_ys) = zip(*line4)
+
+'''Create the lines'''
+ax.add_line(Line2D(line1_xs, line1_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line2_xs, line2_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line3_xs, line3_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line4_xs, line4_ys, linewidth=1, color='red'))
+
+'''Show'''
+plt.plot()
+plt.gca().set_aspect('equal')
+plt.show()
+
+'''Design variable'''
+s = 20.11
+eta = 3.8
+nbla = 1.7
+fswp = 10
+
+spn = math.sqrt(s * eta)
+cr = (2 * s / spn) / (1 + nbla) * nbla
+ct = cr / nbla
+
+'''Geom param'''
+w1 = cr
+w2 = ct
+h1 = spn / 2
+theta = math.radians(fswp)
+
+'''Report'''
+print("平尾面积：{} m^2".format(s))
+print("展弦比：{}".format(eta))
+print("根梢比：{}".format(nbla))
+print("根弦长：{} m".format(cr))
+print("梢弦长：{} m".format(ct))
+print("展长：{} m".format(spn))
+print("后掠角：{}".format(fswp))
+
+'''Points'''
+p0 = (0, 0)
+p1 = (0, w1)
+p2 = (h1, w1 - h1 * math.tan(theta))
+p3 = (p2[0], p2[1] - w2)
+p4 = (-p2[0], p2[1])
+p5 = (-p3[0], p3[1])
+
+'''Plot'''
+figure, ax = plt.subplots()
+# ax.set_xlim(left=-11, right=11)
+# ax.set_ylim(bottom=-2, top=7)
+
+'''Line endings'''
+line1 = [p0, p1]
+line2 = [p1, p2]
+line3 = [p2, p3]
+line4 = [p3, p0]
+line5 = [p4, p1]
+line6 = [p5, p4]
+line7 = [p5, p0]
+
+(line1_xs, line1_ys) = zip(*line1)
+(line2_xs, line2_ys) = zip(*line2)
+(line3_xs, line3_ys) = zip(*line3)
+(line4_xs, line4_ys) = zip(*line4)
+(line5_xs, line5_ys) = zip(*line5)
+(line6_xs, line6_ys) = zip(*line6)
+(line7_xs, line7_ys) = zip(*line7)
+
+'''Create the lines'''
+ax.add_line(Line2D(line1_xs, line1_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line2_xs, line2_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line3_xs, line3_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line4_xs, line4_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line5_xs, line5_ys, linewidth=1, color='blue'))
+ax.add_line(Line2D(line6_xs, line6_ys, linewidth=1, color='red'))
+ax.add_line(Line2D(line7_xs, line7_ys, linewidth=1, color='blue'))
+
+'''Show'''
+plt.plot()
+plt.gca().set_aspect('equal')
+plt.show()
+
+'''Horizontal-Tail calculation'''
+'''Digital-Model'''
 fn = 'GEC-50.igs'
 model = IGES_Model(fn)
 
