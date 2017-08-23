@@ -184,18 +184,29 @@ class ClampedNURBSSurf(object):
                 self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
 
     def mirror(self, axis):
-        if axis == 'X':
+        """
+        Mirror the surface along specified axis.
+        :param axis: Direction axis.
+        :return: None.
+        """
+
+        '''Defensive check'''
+        if axis in ('X', 'x'):
             idx = 0
-        elif axis == 'Y':
+        elif axis in ('Y', 'y'):
             idx = 1
-        elif axis == 'Z':
+        elif axis in ('Z', 'z'):
             idx = 2
         else:
             raise ValueError("Invalid axis")
 
+        '''Modify control points'''
         for i in range(self.n + 1):
             for j in range(self.m + 1):
                 self.Pw[i][j][idx] *= -1
+
+        '''Update'''
+        self.reset(self.U, self.V, self.Pw)
 
     def to_iges(self, closed_u=0, closed_v=0, periodic_u=0, periodic_v=0, form=0):
         """
