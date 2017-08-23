@@ -75,12 +75,21 @@ class WingFrame(object):
         return self.chord_len(1)
 
     def __str__(self):
+        a0 = self.area
+        a1 = self.mean_aerodynamic_chord
+        a2 = self.span
+        a3 = self.root_chord_len
+        a4 = self.tip_chord_len
+        a5 = a4 / a3
+
         ret = "Wing Planar Frame Info:\n"
-        ret += "Area: {:.4f} m^2\n".format(self.area)
-        ret += "MAC: {:.3f} m\n".format(self.mean_aerodynamic_chord)
-        ret += "Span: {:.3f} m\n".format(self.span)
-        ret += "Root: {:.3f} m\n".format(self.root_chord_len)
-        ret += "Tip: {:.3f} m".format(self.tip_chord_len)
+        ret += "Area: {:.4f} m^2\n".format(a0)
+        ret += "MAC: {:.3f} m\n".format(a1)
+        ret += "Span: {:.3f} m\n".format(a2)
+        ret += "Root: {:.3f} m\n".format(a3)
+        ret += "Tip: {:.3f} m\n".format(a4)
+        ret += "Taper Ratio: {:.3f}".format(a5)
+
         return ret
 
     def show(self, n=1000):
@@ -153,6 +162,30 @@ class BWBFrame(WingFrame):
                                        make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
                                        lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
 
+    def __str__(self):
+        a0 = self.area
+        a1 = self.mean_aerodynamic_chord
+        a2 = self.span
+        a3 = self.root_chord_len
+        a4 = self.tip_chord_len
+        a5 = a4 / a3
+
+        ret = "Blended-Wing-Body Configuration Parametric Info:\n"
+        ret += "General Info:\n"
+        ret += "Area: {:.4f} m^2\n".format(a0)
+        ret += "MAC: {:.3f} m\n".format(a1)
+        ret += "Span: {:.3f} m\n".format(a2)
+        ret += "Root Chord: {:.3f} m\n".format(a3)
+        ret += "Tip Chord: {:.3f} m\n".format(a4)
+        ret += "Taper Ratio: {:.3f}\n".format(a5)
+        ret += "Unique Info:\n"
+        ret += "Inner Span {:.3f} m\n".format(self.Bm)
+        ret += "Mid Chord: {:.3f} m\n".format(self.Cm)
+        ret += "Inner wing sweep-back: {:.2f} (deg)\n".format(self.Am)
+        ret += "Outer wing sweep-back: {:.2f} (deg)\n".format(self.At)
+
+        return ret
+
     @classmethod
     def from_area_mac(cls, area, c_mid, mac, b_mid, b_tip, alpha_mid, alpha_tip):
         """
@@ -188,13 +221,15 @@ class BWBFrame(WingFrame):
         p[4] = p[1]
         p[4][0] += c_mid
 
-        u = np.array([0, b_mid / b_tip, 1.0])
+        u = np.array([0, b_mid / b_tip, 1.])
         xf = make_interp_spline(u, p[:3][0], 3, bc_type=([(1, 0)], [(2, 0)]))
 
-        def sp(_cr, _ct):
+        def sp(_x):
+            _cr = _x[0]
+            _ct = _x[1]
             tc = make_interp_spline(u, [_cr, c_mid, _ct], 3, bc_type=([(1, 0)], [(2, 0)]))
-            ts = romberg(lambda _u: tc(_u) - xf(_u), 0, 1)
-            tmac = romberg(lambda _u: (tc(_u) - xf(_u)) ** 2, 0, 1) / ts
+            ts = romberg(lambda _u: tc(_u) - xf(_u), 0, 1) * b_tip
+            tmac = romberg(lambda _u: (tc(_u) - xf(_u)) ** 2, 0, 1) / ts * b_tip
             return ts - area2, tmac - mac
 
         taper_ratio = 5
