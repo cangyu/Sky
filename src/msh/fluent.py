@@ -1713,7 +1713,7 @@ class XF_MSH(object):
         msh.add_section(XF_Comment("Face Declaration:"))
         msh.add_section(XF_Face.declaration(total_face))
 
-        print("(1/2) Building interior faces ...", end=' ')
+        print("(1/2) Building interior faces ...")
 
         '''Interior Faces'''
         face_start = 1
@@ -1722,9 +1722,6 @@ class XF_MSH(object):
             ifn = internal_face_num(u, v, w)
             inter_face_desc = np.empty((ifn, 6), int)
             cur_face_cnt = 0
-
-            cbkn = k + 1
-            print(cbkn, end=' ' if cbkn != blk_num else '\n')
 
             for nu in range(1, u - 1):
                 for nv in range(v - 1):
