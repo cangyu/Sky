@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
-from scipy.optimize import fsolve, root
+from scipy.optimize import root
 
 
 class WingFrame(object):
@@ -187,19 +187,19 @@ class BWBFrame(WingFrame):
         return ret
 
     @classmethod
-    def from_area_mac(cls, area, mac, c_root, c_tip, b_tip, alpha_mid, alpha_tip):
+    def from_area_mac_span(cls, area2, mac, span2, c_root, c_tip, alpha_mid, alpha_tip):
         """
         Construct the planar frame with constant Area and MAC.
-        :param area: Area of the wing. (Not a half)
-        :type area: float
+        :param area2: Half of the area of the wing.
+        :type area2: float
         :param mac: Mean aerodynamic chord length of the wing.
         :type mac: float
+        :param span2: Half of the width of the span.
+        :type span2: float
         :param c_root: Length of the root chord.
         :type c_root: float
         :param c_tip: Length of the tip chord.
         :type c_tip: float
-        :param b_tip: Width of the half of the span.
-        :type b_tip: float
         :param alpha_mid: Averaged sweep back angle of the inner wing.
         :type alpha_mid: float
         :param alpha_tip: Averaged sweep back angle of the outer wing.
@@ -208,29 +208,42 @@ class BWBFrame(WingFrame):
         :rtype: BWBFrame
         """
 
-        area2 = area / 2
+        '''Local constants'''
         tg1 = math.tan(math.radians(alpha_mid))
         tg2 = math.tan(math.radians(alpha_tip))
 
-        def sp(_x):
+        def f(_x):
+            """
+            Constrained function.
+            f0(_x) - area2 = 0
+            f1(_x) - mac = 0
+            :param _x: Variable vector.
+            :return: LHS of the f(_x).
+            """
+
             _bm = _x[0]
             _cm = _x[1]
 
-            u = np.array([0, _bm / b_tip, 1.])
-            fcx = np.array([0, _bm * tg1, _bm * tg1 + (b_tip - _bm) * tg2])
+            u = np.array([0, _bm / span2, 1.])
+            fcx = np.array([0, _bm * tg1, _bm * tg1 + (span2 - _bm) * tg2])
             tcx = np.array([fcx[0] + c_root, fcx[1] + _cm, fcx[2] + c_tip])
 
             xf = make_interp_spline(u, fcx, 3, bc_type=([(1, 0)], [(2, 0)]))
             xt = make_interp_spline(u, tcx, 3, bc_type=([(1, 0)], [(2, 0)]))
 
-            cur_s2 = b_tip * romberg(lambda _u: xt(_u) - xf(_u), 0, 1)
-            cur_mac = b_tip * romberg(lambda _u: (xt(_u) - xf(_u)) ** 2, 0, 1) / cur_s2
+            cur_s2 = span2 * romberg(lambda _u: xt(_u) - xf(_u), 0, 1)
+            cur_mac = span2 * romberg(lambda _u: (xt(_u) - xf(_u)) ** 2, 0, 1) / cur_s2
 
             return cur_s2 - area2, cur_mac - mac
 
-        pit = np.array([0.35 * b_tip, 0.5 * c_root])
-        ans = root(sp, pit)
-        b_mid = ans.x[0]
-        c_mid = ans.x[1]
+        '''Empirical guess'''
+        pit = np.array([0.3 * span2, 0.5 * c_root])
+        try:
+            ans = root(f, pit)
+            b_mid = ans.x[0]
+            c_mid = ans.x[1]
+        except:
+            return None
 
-        return BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
+        '''Build'''
+        return BWBFrame(c_root, c_mid, c_tip, b_mid, span2, alpha_mid, alpha_tip)
