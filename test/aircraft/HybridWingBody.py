@@ -12,14 +12,14 @@ except ImportError:
 else:
     auto_view = True
 
-s = 220
-mac = 6.8
-c_mid = 6
-b_mid = 4.5
-b_tip = 14
-alpha_mid = 45
-alpha_tip = 28
-frm = BWBFrame.from_area_mac(s, mac, c_mid, b_mid, b_tip, alpha_mid, alpha_tip)
+s = 126
+mac = 6.6
+c_root = 10
+c_tip = 1.1
+b_tip = 13
+alpha_mid = 35
+alpha_tip = 33
+frm = BWBFrame.from_area_mac(s, mac, c_root, c_tip, b_tip, alpha_mid, alpha_tip)
 
 print(frm)
 frm.show()

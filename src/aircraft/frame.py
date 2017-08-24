@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 
 
 class WingFrame(object):
@@ -182,22 +182,22 @@ class BWBFrame(WingFrame):
         ret += "Inner Span {:.3f} m\n".format(self.Bm)
         ret += "Mid Chord: {:.3f} m\n".format(self.Cm)
         ret += "Inner wing sweep-back: {:.2f} (deg)\n".format(self.Am)
-        ret += "Outer wing sweep-back: {:.2f} (deg)\n".format(self.At)
+        ret += "Outer wing sweep-back: {:.2f} (deg)".format(self.At)
 
         return ret
 
     @classmethod
-    def from_area_mac(cls, area, c_mid, mac, b_mid, b_tip, alpha_mid, alpha_tip):
+    def from_area_mac(cls, area, mac, c_root, c_tip, b_tip, alpha_mid, alpha_tip):
         """
         Construct the planar frame with constant Area and MAC.
         :param area: Area of the wing. (Not a half)
         :type area: float
-        :param c_mid: Length of the middle chord.
-        :type c_mid: float
         :param mac: Mean aerodynamic chord length of the wing.
         :type mac: float
-        :param b_mid: Width of the inner wing.
-        :type b_mid: float
+        :param c_root: Length of the root chord.
+        :type c_root: float
+        :param c_tip: Length of the tip chord.
+        :type c_tip: float
         :param b_tip: Width of the half of the span.
         :type b_tip: float
         :param alpha_mid: Averaged sweep back angle of the inner wing.
@@ -208,34 +208,29 @@ class BWBFrame(WingFrame):
         :rtype: BWBFrame
         """
 
-        '''Calculate pivots on each curve'''
         area2 = area / 2
-        p = np.zeros((6, 3))
-
-        p[1][0] = b_mid * math.tan(alpha_mid)
-        p[1][2] = b_mid
-
-        p[2][0] = p[1][0] + (b_tip - b_mid) * math.tan(alpha_tip)
-        p[5][2] = p[2][2] = b_tip
-
-        p[4] = p[1]
-        p[4][0] += c_mid
-
-        u = np.array([0, b_mid / b_tip, 1.])
-        xf = make_interp_spline(u, p[:3][0], 3, bc_type=([(1, 0)], [(2, 0)]))
+        tg1 = math.tan(math.radians(alpha_mid))
+        tg2 = math.tan(math.radians(alpha_tip))
 
         def sp(_x):
-            _cr = _x[0]
-            _ct = _x[1]
-            tc = make_interp_spline(u, [_cr, c_mid, _ct], 3, bc_type=([(1, 0)], [(2, 0)]))
-            ts = romberg(lambda _u: tc(_u) - xf(_u), 0, 1) * b_tip
-            tmac = romberg(lambda _u: (tc(_u) - xf(_u)) ** 2, 0, 1) / ts * b_tip
-            return ts - area2, tmac - mac
+            _bm = _x[0]
+            _cm = _x[1]
 
-        taper_ratio = 5
-        pinit = np.array([taper_ratio, 1]) * (area / b_tip) / (1 + taper_ratio)
-        ans = fsolve(sp, pinit)
-        p[3][0] = ans[0]
-        p[5][0] = ans[1]
+            u = np.array([0, _bm / b_tip, 1.])
+            fcx = np.array([0, _bm * tg1, _bm * tg1 + (b_tip - _bm) * tg2])
+            tcx = np.array([fcx[0] + c_root, fcx[1] + _cm, fcx[2] + c_tip])
 
-        return BWBFrame(p[3][0], c_mid, p[5][0], b_mid, b_tip, alpha_mid, alpha_tip)
+            xf = make_interp_spline(u, fcx, 3, bc_type=([(1, 0)], [(2, 0)]))
+            xt = make_interp_spline(u, tcx, 3, bc_type=([(1, 0)], [(2, 0)]))
+
+            cur_s2 = b_tip * romberg(lambda _u: xt(_u) - xf(_u), 0, 1)
+            cur_mac = b_tip * romberg(lambda _u: (xt(_u) - xf(_u)) ** 2, 0, 1) / cur_s2
+
+            return cur_s2 - area2, cur_mac - mac
+
+        pit = np.array([0.35 * b_tip, 0.5 * c_root])
+        ans = root(sp, pit)
+        b_mid = ans.x[0]
+        c_mid = ans.x[1]
+
+        return BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
