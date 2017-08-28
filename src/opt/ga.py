@@ -173,3 +173,20 @@ class RealCodedGA(GeneticAlgorithm):
             report(generation)
 
         return self.cur_generation[0]
+
+
+class NashRealCodedGA(RealCodedGA):
+    def __init__(self, arg_rg, obj_func, eval_func):
+        """
+        Nash Real coded Genetic Algorithm.
+        :param arg_rg: List of parameter ranges.
+        :param obj_func: The object function.
+        :type obj_func: Callable
+        :param eval_func: The evaluation function.
+        :type eval_func: Callable
+        """
+
+        super(NashRealCodedGA, self).__init__(arg_rg, obj_func, eval_func)
+
+    def find_optimal(self, n, rd, pm):
+        pass
