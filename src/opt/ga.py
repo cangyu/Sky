@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from math import log10
 from random import random, randint
@@ -108,10 +109,11 @@ class RealCodedGA(GeneticAlgorithm):
         gen_digits = int(log10(rd)) + 1
 
         def report(_gen):
-            _cur_best = self.cur_generation[0]
-            _param = self.param_transform(_cur_best.param)
-            _val = _cur_best.value
-            print("Generation {0:{1}}: Best individual: {2} Value: {3}".format(_gen, gen_digits, _param, _val))
+            if sys.flags.debug:
+                _cur_best = self.cur_generation[0]
+                _param = self.param_transform(_cur_best.param)
+                _val = _cur_best.value
+                print("Generation {0:{1}}: Best individual: {2} Value: {3}".format(_gen, gen_digits, _param, _val))
 
         '''Init'''
         self.cur_generation = []

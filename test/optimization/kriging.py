@@ -43,12 +43,17 @@ x = lhc.sample()
 y = np.empty(len(x), float)
 for k, vx in enumerate(x):
     y[k] = branin_func(vx)
-    print("{} {}".format(vx, y[k]))
 
 kg = Kriging(x, y)
+
 x0 = (-math.pi, 12.275)
 x1 = (math.pi, 2.275)
 x2 = (9.42478, 2.475)
-print(kg.interp(x0))
-print(kg.interp(x1))
-print(kg.interp(x2))
+print("Global minimum: {} Kriging: {} Actual: {}".format(x0, kg.interp(x0), branin_func(x0)))
+print("Global minimum: {} Kriging: {} Actual: {}".format(x1, kg.interp(x1), branin_func(x1)))
+print("Global minimum: {} Kriging: {} Actual: {}".format(x2, kg.interp(x2), branin_func(x2)))
+
+if np.allclose(list(map(lambda u: kg.interp(u), x)), y):
+    print("Ok, all close!")
+else:
+    print('WTF')

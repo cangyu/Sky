@@ -4,10 +4,15 @@ import math
 from scipy.linalg import norm
 from src.opt.ga import RealCodedGA
 from numpy.linalg import det
+from abc import abstractmethod
 
 
 class SurrogateModel(object):
     def __init__(self):
+        pass
+
+    @abstractmethod
+    def interp(self, x0):
         pass
 
 
@@ -133,3 +138,6 @@ class Kriging(SurrogateModel):
             ans += x[i] * self.z[i]
 
         return ans
+
+    def show(self):
+        pass
