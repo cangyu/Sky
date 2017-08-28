@@ -80,7 +80,7 @@ class RealCodedGATester(unittest.TestCase):
         print('Testing Rastrigin function with {} variables ...'.format(len(rg)))
         rga = RealCodedGA(rg, f_rastrigin, lambda u: -f_rastrigin(u))
         ans = rga.find_optimal(600, 100, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(ans.value, rga.param_transform(ans.param)))
+        print('Global Minimum: {}, Param: {}\n'.format(f_rastrigin(ans), ans))
 
     @staticmethod
     def test_ackley():
@@ -91,7 +91,7 @@ class RealCodedGATester(unittest.TestCase):
         print('Testing Ackley function ...')
         rga = RealCodedGA(rg, f_ackley, lambda u: -f_ackley(u))
         ans = rga.find_optimal(300, 60, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(ans.value, rga.param_transform(ans.param)))
+        print('Global Minimum: {}, Param: {}\n'.format(f_ackley(ans), ans))
 
     @staticmethod
     def test_sphere():
@@ -102,7 +102,7 @@ class RealCodedGATester(unittest.TestCase):
         print('Testing Sphere function with {} variables ...'.format(len(rg)))
         rga = RealCodedGA(rg, f_sphere, lambda u: -f_sphere(u))
         ans = rga.find_optimal(300, 60, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(ans.value, rga.param_transform(ans.param)))
+        print('Global Minimum: {}, Param: {}\n'.format(f_sphere(ans), ans))
 
     @staticmethod
     def test_rosenbrock():
@@ -114,7 +114,7 @@ class RealCodedGATester(unittest.TestCase):
         print('Testing Rosenbrock function with {} variables ...'.format(len(rg)))
         rga = RealCodedGA(rg, f_rosenbrock, lambda u: -f_rosenbrock(u))
         ans = rga.find_optimal(1000, 300, 0.42)
-        print('Global Minimum: {}, Param: {}\n'.format(ans.value, rga.param_transform(ans.param)))
+        print('Global Minimum: {}, Param: {}\n'.format(f_rosenbrock(ans), ans))
 
 
 if __name__ == '__main__':

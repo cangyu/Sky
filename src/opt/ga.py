@@ -172,7 +172,7 @@ class RealCodedGA(GeneticAlgorithm):
             self.cur_generation = sorted(next_gen)
             report(generation)
 
-        return self.cur_generation[0]
+        return self.param_transform(self.cur_generation[0].param)
 
 
 class NashRealCodedGA(RealCodedGA):

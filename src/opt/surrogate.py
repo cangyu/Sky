@@ -2,6 +2,8 @@ import numpy as np
 from numpy.linalg import inv
 import math
 from scipy.linalg import norm
+from src.opt.ga import RealCodedGA
+from numpy.linalg import det
 
 
 class SurrogateModel(object):
@@ -18,9 +20,11 @@ class Kriging(SurrogateModel):
         """
 
         '''Pre-Check'''
-        n = len(self.x)
-        if len(x) != len(z):
-            raise AssertionError("Inconsistent input.")
+        n = len(x)
+        if len(x) != len(z) or n == 0:
+            raise AssertionError("Invalid input.")
+        nd = len(x[0])
+        f = np.ones(n, float)
 
         super(Kriging, self).__init__()
 
@@ -34,20 +38,46 @@ class Kriging(SurrogateModel):
             for j in range(i, n):
                 self.d[i][j] = self.d[j][i] = norm(self.x[i] - self.x[j], 2)
 
+        def mle(theta):
+            R = np.empty((n, n), float)
+            for i in range(n):
+                for j in range(i, n):
+                    pdx = 0
+                    for k in range(nd):
+                        pdx += theta[k] * self.d[i][j] ** 2
+                    R[i][j] = R[j][i] = math.exp(-pdx)
+
+            r_inv = inv(R)
+            tmp1 = np.dot(f, r_inv)
+            e = np.dot(tmp1, self.z) / np.dot(tmp1, f)
+            tmp2 = self.z - e * f
+            var = np.dot(np.dot(tmp2, r_inv), tmp2) / n
+            return -(n * math.log(var) + math.log(det(R))) / 2
+
+        '''Determine theta_k using GA'''
+        rg = np.empty((nd, 2), float)
+        for i in range(nd):
+            rg[i][0] = -3
+            rg[i][1] = 2
+        emle = lambda t: mle(np.exp(t))
+        rga = RealCodedGA(rg, emle, emle)
+        self.theta = rga.find_optimal(100 * nd, 20 * nd, 0.05)
+
         '''Correlation under Gauss function'''
-        self.theta = 1.0
         self.R = np.empty((n, n), float)
         for i in range(n):
             for j in range(i, n):
-                self.R[i][j] = self.R[j][i] = math.exp(-self.theta * math.pow(self.d[i][j], 2))
+                pdx = 0
+                for k in range(nd):
+                    pdx += self.theta[k] * self.d[i][j] ** 2
+                self.R[i][j] = self.R[j][i] = math.exp(-pdx)
 
         '''Expect and variance'''
-        f = np.ones(n, float)
         r_inv = inv(self.R)
         tmp1 = np.dot(f, r_inv)
-        self.e = np.dot(tmp1, self.z) / np.dot(tmp1, f.transpose())
-        tmp2 = self.z - self.e * f
-        self.var = np.dot(np.dot(tmp2, r_inv), tmp2.transpose()) / n
+        e = np.dot(tmp1, self.z) / np.dot(tmp1, f)
+        tmp2 = self.z - e * f
+        self.var = np.dot(np.dot(tmp2, r_inv), tmp2) / n
 
         '''Covariance'''
         self.cov = self.var * self.R

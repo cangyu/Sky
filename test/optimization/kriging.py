@@ -34,42 +34,15 @@ class Branin(object):
         ans += self.a * (x2 - self.b * x1 ** 2 + self.c * x1 - self.r) ** 2
         return ans
 
-    def show(self, x1_rg=(-5, 10), x2_rg=(0, 15), x1_num=100, x2_num=100):
-        """
-        Show the function within specified range.
-        :param x1_rg: Range of 'x1' coordinate.
-        :param x2_rg: Range of 'x2' coordinate.
-        :param x1_num: Number of points in 'x1' direction.
-        :param x2_num: Number of points in 'x2' direction.
-        :return: None.
-        """
-
-        '''Make data'''
-        x1 = linear_expand(uniform(x1_num), x1_rg[0], x1_rg[1])
-        x2 = linear_expand(uniform(x2_num), x2_rg[0], x2_rg[1])
-        X1, X2 = np.meshgrid(x1, x2, indexing='ij')
-        Y = np.empty((x1_num, x2_num), float)
-        for i in range(x1_num):
-            for j in range(x2_num):
-                Y[i][j] = self.__call__(x1[i], x2[j])
-
-        '''Build surf'''
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        surf = ax.plot_surface(X1, X2, Y, cmap=cm.coolwarm, linewidth=0, antialiased=False)
-        ax.zaxis.set_major_locator(LinearLocator(10))
-
-        '''Add a color bar'''
-        fig.colorbar(surf, shrink=0.5, aspect=5)
-        plt.show()
-
 
 branin_func = Branin()
-branin_func.show()
 
 x = np.array([[0, 1, 2, 3, 4],
               [0, 1, 2, 3, 4]])
 
 y = branin_func(x[0], x[1])
 
+print(x.transpose())
 print(y)
+
+kg = Kriging(x.transpose(), y)
