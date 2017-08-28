@@ -1,6 +1,8 @@
 import numpy as np
+import math
 from src.msh.spacing import uniform, linear_expand
 from src.opt.surrogate import Kriging
+from src.opt.latin import LatinHyperCube
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
@@ -18,31 +20,35 @@ class Branin(object):
         self.s = s
         self.t = t
 
-    def __call__(self, x1, x2):
+    def __call__(self, x):
         """
         Calculate the value at (x1, x2).
-        :param x1: First coordinate component.
-        :type x1: float
-        :param x2: Second coordinate component.
-        :type x2: float
+        :param x: Parameter vector.
         :return: Value at (x1, x2).
         :rtype: float
         """
 
+        x1 = x[0]
+        x2 = x[1]
         ans = self.s
-        ans += self.s * (1.0 - self.t) * np.cos(x1)
+        ans += self.s * (1.0 - self.t) * math.cos(x1)
         ans += self.a * (x2 - self.b * x1 ** 2 + self.c * x1 - self.r) ** 2
         return ans
 
 
 branin_func = Branin()
+lhc = LatinHyperCube(np.array([np.linspace(-5, 10, 20), np.linspace(0, 15, 20)]))
 
-x = np.array([[0, 1, 2, 3, 4],
-              [0, 1, 2, 3, 4]])
+x = lhc.sample()
+y = np.empty(len(x), float)
+for k, vx in enumerate(x):
+    y[k] = branin_func(vx)
+    print("{} {}".format(vx, y[k]))
 
-y = branin_func(x[0], x[1])
-
-print(x.transpose())
-print(y)
-
-kg = Kriging(x.transpose(), y)
+kg = Kriging(x, y)
+x0 = (-math.pi, 12.275)
+x1 = (math.pi, 2.275)
+x2 = (9.42478, 2.475)
+print(kg.interp(x0))
+print(kg.interp(x1))
+print(kg.interp(x2))

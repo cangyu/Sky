@@ -84,7 +84,7 @@ class RealCodedGA(GeneticAlgorithm):
             ret[k] = self.param_range[k][0] + (self.param_range[k][1] - self.param_range[k][0]) * p[k]
         return ret
 
-    def find_optimal(self, n, rd, pm):
+    def find_optimal(self, n, rd, pm=0.05):
         """
         Try to find the global optimal with given settings.
         :param n: Number of chromosome in the cur_generation.
