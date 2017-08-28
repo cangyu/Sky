@@ -1,29 +1,35 @@
 import numpy as np
+from math import log10
 from random import random, randint
 from collections.abc import Callable
-from abc import abstractmethod
 
 
 class Chromosome(object):
-    def __init__(self, idx):
+    def __init__(self):
         """
         Individual representation used in Genetic Algorithm.
-        :param idx: Index of this chromosome.
-        :type idx: int
         """
 
-        self.idx = idx
         self.param = None
         self.fitness = float(0)
         self.value = float(0)
 
-    @abstractmethod
-    def calc_value(self, obj_func):
-        pass
+    def __lt__(self, other):
+        return self.fitness > other.fitness
 
-    @abstractmethod
-    def calc_fitness(self, eval_func):
-        pass
+
+class RealCodedChromosome(Chromosome):
+    def __init__(self, n):
+        """
+        Parameters inside a chromosome are normalized to [0, 1].
+        :param n: Number of parameters in this chromosome.
+        :type n: int
+        """
+
+        super(RealCodedChromosome, self).__init__()
+        self.param = np.empty(n, float)
+        for i in range(n):
+            self.param[i] = random()
 
 
 class GeneticAlgorithm(object):
@@ -63,112 +69,107 @@ class RealCodedGA(GeneticAlgorithm):
         n = len(arg_rg)
         if n == 0:
             raise ValueError("Invalid input.")
+        self.param_num = n
 
         '''Parameter ranges'''
         self.param_range = np.empty((n, 2), float)
         for k, rg in enumerate(arg_rg):
-            if len(rg) != 2 or rg[0] > rg[1]:
+            if len(rg) != 2:
                 raise AssertionError("Invalid input.")
-
             self.param_range[k] = rg
 
-    class RealCodedChromosome(Chromosome):
-        def __init__(self, idx, n):
-            """
-            Parameters inside a chromosome are normalized to [0, 1].
-            :param idx: Index of this chromosome.
-            :type idx: int
-            :param n: Number of parameters in this chromosome.
-            :type n: int
-            """
+    def param_transform(self, p):
+        ret = np.empty(self.param_num)
+        for k in range(self.param_num):
+            ret[k] = self.param_range[k][0] + (self.param_range[k][1] - self.param_range[k][0]) * p[k]
+        return ret
 
-            super(RealCodedGA.RealCodedChromosome, self).__init__(idx)
-            self.param = np.empty(n, float)
-            for i in range(n):
-                self.param[i] = random()
-
-        def calc_value(self, obj_func):
-            self.value = obj_func(self.param)
-
-        def calc_fitness(self, eval_func):
-            self.fitness = eval_func(self.param)
-
-        def mutate(self):
-            n = len(self.param)
-            for i in range(n):
-                self.param[i] = random()
-
-    @property
-    def param_num(self):
-        return len(self.param_range)
-
-    def find_optimal(self, n, rd, pc, pm):
+    def find_optimal(self, n, rd, pm):
         """
         Try to find the global optimal with given settings.
         :param n: Number of chromosome in the cur_generation.
         :type n: int
         :param rd: Number of iteration.
         :type rd: int
-        :param pc: Possibility of cross.
-        :type pc: float
         :param pm: Possibility of mutate.
         :type pm: float
         :return: The global optimal chromosome.
         """
 
+        '''Regard top 1% individuals as elites'''
+        elite_num = int(n / 100)
+
         '''Pre-check'''
-        if n < 0 or rd < 0:
+        if n < elite_num or rd < 0:
             raise AssertionError("Invalid input.")
-        if pc < 0 or pc > 1:
-            raise ValueError("Invalid \'pc\' setting.")
         if pm < 0 or pm > 1:
             raise ValueError("Invalid \'pm\' setting.")
 
+        gen_digits = int(log10(rd)) + 1
+
+        def report(_gen):
+            _cur_best = self.cur_generation[0]
+            _param = self.param_transform(_cur_best.param)
+            _val = _cur_best.value
+            print("Generation {0:{1}}: Best individual: {2} Value: {3}".format(_gen, gen_digits, _param, _val))
+
         '''Init'''
-        self.cur_generation = [self.RealCodedChromosome(i, self.param_num) for i in range(n)]
-        for k, chromosome in enumerate(self.cur_generation):
-            self.cur_generation[k].calc_value(self.f_obj)
-            self.cur_generation[k].calc_fitness(self.f_eval)
+        self.cur_generation = []
+        for i in range(n):
+            c = RealCodedChromosome(self.param_num)
+            real_param = self.param_transform(c.param)
+            c.value = self.f_obj(real_param)
+            c.fitness = self.f_eval(real_param)
+            self.cur_generation.append(c)
         self.cur_generation.sort()
+        report(0)
+
+        def select(pop, lo, hi):
+            """
+            Tournament Selection.
+            :return: Random selected chromosome.
+            """
+
+            c1, c2 = 0, 0
+            while c1 == c2:
+                c1 = randint(lo, hi)
+                c2 = randint(lo, hi)
+
+            return pop[c1] if pop[c1].fitness > pop[c2].fitness else pop[c2]
+
+        def cross(p1, p2):
+            ratio = random()
+            ret = RealCodedChromosome(self.param_num)
+            ret.param = ratio * p1.param + (1 - ratio) * p2.param
+            return ret
+
+        def mutate(idv):
+            for j in range(self.param_num):
+                if random() < pm:
+                    idv.param[j] = random()
 
         '''Iterate'''
-        elite_num = 3
-        n -= elite_num
-        for generation in range(rd):
+        for generation in range(1, rd + 1):
             next_gen = []
 
-            '''Elitist Migration'''
+            '''Elite migration'''
             for i in range(elite_num):
                 next_gen.append(self.cur_generation[i])
 
-            '''Tournament Selection'''
-            for i in range(n):
-                c1, c2 = 0, 0
-                while c1 == c2:
-                    c1 = randint(0, n)
-                    c2 = randint(0, n)
+            '''Genetic operations'''
+            for i in range(n - elite_num):
+                id1 = select(self.cur_generation, 0, n - 1)
+                id2 = select(self.cur_generation, 0, n - 1)
+                offspring = cross(id1, id2)
+                mutate(offspring)
+                next_gen.append(offspring)
 
-                f1 = self.cur_generation[c1].fitness
-                f2 = self.cur_generation[c2].fitness
-                next_gen.append(self.cur_generation[c1] if f1 > f2 else self.cur_generation[c2])
-
-            '''Simple Cross-Over'''
-            cross_flag = [False] * n
-            for i in range(n):
-                c1, c2 = 0, 0
-                while c1 == c2 or cross_flag[c1] or cross_flag[c2]:
-                    c1 = randint(0, n)
-                    c2 = randint(0, n)
-
-                cross_flag[c1] = cross_flag[c2] = True
-                if random() < pc:
-                    pos = randint(0, self.param_num)
-                    next_gen[c1].param[pos], next_gen[c2].param[pos] = next_gen[c2].param[pos], next_gen[c1].param[pos]
-
-            '''Mutation'''
-            for i in range(n):
-                if random() < pm:
-                    next_gen[i].mutate()
-
-            '''Sort for next generation'''
+            '''Update and sort'''
+            for k, chromosome in enumerate(next_gen):
+                real_param = self.param_transform(chromosome.param)
+                next_gen[k].value = self.f_obj(real_param)
+                next_gen[k].fitness = self.f_eval(real_param)
             self.cur_generation = sorted(next_gen)
+            report(generation)
+
+        return self.cur_generation[0]
