@@ -27,32 +27,35 @@ def report_process(idx):
 p3d_grid = PLOT3D()
 
 '''Shape parameters'''
-c_root = 10
-c_mid = 6
-c_tip = 1.1
-b_mid = 4.5
-b_tip = 13
-alpha_mid = 35
-alpha_tip = 30
+c_root = 14
+c_mid = 6.8
+c_tip = 1.3
+b_mid = 8.1
+b_tip = 21
+alpha_mid = 32
+alpha_tip = 28
 frm = BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
+print(frm)
 
-'''Create wing from shape parameters'''
 inner_sec_num = 6
-outer_sec_num = 8
+outer_sec_num = 9
 u_mid = b_mid / b_tip
 u_dist = chebshev_dist_multi([0, u_mid, 1], [inner_sec_num, outer_sec_num])
-sec_num = len(u_dist)
 
-foil = ['SC20610' for x in range(sec_num)]
-# foil[0] = foil[1] = 'NACA0012'
-z_offset = np.copy(list(map(frm.z, u_dist)))
-length = np.copy(list(map(lambda u: frm.x_tail(u) - frm.x_front(u), u_dist)))
-sweep_back = np.copy(list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist)))
-twist = np.array([3, 2.5, 2.2, 2, 2, 1.8, 1.6, 1.1, 1, 1, 0.5, 0.2, 0])
-dihedral = np.array([0, 1, 1.1, 1.2, 2, 2, 2, 2, 2, 2, 2.5, 3, 3])
+sec_num = len(u_dist)
+frm.show(u_dist)
+
+foil = ['SC20414', 'SC20414', 'SC20612', 'SC20712', 'SC20710', 'SC20710',
+        'SC20710', 'SC21010', 'SC21010', 'SC21006', 'SC20706', 'SC20706', 'SC20606', 'SC20406']
+z_offset = list(map(frm.z, u_dist))
+length = list(map(lambda u: frm.chord_len(u), u_dist))
+sweep_back = list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist))
+twist = np.zeros(sec_num)
+dihedral = np.zeros(sec_num)
 twist_pos = np.full(sec_num, 0.25)
 y_ref = np.zeros(sec_num)
 thickness_factor = np.ones(sec_num)
+
 wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
 wsf = wg.surf()
 
@@ -60,12 +63,12 @@ wsf = wg.surf()
 la = length[0]
 lt = 30 * la
 r = 10 * la
-ispn = z_offset[-1]
-ospn = 20 * ispn
+inner_spn = z_offset[-1]
+outer_spn = 20 * inner_spn
 
 crv_root = wsf.extract('V', 0)
 crv_tip = wsf.extract('V', 1)
-crv_far = WingProfile.from_geom_param(foil[-1], ispn + ospn, length[0], 0, 0, 0, thickness_factor=3).nurbs_rep()
+crv_far = WingProfile.from_geom_param(foil[-1], inner_spn + outer_spn, length[0], 0, 0, 0, thickness_factor=3).nurbs_rep()
 fsf = RuledSurf(crv_tip, crv_far)
 
 brk_root = np.array([0.44, 0.56])
@@ -101,37 +104,37 @@ p[7] = p[6]
 p[7][0] += lt
 
 p[9] = p[1]
-p[9][2] += ispn
+p[9][2] += inner_spn
 
 p[11] = p[3]
-p[11][2] += ispn
+p[11][2] += inner_spn
 
 p[13] = p[5]
-p[13][2] += ispn
+p[13][2] += inner_spn
 
 p[15] = p[7]
-p[15][2] += ispn
+p[15][2] += inner_spn
 
 p[8] = p[0]
-p[8][2] += ispn
+p[8][2] += inner_spn
 
 p[10] = wsf(0, 1)
 p[12] = wsf(1, 1)
 
 p[14] = p[6]
-p[14][2] += ispn
+p[14][2] += inner_spn
 
 p[16] = p[8]
-p[16][2] += ospn
+p[16][2] += outer_spn
 
 p[17] = p[9]
-p[17][2] += ospn
+p[17][2] += outer_spn
 
 p[22] = p[14]
-p[22][2] += ospn
+p[22][2] += outer_spn
 
 p[23] = p[15]
-p[23][2] += ospn
+p[23][2] += outer_spn
 
 p[18] = crv_far.start
 p[20] = crv_far.end
@@ -594,6 +597,6 @@ adj = [((6, 3), (0, 1), 1, True),
        ((12, 6), (0, 0), 0, False)]
 
 '''构建MSH文件'''
-p3d_grid.write('3D_Wing(with_farfield).xyz')
+p3d_grid.write('HWB_Wing.xyz')
 msh = XF_MSH.from_str3d_multi(blk, bc, adj)
-msh.save('3D_Wing(with_farfield).msh')
+msh.save('HWB_Wing.msh')
