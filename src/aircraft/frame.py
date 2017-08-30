@@ -92,7 +92,8 @@ class WingFrame(object):
 
         return ret
 
-    def show(self, n=1000):
+    def show(self, section):
+        n = 1000
         u_dist = np.linspace(0, 1.0, n)
         z = np.empty(n, float)
         xf = np.empty(n, float)
@@ -107,6 +108,10 @@ class WingFrame(object):
         plt.plot(z, xt, label='Tail')
         plt.legend()
         plt.gca().invert_yaxis()
+
+        for u in section:
+            plt.plot([self.f_z(u), self.f_z(u)], [self.f_xf(u), self.f_xt(u)], '--')
+
         plt.show()
 
 
