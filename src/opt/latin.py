@@ -25,10 +25,6 @@ class LatinHyperCube(object):
             if len(sp) != self.m:
                 raise AssertionError("Inconsistent length of entry {}.".format(k))
 
-        '''Display distribution'''
-        self.r1, self.r2 = np.meshgrid(np.arange(self.m), np.arange(self.n))
-        self.data = np.zeros((self.n, self.m), int)
-
     def sample(self):
         """
         Sampling on given parameters.

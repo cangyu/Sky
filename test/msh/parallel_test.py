@@ -6,21 +6,19 @@ import time
 def f(idx, blk, dim):
     u, v, w = dim
     print("PID:", os.getpid())
-    print("Current blk dimension: {} x {} x {}".format(u, v, w))
-    print("Building...")
-    time.sleep(20)
+    print("Building block {} ...".format(idx))
+    print("Current block dimension: {} x {} x {}".format(u, v, w))
+    time.sleep(10)
     print("Block {} calculation done.".format(idx))
 
 
 if __name__ == '__main__':
-    for k in range(10):
-        print("Sample ", k)
-        print('Main:', os.getpid())
-        cores = multiprocessing.cpu_count()
-        pool = multiprocessing.Pool(processes=cores)
-        for i in range(3):
-            pool.apply_async(f, (i, None, (i, i + 1, i + 2)))
-        pool.close()
-        pool.join()
+    print('Main:', os.getpid())
+    core_num = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(processes=core_num)
+    for i in range(13):
+        pool.apply_async(f, (i, None, (i, i + 1, i + 2)))
+    pool.close()
+    pool.join()
 
-        print("Another stuff after pool.")
+    print("Another stuff after pool.")

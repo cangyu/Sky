@@ -3,13 +3,11 @@ import multiprocessing
 import os
 import math
 from copy import deepcopy
-from src.iges.iges_core import IGES_Model
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc
 from src.nurbs.surface import ClampedNURBSSurf, RuledSurf
 from src.aircraft.wing import Wing, WingProfile
 from src.aircraft.frame import BWBFrame
-from src.msh.spacing import *
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
+from src.msh.spacing import chebshev_dist_multi, hyperbolic_tangent, uniform, single_exponential, double_exponential
 from src.msh.fluent import XF_MSH, BCType
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.opt.latin import LatinHyperCube
@@ -23,97 +21,92 @@ else:
     auto_view = True
 
 
-def report_process(idx):
-    print('Block {} calculation done!'.format(idx))
-
-
 def calc_blk(_idx, _grid, _dist):
     # print("PID: ", os.getpid())
     _u, _v, _w = _dist
     _grid.calc_grid(_u, _v, _w)
-    report_process(_idx)
-    # return _grid.get_grid()
+    print('Block {} calculation done!'.format(_idx))
 
 
 if __name__ == '__main__':
-    '''Wing Planar Frame'''
-    c_root = 10
-    c_mid = 6
-    c_tip = 1.1
-    b_mid = 4.5
-    b_tip = 13
-    alpha_mid = 35
-    alpha_tip = 30
-    frm = BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
-    print(frm)
-    # frm.show()
+    '''Wing Planform'''
+    c_root = 14
+    c_mid = 6.8
+    c_tip = 1.3
+    b_mid = 8.1
+    b_tip = 21
+    alpha_mid = 32
+    alpha_tip = 28
 
-    '''Section'''
-    inner_sec_num = 3
-    outer_sec_num = 4
+    '''Profile distribution'''
+    inner_sec_num = 6
+    outer_sec_num = 9
     u_mid = b_mid / b_tip
     u_dist = chebshev_dist_multi([0, u_mid, 1], [inner_sec_num, outer_sec_num])
     sec_num = len(u_dist)
 
-    '''Latin sampling'''
-    n = sec_num * 2 * 5
-    param_entry = []
-    section_twist = []
-    section_dihedral = []
-    for i in range(sec_num):
-        cur_twist = np.linspace(-5, 5, n)
-        cur_dihedral = np.linspace(-3, 3, n)
-        param_entry.append(cur_twist)
-        param_entry.append(cur_dihedral)
-        section_twist.append(cur_twist)
-        section_dihedral.append(cur_dihedral)
+    frm = BWBFrame(c_root, c_mid, c_tip, b_mid, b_tip, alpha_mid, alpha_tip)
+    print(frm)
+    frm.show(u_dist)
 
-    lhc = LatinHyperCube(param_entry)
+    '''Profile details'''
+    foil = ['SC20414', 'SC20414', 'SC20612', 'SC20712', 'SC20710', 'SC20710', 'SC20710', 'SC21010', 'SC21010', 'SC21006', 'SC20706', 'SC20706', 'SC20606', 'SC20406']
+    z_offset = list(map(frm.z, u_dist))
+    length = list(map(lambda u: frm.chord_len(u), u_dist))
+    sweep_back = list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist))
+    twist = np.zeros(sec_num)
+    dihedral = np.zeros(sec_num)
+    twist_pos = np.full(sec_num, 0.25)
+    y_ref = np.zeros(sec_num)
+    thickness_factor = np.ones(sec_num)
+
+    '''LHS'''
+    n = sec_num * 10
+    twist_range = np.array([np.linspace(-0.50, 6.50, n),
+                            np.linspace(-0.50, 6.50, n),
+                            np.linspace(-2.50, 2.20, n),
+                            np.linspace(-1.20, 4.00, n),
+                            np.linspace(-0.50, 5.00, n),
+                            np.linspace(-0.50, 5.00, n),
+                            np.linspace(-0.50, 5.00, n),
+                            np.linspace(- 2.50, 3.00, n),
+                            np.linspace(- 2.50, 3.00, n),
+                            np.linspace(- 3.00, 1.00, n),
+                            np.linspace(- 1.20, 3.00, n),
+                            np.linspace(- 1.20, 3.00, n),
+                            np.linspace(- 0.80, 2.50, n),
+                            np.linspace(- 1.20, 4.50, n)])
+
+    lhc = LatinHyperCube(twist_range)
     sp = lhc.sample()
 
     '''Record sampling results'''
     fsp = open('sample_result.txt', 'w')
     for _spk, param in enumerate(sp):
         fsp.write("Case {}:\n".format(_spk))
-        fsp.write("{:^10}{:^10}{:10}\n".format('Section', 'Twist', 'Dihedral'))
+        fsp.write("{:^10} {:^10}\n".format('Profile', 'Twist'))
         for l in range(sec_num):
-            fsp.write("{:^10}{:^10.2f}{:^10.2f}\n".format(l, param[2 * l], param[2 * l + 1]))
+            fsp.write("{:^10}{:^10.2f}\n".format(l, param[l]))
         fsp.write('\n')
     fsp.close()
 
-    '''Generate mesh'''
-    foil = ['SC20610'] * sec_num
-    z_offset = list(map(frm.z, u_dist))
-    length = list(map(lambda u: frm.x_tail(u) - frm.x_front(u), u_dist))
-    sweep_back = list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist))
-    twist_pos = np.full(sec_num, 0.25)
-    y_ref = np.zeros(sec_num)
-    thickness_factor = np.ones(sec_num)
-
+    '''Generate grids'''
     for _spk, param in enumerate(sp):
-        print("Sample ", _spk)
-        twist = np.zeros(sec_num)
-        dihedral = np.zeros(sec_num)
-        for i in range(sec_num):
-            twist[i] = param[2 * i]
-            dihedral[i] = param[2 * i + 1]
-
+        print("Building case {} grid ...".format(_spk))
+        twist = np.copy(param)
         wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
         wsf = wg.surf()
-
-        '''Plot3D Representation'''
-        p3d_grid = PLOT3D()
 
         '''Grid parameters'''
         la = length[0]
         lt = 30 * la
         r = 10 * la
-        ispn = z_offset[-1]
-        ospn = 20 * ispn
+        inner_spn = z_offset[-1]
+        outer_spn = 20 * inner_spn
 
         crv_root = wsf.extract('V', 0)
         crv_tip = wsf.extract('V', 1)
-        crv_far = WingProfile.from_geom_param(foil[-1], ispn + ospn, length[0], 0, 0, 0, thickness_factor=3).nurbs_rep()
+        crv_far = WingProfile.from_geom_param(foil[-1], inner_spn + outer_spn, length[0], 0, 0, 0, thickness_factor=3).nurbs_rep()
         fsf = RuledSurf(crv_tip, crv_far)
 
         brk_root = np.array([0.44, 0.56])
@@ -149,37 +142,37 @@ if __name__ == '__main__':
         p[7][0] += lt
 
         p[9] = p[1]
-        p[9][2] += ispn
+        p[9][2] += inner_spn
 
         p[11] = p[3]
-        p[11][2] += ispn
+        p[11][2] += inner_spn
 
         p[13] = p[5]
-        p[13][2] += ispn
+        p[13][2] += inner_spn
 
         p[15] = p[7]
-        p[15][2] += ispn
+        p[15][2] += inner_spn
 
         p[8] = p[0]
-        p[8][2] += ispn
+        p[8][2] += inner_spn
 
         p[10] = wsf(0, 1)
         p[12] = wsf(1, 1)
 
         p[14] = p[6]
-        p[14][2] += ispn
+        p[14][2] += inner_spn
 
         p[16] = p[8]
-        p[16][2] += ospn
+        p[16][2] += outer_spn
 
         p[17] = p[9]
-        p[17][2] += ospn
+        p[17][2] += outer_spn
 
         p[22] = p[14]
-        p[22][2] += ospn
+        p[22][2] += outer_spn
 
         p[23] = p[15]
-        p[23][2] += ospn
+        p[23][2] += outer_spn
 
         p[18] = crv_far.start
         p[20] = crv_far.end
@@ -334,23 +327,6 @@ if __name__ == '__main__':
         s5 = ts2[2][0]
 
         s = [s0, s1, s2, s3, s4, s5]
-
-        '''Wire Frame'''
-        # fn = 'Mesh_WireFrame.igs'
-        # model = IGES_Model(fn)
-        #
-        # for _ln in l:
-        #     model.add_entity(_ln.to_iges())
-        #
-        # for _cv in c:
-        #     model.add_entity(_cv.to_iges())
-        #
-        # for _sf in s:
-        #     model.add_entity(_sf.to_iges())
-        #
-        # model.write()
-        # if auto_view:
-        #     view(fn)
 
         '''Node number'''
         n = np.full(8, 50, int)
@@ -527,11 +503,10 @@ if __name__ == '__main__':
         for i in range(len(blk_list)):
             calc_blk(i, blk_list[i], blk_param_list[i])
 
-        # cores = multiprocessing.cpu_count()
-        # pool = multiprocessing.Pool(processes=cores)
+        # core_num = multiprocessing.cpu_count()
+        # pool = multiprocessing.Pool(processes=core_num)
         # for i in range(len(blk_list)):
-        #     result = pool.apply_async(calc_blk, (i, blk_list[i], blk_param_list[i]))
-        #     cur_result.append(result)
+        #     pool.apply_async(calc_blk, (i, blk_list[i], blk_param_list[i]))
         # pool.close()
         # pool.join()
 
@@ -635,6 +610,5 @@ if __name__ == '__main__':
                ((12, 6), (0, 0), 0, False)]
 
         '''构建MSH文件'''
-        # p3d_grid.write('3D_Wing(with_farfield).xyz')
         msh = XF_MSH.from_str3d_multi(blk, bc, adj)
-        msh.save('3D_Wing(with_farfield)_{}.msh'.format(_spk))
+        msh.save('HWB_Wing_{}.msh'.format(_spk))
