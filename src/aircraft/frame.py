@@ -80,7 +80,8 @@ class WingFrame(object):
         a2 = self.span
         a3 = self.root_chord_len
         a4 = self.tip_chord_len
-        a5 = a4 / a3
+        a5 = a3 / a4
+        a6 = a2 ** 2 / a0
 
         ret = "Wing Planar Frame Info:\n"
         ret += "Area: {:.4f} m^2\n".format(a0)
@@ -89,6 +90,7 @@ class WingFrame(object):
         ret += "Root: {:.3f} m\n".format(a3)
         ret += "Tip: {:.3f} m\n".format(a4)
         ret += "Taper Ratio: {:.3f}".format(a5)
+        ret += "Aspect Ratio: {:.3f}".format(a6)
 
         return ret
 
@@ -108,6 +110,7 @@ class WingFrame(object):
         plt.plot(z, xt, label='Tail')
         plt.legend()
         plt.gca().invert_yaxis()
+        plt.gca().set_aspect('equal')
 
         for u in section:
             plt.plot([self.f_z(u), self.f_z(u)], [self.f_xf(u), self.f_xt(u)], '--')
@@ -173,7 +176,8 @@ class BWBFrame(WingFrame):
         a2 = self.span
         a3 = self.root_chord_len
         a4 = self.tip_chord_len
-        a5 = a4 / a3
+        a5 = a3 / a4
+        a6 = a2 ** 2 / a0
 
         ret = "Blended-Wing-Body Configuration Parametric Info:\n"
         ret += "General Info:\n"
@@ -183,6 +187,7 @@ class BWBFrame(WingFrame):
         ret += "Root Chord: {:.3f} m\n".format(a3)
         ret += "Tip Chord: {:.3f} m\n".format(a4)
         ret += "Taper Ratio: {:.3f}\n".format(a5)
+        ret += "Aspect Ratio: {:.3f}\n".format(a6)
         ret += "Unique Info:\n"
         ret += "Inner Span {:.3f} m\n".format(self.Bm)
         ret += "Mid Chord: {:.3f} m\n".format(self.Cm)
