@@ -261,6 +261,9 @@ class Wing(object):
 
         self.section = deepcopy(section_list)
 
+    def __repr__(self):
+        return "Wing with {} sections".format(self.section_num)
+
     @property
     def section_num(self):
         return len(self.section)
