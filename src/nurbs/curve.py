@@ -1105,3 +1105,63 @@ class ConicArc(ClampedNURBSCrv):
 
         '''Set-up'''
         super(ConicArc, self).__init__(nu, npw)
+
+
+class LocalCubicInterpolatedCrv(ClampedNURBSCrv):
+    def __init__(self, pts, tv):
+        """
+        Interpolate points using cubic bezier curve
+        with specified tangent vector on each segment ending.
+        :param pts: Points to be interpolated.
+        :param tv: Tangent vector.
+        """
+
+        if len(pts) != len(tv):
+            raise AssertionError("Inconsistent input.")
+
+        n = len(pts) - 1
+        pw = np.ones((2 * n + 2, 4))
+        u = np.zeros(2 * n + 6)
+
+        '''Init'''
+        array_smart_copy(pts[0], pw[0])
+        array_smart_copy(pts[-1], pw[-1])
+        u[-1] = u[-2] = 1.0
+        utv = np.empty_like(tv)
+        for k, t in enumerate(tv):
+            utv[k] = normalize(t)
+
+        '''Build Pw'''
+        for i in range(n):
+            t1 = utv[i + 1] + utv[i]
+            t2 = pts[i + 1] - pts[i]
+            a = 16 - norm(t1) ** 2
+            b = 12 * np.dot(t1, t2)
+            c = -36 * norm(t2) ** 2
+            dlt = b ** 2 - 4 * a * c
+
+            if dlt < 0:
+                raise ValueError("Invalid delta.")
+
+            dlt = math.sqrt(dlt)
+            x0 = 0.5 * (-b + dlt) / a
+            x1 = 0.5 * (-b - dlt) / a
+            alpha = x0 if x0 >= 0 else x1
+
+            p1 = pts[i] + alpha / 3 * utv[i]
+            p2 = pts[i + 1] - alpha / 3 * utv[i + 1]
+            array_smart_copy(p1, pw[2 * i + 1])
+            array_smart_copy(p2, pw[2 * i + 2])
+
+        '''Build Knot'''
+        prev = 0
+        for i in range(1, n + 1):
+            k = i - 1
+            cur = prev + 3 * pnt_dist(pw[2 * k + 1][:3], pts[k])
+            prev = cur
+            u[2 + 2 * i] = u[3 + 2 * i] = cur
+
+        for i in range(4, len(u) - 2):
+            u[i] /= prev
+
+        super(LocalCubicInterpolatedCrv, self).__init__(u, pw)
