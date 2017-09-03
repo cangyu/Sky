@@ -1,4 +1,5 @@
 from copy import deepcopy
+import sys
 from numpy.linalg import norm
 from scipy.linalg import solve
 from scipy.interpolate import BSpline, make_interp_spline
@@ -1165,3 +1166,72 @@ class LocalCubicInterpolatedCrv(ClampedNURBSCrv):
             u[i] /= prev
 
         super(LocalCubicInterpolatedCrv, self).__init__(u, pw)
+
+
+def point_inverse(c, p, dim=None):
+    """
+    Find the parameter 'u' s.t. c(u) = p
+    :param c: Target curve.
+    :type c: ClampedNURBSCrv
+    :param p: Target point.
+    :param dim: Dimension indicator.
+    :type dim: int
+    :return: The parameter.
+    :rtype: float
+    """
+
+    if dim is not None and dim >= 3:
+        raise ValueError("Inconsistent input.")
+
+    '''Find initial u0'''
+    val = np.unique(c.U)
+    seg = len(val) - 1
+    uc = []
+    for i in range(seg):
+        cs = val[i]
+        ce = val[i + 1]
+        cud = list(np.linspace(cs, ce, 10))
+        uc += cud[:-1]
+    uc.append(val[-1])
+
+    min_idx = 0
+    min_dist = sys.float_info.max
+
+    if dim is None:
+        for k, pu in enumerate(uc):
+            cd = pnt_dist(c(pu), p)
+            if cd < min_dist:
+                min_dist = cd
+                min_idx = k
+        u0 = uc[min_idx]
+
+        '''Newton Iteration'''
+        tmp1 = c(u0) - p
+        eps1 = norm(tmp1)
+        tmp2 = c(u0, 1)
+        eps2 = math.fabs(np.dot(tmp1, tmp2)) / (norm(tmp1) * norm(tmp2))
+        while eps1 > 1e-7 or eps2 > 1e-7:
+            u = u0 - np.dot(tmp2, tmp1) / (np.dot(c(u0, 2), tmp1) + norm(tmp2) ** 2)
+            tmp1 = c(u) - p
+            eps1 = norm(tmp1)
+            tmp2 = c(u, 1)
+            eps2 = math.fabs(np.dot(tmp1, tmp2)) / (norm(tmp1) * norm(tmp2))
+            u0 = u
+    else:
+        for k, pu in enumerate(uc):
+            cd = math.fabs(c(pu)[dim] - p)
+            if cd < min_dist:
+                min_dist = cd
+                min_idx = k
+        u0 = uc[min_idx]
+
+        '''Newton Iteration'''
+        tmp1 = c(u0)[dim] - p
+        eps1 = math.fabs(tmp1)
+        while eps1 > 1e-7:
+            u = u0 - tmp1 / c(u0, 1)[dim]
+            tmp1 = c(u)[dim] - p
+            eps1 = math.fabs(tmp1)
+            u0 = u
+
+    return u0
