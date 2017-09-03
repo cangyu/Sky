@@ -257,3 +257,8 @@ class BWBFrame(WingFrame):
 
         '''Build'''
         return BWBFrame(c_root, c_mid, c_tip, b_mid, span2, alpha_mid, alpha_tip)
+
+
+class HWBFrame(WingFrame):
+    def __init__(self):
+        pass

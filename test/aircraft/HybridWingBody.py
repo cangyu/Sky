@@ -58,7 +58,7 @@ if __name__ == '__main__':
     thickness_factor = np.ones(sec_num)
 
     '''LHS'''
-    n = sec_num // 2
+    n = sec_num * 10
     twist_range = np.array([np.linspace(-0.50, 6.50, n),
                             np.linspace(-0.50, 6.50, n),
                             np.linspace(-2.50, 2.20, n),
