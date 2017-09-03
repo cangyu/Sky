@@ -1,10 +1,11 @@
-import math
+from math import sin, cos, tan, radians, fabs
 from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
+from src.nurbs.curve import LocalCubicInterpolatedCrv
 
 
 class WingFrame(object):
@@ -50,7 +51,7 @@ class WingFrame(object):
         :rtype: float
         """
 
-        return 2 * math.fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
+        return 2 * fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
 
     @property
     def mean_aerodynamic_chord(self):
@@ -60,7 +61,7 @@ class WingFrame(object):
         :rtype: float
         """
 
-        return self.z(1) * math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
+        return self.z(1) * fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
 
     @property
     def span(self):
@@ -151,9 +152,9 @@ class BWBFrame(WingFrame):
         tail_pnt = np.empty((3, 3), float)
         front_pnt[0] = np.zeros(3)
         tail_pnt[0] = np.array([self.Cr, 0, 0])
-        front_pnt[1] = np.array([self.Bm * math.tan(math.radians(self.Am)), 0, self.Bm])
+        front_pnt[1] = np.array([self.Bm * tan(radians(self.Am)), 0, self.Bm])
         tail_pnt[1] = np.array([front_pnt[1][0] + self.Cm, 0, self.Bm])
-        front_pnt[2] = np.array([front_pnt[1][0] + (self.Bt - self.Bm) * math.tan(math.radians(self.At)), 0, self.Bt])
+        front_pnt[2] = np.array([front_pnt[1][0] + (self.Bt - self.Bm) * tan(radians(self.At)), 0, self.Bt])
         tail_pnt[2] = np.array([front_pnt[2][0] + self.Ct, 0, self.Bt])
 
         '''Build interpolated functions'''
@@ -219,8 +220,8 @@ class BWBFrame(WingFrame):
         """
 
         '''Local constants'''
-        tg1 = math.tan(math.radians(alpha_mid))
-        tg2 = math.tan(math.radians(alpha_tip))
+        tg1 = tan(radians(alpha_mid))
+        tg2 = tan(radians(alpha_tip))
 
         def f(_x):
             """
@@ -259,6 +260,49 @@ class BWBFrame(WingFrame):
         return BWBFrame(c_root, c_mid, c_tip, b_mid, span2, alpha_mid, alpha_tip)
 
 
-class HWBFrame(WingFrame):
-    def __init__(self):
-        pass
+class HWBFrame(object):
+    def __init__(self, cr, spn, fl, alpha, tl, beta):
+        """
+        Parametric wing Planform for HWB configuration.
+        :param cr: Length of the root-chord.
+        :type cr: float
+        :param spn: Half of the span of the wing.
+        :type spn: float
+        :param fl: Front segment length.
+        :param alpha: Front segment sweep-back.
+        :param tl: Tail segment length.
+        :param beta: Tail segment sweep-back.
+        """
+
+        '''Front'''
+        fsl = np.array([fl[0], fl[1], fl[2], 0])
+        fsl[-1] = spn - sum(fl)
+        fp = np.zeros((5, 3))
+        for i in range(4):
+            fp[i + 1] = fp[i]
+            fp[i + 1][0] += fsl[i] * tan(alpha[i])
+            fp[i + 1][2] += fsl[i]
+        ftv = np.array([[0, 0, 1],
+                        [sin(alpha[1]), 0, cos(alpha[1])],
+                        [sin(alpha[1]), 0, cos(alpha[1])],
+                        [sin(alpha[3]), 0, cos(alpha[3])],
+                        [sin(alpha[3]), 0, cos(alpha[3])]])
+
+        '''Tail'''
+        tsl = np.array([tl[0], tl[1], tl[2], 0])
+        tsl[-1] = spn - sum(tsl[:-1])
+        tp = np.zeros((5, 3))
+        tp[0][0] = cr
+        for i in range(4):
+            tp[i + 1] = tp[i]
+            tp[i + 1][0] += tsl[i] * tan(beta[i])
+            tp[i + 1][2] += tsl[i]
+        ttv = np.array([[0, 0, 1],
+                        [sin(beta[1]), 0, cos(beta[1])],
+                        [sin(beta[1]), 0, cos(beta[1])],
+                        [sin(beta[3]), 0, cos(beta[3])],
+                        [sin(beta[3]), 0, cos(beta[3])]])
+
+        '''Interpolation'''
+        self.fc = LocalCubicInterpolatedCrv(fp, ftv)
+        self.tc = LocalCubicInterpolatedCrv(tp, ttv)
