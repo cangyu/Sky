@@ -1,11 +1,12 @@
-from math import sin, cos, tan, radians, fabs
+from math import sin, cos, tan, radians, fabs, atan2
 from copy import deepcopy
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
-from src.nurbs.curve import LocalCubicInterpolatedCrv
+from src.nurbs.curve import LocalCubicInterpolatedCrv, Line, point_inverse
+from src.nurbs.surface import Coons
 
 
 class WingFrame(object):
@@ -261,27 +262,43 @@ class BWBFrame(WingFrame):
 
 
 class HWBFrame(object):
-    def __init__(self, cr, spn, fl, alpha, tl, beta):
+    def __init__(self, spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.5):
         """
         Parametric wing Planform for HWB configuration.
-        :param cr: Length of the root-chord.
-        :type cr: float
         :param spn: Half of the span of the wing.
         :type spn: float
+        :param cr: Length of the root-chord.
+        :type cr: float
+        :param ct: Length of the tip-chord.
+        :type ct: float
         :param fl: Front segment length.
         :param alpha: Front segment sweep-back.
         :param tl: Tail segment length.
         :param beta: Tail segment sweep-back.
+        :param outer_taper: Taper ratio of the outer wing.
+        :type outer_taper: float
         """
 
+        if len(fl) != 4:
+            raise AssertionError("Invalid input of front segment length.")
+        if len(alpha) != 4:
+            raise AssertionError("Invalid input of front segment sweep-back.")
+        if len(tl) != 4:
+            raise AssertionError("Invalid input of tail segment length.")
+        if len(beta) != 4:
+            raise AssertionError("Invalid input of tail segment sweep-back.")
+
         '''Front'''
-        fsl = np.array([fl[0], fl[1], fl[2], 0])
-        fsl[-1] = spn - sum(fl)
+        fl[-1] = spn - sum(fl[:-1])
+        for l in fl:
+            if l < 0:
+                raise ValueError("Invalid parameter.")
+
         fp = np.zeros((5, 3))
         for i in range(4):
             fp[i + 1] = fp[i]
-            fp[i + 1][0] += fsl[i] * tan(alpha[i])
-            fp[i + 1][2] += fsl[i]
+            fp[i + 1][0] += fl[i] * tan(alpha[i])
+            fp[i + 1][2] += fl[i]
         ftv = np.array([[0, 0, 1],
                         [sin(alpha[1]), 0, cos(alpha[1])],
                         [sin(alpha[1]), 0, cos(alpha[1])],
@@ -289,14 +306,28 @@ class HWBFrame(object):
                         [sin(alpha[3]), 0, cos(alpha[3])]])
 
         '''Tail'''
-        tsl = np.array([tl[0], tl[1], tl[2], 0])
-        tsl[-1] = spn - sum(tsl[:-1])
+        tl[-1] = fl[-1]
+        tl[-2] = spn - (tl[0] + tl[1] + tl[-1])
+        for l in tl:
+            if l < 0:
+                raise ValueError("Invalid parameter.")
+
         tp = np.zeros((5, 3))
         tp[0][0] = cr
-        for i in range(4):
+        for i in range(2):
             tp[i + 1] = tp[i]
-            tp[i + 1][0] += tsl[i] * tan(beta[i])
-            tp[i + 1][2] += tsl[i]
+            tp[i + 1][0] += tl[i] * tan(beta[i])
+            tp[i + 1][2] += tl[i]
+
+        tp[-1] = fp[-1]
+        tp[-1][0] += ct
+
+        tp[-2] = fp[-2]
+        tp[-2][0] += outer_taper * ct
+
+        beta[-1] = atan2(tp[-1][0] - tp[-2][0], tl[-1])
+        beta[-2] = atan2(tp[-2][0] - tp[-3][0], tl[-2])
+
         ttv = np.array([[0, 0, 1],
                         [sin(beta[1]), 0, cos(beta[1])],
                         [sin(beta[1]), 0, cos(beta[1])],
@@ -304,5 +335,47 @@ class HWBFrame(object):
                         [sin(beta[3]), 0, cos(beta[3])]])
 
         '''Interpolation'''
-        self.fc = LocalCubicInterpolatedCrv(fp, ftv)
-        self.tc = LocalCubicInterpolatedCrv(tp, ttv)
+        self.front_crv = LocalCubicInterpolatedCrv(fp, ftv)
+        self.tail_crv = LocalCubicInterpolatedCrv(tp, ttv)
+        self.root_line = Line(fp[0], tp[0])
+        self.tip_line = Line(fp[-1], tp[-1])
+        self.planform_surf = Coons(self.root_line, self.tip_line, self.front_crv, self.tail_crv)
+
+    def show(self, dist):
+        n = 1000
+        u_dist = np.linspace(0, 1.0, n)
+        zf = np.empty(n, float)
+        zt = np.empty(n, float)
+        xf = np.empty(n, float)
+        xt = np.empty(n, float)
+        for k in range(n):
+            fp = self.front_crv(u_dist[k])
+            tp = self.tail_crv(u_dist[k])
+            xf[k] = fp[0]
+            zf[k] = fp[2]
+            xt[k] = tp[0]
+            zt[k] = tp[2]
+
+        spn = self.front_crv.end[2]
+        cdst = np.copy(dist) * spn
+        fu = np.copy(cdst)
+        tu = np.copy(cdst)
+        for k, u in enumerate(fu):
+            fu[k] = point_inverse(self.front_crv, u, 2)
+        for k, u in enumerate(tu):
+            tu[k] = point_inverse(self.tail_crv, u, 2)
+
+        plt.figure()
+        plt.plot(zf, xf, label='Leading Edge')
+        plt.plot(zt, xt, label='Trailing Edge')
+        plt.legend()
+        plt.gca().invert_yaxis()
+        plt.gca().set_aspect('equal')
+
+        for k, u in enumerate(cdst):
+            tfx = self.front_crv(fu[k])[0]
+            ttx = self.tail_crv(tu[k])[0]
+            plt.plot([u, u], [tfx, ttx], '--')
+            plt.text(u, (tfx + ttx) / 2, str(k))
+
+        plt.show()

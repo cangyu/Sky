@@ -19,8 +19,8 @@ tl = np.array([1.5, 4.5, 2.5])
 beta = np.radians([-27, -42, -10, 12.5])
 frm = HWBFrame(cr, spn, fl, alpha, tl, beta)
 
-fc = frm.fc
-tc = frm.tc
+fc = frm.front_crv
+tc = frm.tail_crv
 
 p = fc(0.23)
 
