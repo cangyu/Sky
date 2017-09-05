@@ -8,6 +8,7 @@ __pycache__
 *.nb
 *.fmt
 *.plt
-XFOIL6.99/
+*.png
+airfoil/tool/XFOIL6.99/
 tmp/
 .vs/
