@@ -11,18 +11,13 @@ if __name__ == '__main__':
     side = 0
 
     f = open(fn)
-
     for k, line in enumerate(f):
-        if k < 3:
-            continue
-
         if line.startswith('\n'):
             side = 1
             continue
 
         x, y = line.split()
         crd[side].append(np.array([float(x), float(y)]))
-
     f.close()
 
     f = open(fn, 'w')

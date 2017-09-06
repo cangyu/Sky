@@ -67,23 +67,28 @@ frm.show(u_dist)
 
 '''Profile details'''
 sec_num = len(u_dist)
-swp = np.array([0, 15, 21, 32, 56, 56, 56], float)
-tc = np.array([24, 24, 23, 22, 18, 14, 13, 12, 11, 10, 9, 8, 8, 8], float)
-cl = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.42, 0.28, 0.09, 0], float)
-print(1.1 * cl / math.cos(math.radians(28)) ** 2)
+front_swp = np.zeros(sec_num)
+for i in range(sec_num):
+    tg = frm.front_crv(u_dist[i], 1)
+    front_swp[i] = math.degrees(math.atan2(tg[0], tg[2]))
+
+tc_3d = np.array([22, 22, 20, 18, 16, 14, 13, 12, 11, 10, 9, 8, 8, 8], float)
+cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0], float)
+cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(28)) ** 2
+print(cl_2d)
 
 '''Show distribution'''
 f, axarr = plt.subplots(2, sharex=True)
-axarr[0].plot(u_dist * spn, tc / 100)
-axarr[0].set_ylim([0, tc[0] / 100 * 1.1])
+axarr[0].plot(u_dist * spn, tc_3d / 100)
+axarr[0].set_ylim([0, tc_3d[0] / 100 * 1.1])
 axarr[0].set_title('t/c in span-wise')
-axarr[1].plot(u_dist * spn, cl)
+axarr[1].plot(u_dist * spn, cl_3d)
 axarr[1].set_title('Cl in span-wise')
 plt.show()
 
-foil = ['NACA23024', 'SC20414',
-        'SC20612',
-        'SC20712', 'SC20710',
-        'SC20710', 'SC20710',
+foil = ['NACA14122', 'NACA14022',
+        'NACA63(4)-221',
+        'NACA63(3)-218', 'NLF(1)-0416',
+        'NLF(1)-0414F', 'SC20710',
         'SC21006', 'SC20706', 'SC20706',
         'SC20606', 'SC20406', 'SC21010', 'SC21006', 'SC21006']
