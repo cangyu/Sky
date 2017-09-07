@@ -1,5 +1,5 @@
 from math import sin, cos, tan, radians, fabs, atan2
-from copy import deepcopy
+from abc import ABCMeta, abstractmethod
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
@@ -9,37 +9,66 @@ from src.nurbs.curve import LocalCubicInterpolatedCrv, Line, point_inverse
 from src.nurbs.surface import Coons
 
 
-class WingFrame(object):
-    def __init__(self, xf, xt, yf, yt, z):
-        """
-        机翼外框描述
-        :param xf: 前缘x坐标的参数方程
-        :param xt: 后缘x坐标的参数方程
-        :param yf: 前缘y坐标的参数方程
-        :param yt: 后缘y坐标的参数方程
-        :param z: z坐标的参数方程
-        """
-
-        self.f_xf = deepcopy(xf)
-        self.f_xt = deepcopy(xt)
-        self.f_yf = deepcopy(yf)
-        self.f_yt = deepcopy(yt)
-        self.f_z = deepcopy(z)
-
+class WingFrame(metaclass=ABCMeta):
+    @abstractmethod
     def x_front(self, u):
-        return self.f_xf(u)
+        """
+        Calculate the X-coordinate on leading edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on leading edge.
+        :rtype: float
+        """
 
+        pass
+
+    @abstractmethod
     def x_tail(self, u):
-        return self.f_xt(u)
+        """
+        Calculate the X-coordinate on trailing edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on trailing edge.
+        :rtype: float
+        """
 
+        pass
+
+    @abstractmethod
     def y_front(self, u):
-        return self.f_yf(u)
+        """
+        Calculate the Y-coordinate on leading edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: Y-coordinate on leading edge.
+        :rtype: float
+        """
 
+        pass
+
+    @abstractmethod
     def y_tail(self, u):
-        return self.f_yt(u)
+        """
+        Calculate the Y-coordinate on leading edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: Y-coordinate on leading edge.
+        :rtype: float
+        """
 
+        pass
+
+    @abstractmethod
     def z(self, u):
-        return self.f_z(u)
+        """
+        Calculate the Z-coordinate in span-wise direction.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: Z-coordinate in span-wise direction.
+        :rtype: float
+        """
+
+        pass
 
     def chord_len(self, u):
         return self.x_tail(u) - self.x_front(u)
@@ -76,48 +105,9 @@ class WingFrame(object):
     def tip_chord_len(self):
         return self.chord_len(1)
 
+    @abstractmethod
     def __str__(self):
-        a0 = self.area
-        a1 = self.mean_aerodynamic_chord
-        a2 = self.span
-        a3 = self.root_chord_len
-        a4 = self.tip_chord_len
-        a5 = a3 / a4
-        a6 = a2 ** 2 / a0
-
-        ret = "Wing Planar Frame Info:\n"
-        ret += "Area: {:.4f} m^2\n".format(a0)
-        ret += "MAC: {:.3f} m\n".format(a1)
-        ret += "Span: {:.3f} m\n".format(a2)
-        ret += "Root: {:.3f} m\n".format(a3)
-        ret += "Tip: {:.3f} m\n".format(a4)
-        ret += "Taper Ratio: {:.3f}".format(a5)
-        ret += "Aspect Ratio: {:.3f}".format(a6)
-
-        return ret
-
-    def show(self, section):
-        n = 1000
-        u_dist = np.linspace(0, 1.0, n)
-        z = np.empty(n, float)
-        xf = np.empty(n, float)
-        xt = np.empty(n, float)
-        for k in range(n):
-            z[k] = self.z(u_dist[k])
-            xf[k] = self.x_front(u_dist[k])
-            xt[k] = self.x_tail(u_dist[k])
-
-        plt.figure()
-        plt.plot(z, xf, label='Front')
-        plt.plot(z, xt, label='Tail')
-        plt.legend()
-        plt.gca().invert_yaxis()
-        plt.gca().set_aspect('equal')
-
-        for u in section:
-            plt.plot([self.f_z(u), self.f_z(u)], [self.f_xf(u), self.f_xt(u)], '--')
-
-        plt.show()
+        pass
 
 
 class BWBFrame(WingFrame):
@@ -140,6 +130,7 @@ class BWBFrame(WingFrame):
         :type alpha_tip: float
         """
 
+        '''Basic geometric parameters'''
         self.Cr = c_root
         self.Cm = c_mid
         self.Ct = c_tip
@@ -149,28 +140,53 @@ class BWBFrame(WingFrame):
         self.At = alpha_tip
 
         '''Calculate pivots on each curve'''
-        front_pnt = np.empty((3, 3), float)
-        tail_pnt = np.empty((3, 3), float)
-        front_pnt[0] = np.zeros(3)
-        tail_pnt[0] = np.array([self.Cr, 0, 0])
-        front_pnt[1] = np.array([self.Bm * tan(radians(self.Am)), 0, self.Bm])
-        tail_pnt[1] = np.array([front_pnt[1][0] + self.Cm, 0, self.Bm])
-        front_pnt[2] = np.array([front_pnt[1][0] + (self.Bt - self.Bm) * tan(radians(self.At)), 0, self.Bt])
-        tail_pnt[2] = np.array([front_pnt[2][0] + self.Ct, 0, self.Bt])
+        front_pnt = np.zeros((3, 3))
+        tail_pnt = np.zeros((3, 3))
+        tail_pnt[0][0] = self.Cr
+        front_pnt[1][0] = self.Bm * tan(radians(self.Am))
+        front_pnt[1][2] = self.Bm
+        tail_pnt[1][0] = front_pnt[1][0] + self.Cm
+        tail_pnt[1][2] = self.Bm
+        front_pnt[2][0] = front_pnt[1][0] + (self.Bt - self.Bm) * tan(radians(self.At))
+        front_pnt[2][2] = self.Bt
+        tail_pnt[2][0] = front_pnt[2][0] + self.Ct
+        tail_pnt[2][2] = self.Bt
 
         '''Build interpolated functions'''
-        u = np.array([0, self.Bm / self.Bt, 1.0])
-        z = np.array([0, self.Bm, self.Bt])
-        xf = np.array([front_pnt[0][0], front_pnt[1][0], front_pnt[2][0]])
-        yf = np.array([front_pnt[0][1], front_pnt[1][1], front_pnt[2][1]])
-        xt = np.array([tail_pnt[0][0], tail_pnt[1][0], tail_pnt[2][0]])
-        yt = np.array([tail_pnt[0][1], tail_pnt[1][1], tail_pnt[2][1]])
+        self.u = np.array([0, self.Bm / self.Bt, 1.0])
+        self.zw = np.array([0, self.Bm, self.Bt])
+        self.xf = make_interp_spline(self.u, front_pnt[:, 0], 3, bc_type=([(1, 0)], [(2, 0)]))
+        self.xt = make_interp_spline(self.u, tail_pnt[:, 0], 3, bc_type=([(1, 0)], [(2, 0)]))
 
-        super(BWBFrame, self).__init__(make_interp_spline(u, xf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, xt, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, yf, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       make_interp_spline(u, yt, 3, bc_type=([(1, 0)], [(2, 0)])),
-                                       lambda t: z[1] * t / u[1] if t <= u[1] else z[1] + (z[2] - z[1]) * (t - u[1]) / (u[2] - u[1]))
+    def x_front(self, u):
+        return self.x_front(u)
+
+    def x_tail(self, u):
+        return self.xt(u)
+
+    def y_front(self, u):
+        return 0
+
+    def y_tail(self, u):
+        return 0
+
+    def z(self, u):
+        if u <= self.u[1]:
+            return self.zw[1] * u / self.u[1]
+        else:
+            return self.zw[1] + (self.zw[2] - self.zw[1]) * (u - self.u[1]) / (self.u[2] - self.u[1])
+
+    @property
+    def span(self):
+        return 2 * self.Bt
+
+    @property
+    def root_chord_len(self):
+        return self.Cr
+
+    @property
+    def tip_chord_len(self):
+        return self.Ct
 
     def __str__(self):
         a0 = self.area
@@ -181,7 +197,7 @@ class BWBFrame(WingFrame):
         a5 = a3 / a4
         a6 = a2 ** 2 / a0
 
-        ret = "Blended-Wing-Body Configuration Parametric Info:\n"
+        ret = "Blended-Wing-Body Parametric Info:\n"
         ret += "General Info:\n"
         ret += "Area: {:.4f} m^2\n".format(a0)
         ret += "MAC: {:.3f} m\n".format(a1)
@@ -197,6 +213,40 @@ class BWBFrame(WingFrame):
         ret += "Outer wing sweep-back: {:.2f} (deg)".format(self.At)
 
         return ret
+
+    def show(self, section=None, n=1000):
+        """
+        Plot the leading edge, trailing edge, and profile dashes.
+        :param section: Section distribution.
+        :param n: Number of sampling points.
+        :param n: int
+        :return: None.
+        """
+
+        '''Show leading and trailing edge'''
+        u_dist = np.linspace(0, 1.0, n)
+        z = np.empty(n, float)
+        xf = np.empty(n, float)
+        xt = np.empty(n, float)
+        for k in range(n):
+            z[k] = self.z(u_dist[k])
+            xf[k] = self.x_front(u_dist[k])
+            xt[k] = self.x_tail(u_dist[k])
+
+        plt.figure()
+        plt.plot(z, xf, label='Leading Edge')
+        plt.plot(z, xt, label='Trailing Edge')
+        plt.legend()
+        plt.gca().invert_yaxis()
+        plt.gca().set_aspect('equal')
+
+        '''Show profiles'''
+        if section is not None:
+            for u in section:
+                zp = self.z(u)
+                plt.plot([zp, zp], [self.x_front(u), self.x_tail(u)], '--')
+
+        plt.show()
 
     @classmethod
     def from_area_mac_span(cls, area2, mac, span2, c_root, c_tip, alpha_mid, alpha_tip):
@@ -261,7 +311,7 @@ class BWBFrame(WingFrame):
         return BWBFrame(c_root, c_mid, c_tip, b_mid, span2, alpha_mid, alpha_tip)
 
 
-class HWBFrame(object):
+class HWBFrame(WingFrame):
     def __init__(self, spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.5):
         """
         Parametric wing Planform for HWB configuration.
@@ -287,6 +337,12 @@ class HWBFrame(object):
             raise AssertionError("Invalid input of tail segment length.")
         if len(beta) != 4:
             raise AssertionError("Invalid input of tail segment sweep-back.")
+
+        '''Basic Wing Planform parameters'''
+        self.Spn2 = spn
+        self.Cr = cr
+        self.Ct = ct
+        self.OuterTaperRatio = outer_taper
 
         '''Front'''
         fl[-1] = spn - sum(fl[:-1])
@@ -334,6 +390,11 @@ class HWBFrame(object):
                         [sin(beta[3]), 0, cos(beta[3])],
                         [sin(beta[3]), 0, cos(beta[3])]])
 
+        self.fl = np.copy(fl)
+        self.alpha = np.copy(alpha)
+        self.tl = np.copy(tl)
+        self.beta = np.copy(beta)
+
         '''Interpolation'''
         self.front_crv = LocalCubicInterpolatedCrv(fp, ftv)
         self.tail_crv = LocalCubicInterpolatedCrv(tp, ttv)
@@ -341,8 +402,62 @@ class HWBFrame(object):
         self.tip_line = Line(fp[-1], tp[-1])
         self.planform_surf = Coons(self.root_line, self.tip_line, self.front_crv, self.tail_crv)
 
-    def show(self, dist):
-        n = 1000
+    def x_front(self, u):
+        zp = self.z(u)
+        lu = point_inverse(self.front_crv, zp, 2)
+        return self.front_crv(lu)[0]
+
+    def x_tail(self, u):
+        zp = self.z(u)
+        lu = point_inverse(self.tail_crv, zp, 2)
+        return self.tail_crv(lu)[0]
+
+    def y_front(self, u):
+        return 0
+
+    def y_tail(self, u):
+        return 0
+
+    def z(self, u):
+        return u * self.Spn2
+
+    @property
+    def span(self):
+        return 2 * self.Spn2
+
+    @property
+    def root_chord_len(self):
+        return self.Cr
+
+    @property
+    def tip_chord_len(self):
+        return self.Ct
+
+    def __str__(self):
+        a0 = self.area
+        a1 = self.mean_aerodynamic_chord
+        a2 = self.span
+        a3 = self.root_chord_len
+        a4 = self.tip_chord_len
+        a5 = a3 / a4
+        a6 = a2 ** 2 / a0
+
+        ret = "HWB Wing Planform Info:\n"
+        ret += "General:\n"
+        ret += "Area: {:.4f} m^2\n".format(a0)
+        ret += "MAC: {:.3f} m\n".format(a1)
+        ret += "Span: {:.3f} m\n".format(a2)
+        ret += "Root: {:.3f} m\n".format(a3)
+        ret += "Tip: {:.3f} m\n".format(a4)
+        ret += "Taper Ratio: {:.3f}\n".format(a5)
+        ret += "AR: {:.3f}\n".format(a6)
+        ret += "Unique:\n"
+        ret += "Outer Span: {} m\n".format(self.fl[-1])
+        ret += "Outer AR: {}\n".format(2 * self.fl[-1] / (self.Ct * (1 + self.OuterTaperRatio) / 2))
+
+        return ret
+
+    def show(self, dist, n=1000):
         u_dist = np.linspace(0, 1.0, n)
         zf = np.empty(n, float)
         zt = np.empty(n, float)

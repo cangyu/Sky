@@ -47,7 +47,20 @@ if __name__ == '__main__':
     frm.show(u_dist)
 
     '''Profile details'''
-    foil = ['SC20414', 'SC20414', 'SC20612', 'SC20712', 'SC20710', 'SC20710', 'SC20710', 'SC21010', 'SC21010', 'SC21006', 'SC20706', 'SC20706', 'SC20606', 'SC20406']
+    foil = ['SC(2)-0414',
+            'SC(2)-0414',
+            'SC(2)-0612',
+            'SC(2)-0712',
+            'SC(2)-0710',
+            'SC(2)-0710',
+            'SC(2)-0710',
+            'SC(2)-1010',
+            'SC(2)-1010',
+            'SC(2)-1006',
+            'SC(2)-0706',
+            'SC(2)-0706',
+            'SC(2)-0606',
+            'SC(2)-0406']
     z_offset = list(map(frm.z, u_dist))
     length = list(map(lambda u: frm.chord_len(u), u_dist))
     sweep_back = list(map(lambda u: math.degrees(math.atan2(frm.x_front(u), frm.z(u))), u_dist))

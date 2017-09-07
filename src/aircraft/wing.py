@@ -38,6 +38,12 @@ class Airfoil(object):
     def __str__(self):
         return self.name
 
+    def to_blunt(self):
+        r = self.pts[-2][0]
+        for k, p in enumerate(self.pts):
+            self.pts[k][0] = p[0] / r
+        self.pts = self.pts[1:-1]
+
     @classmethod
     def update_airfoil_list(cls):
         for f in os.listdir(AIRFOIL_DIR):
@@ -56,6 +62,7 @@ class Airfoil(object):
         k = 1
         while k < total and self.pts[k][0] < cx:
             cx = self.pts[k][0]
+            k += 1
 
         return self.pts[k - 1]
 
@@ -77,7 +84,7 @@ class Airfoil(object):
 
     @property
     def is_blunt(self):
-        return equal(norm(self.pts[0] - self.pts[-1], np.inf), 0.0)
+        return not equal(norm(self.pts[0] - self.pts[-1], np.inf), 0.0)
 
     @property
     def pnt_num(self):
@@ -173,7 +180,10 @@ class WingProfile(Airfoil):
 
         '''Build section'''
         self.name = foil
-        self.pts = np.copy(super(WingProfile, self).read_pts(foil))
+        tfoil = Airfoil().from_database(foil)
+        if not tfoil.is_blunt:
+            tfoil.to_blunt()
+        self.pts = np.copy(tfoil.pts)
         n = self.pnt_num
         for i in range(n):
             '''Stretch, Z offset and Thickness'''
