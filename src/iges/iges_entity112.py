@@ -1,14 +1,16 @@
 import numpy as np
-from src.iges.iges_core import *
+from src.iges.iges_core import Entity
 
 
-class IGES_Entity112(IGES_Entity):
-    '''
-    Parametric Spline Curve
-    '''
+class Entity112(Entity):
+    def __init__(self, _t, _c):
+        """
+        Parametric Spline Curve
+        :param _t: Number of segments
+        :param _c: Coordinate polynomial
+        """
 
-    def __init__(self, T, C):
-        super(IGES_Entity112, self).__init__(112)
+        super(Entity112, self).__init__(112)
 
         # Spline Type
         self.CTYPE = int(3)
@@ -20,41 +22,45 @@ class IGES_Entity112(IGES_Entity):
         self.NDIM = int(3)
 
         # Number of segments
-        self.N = len(T) - 1
+        self.N = len(_t) - 1
 
         # Break points of piecewise polynomial
-        self.T = np.zeros(len(T))
-        for i in range(0, len(T)):
-            self.T[i] = T[i]
+        self.T = np.zeros(len(_t))
+        for i in range(0, len(_t)):
+            self.T[i] = _t[i]
 
         # Coordinate polynomial
         self.C = np.zeros((self.N, 3, 4))
         for i in range(0, self.N):
             for j in range(0, 3):
                 for k in range(0, 4):
-                    self.C[i][j][k] = C[i][j][k]
+                    self.C[i][j][k] = _c[i][j][k]
 
         # Terminal info
-        self.TPX0 = C[self.N][0][0]  # X value
-        self.TPX1 = C[self.N][0][1]  # X first derivative
-        self.TPX2 = C[self.N][0][2]  # X second derivative/2!
-        self.TPX3 = C[self.N][0][3]  # X third derivative/3!
+        self.TPX0 = _c[self.N][0][0]  # X value
+        self.TPX1 = _c[self.N][0][1]  # X first derivative
+        self.TPX2 = _c[self.N][0][2]  # X second derivative/2!
+        self.TPX3 = _c[self.N][0][3]  # X third derivative/3!
 
-        self.TPY0 = C[self.N][1][0]  # Y value
-        self.TPY1 = C[self.N][1][1]  # Y first derivative
-        self.TPY2 = C[self.N][1][2]  # Y second derivative/2!
-        self.TPY3 = C[self.N][1][3]  # Y third derivative/3!
+        self.TPY0 = _c[self.N][1][0]  # Y value
+        self.TPY1 = _c[self.N][1][1]  # Y first derivative
+        self.TPY2 = _c[self.N][1][2]  # Y second derivative/2!
+        self.TPY3 = _c[self.N][1][3]  # Y third derivative/3!
 
-        self.TPZ0 = C[self.N][2][0]  # Z value
-        self.TPZ1 = C[self.N][2][1]  # Z first derivative
-        self.TPZ2 = C[self.N][2][2]  # Z second derivative/2!
-        self.TPZ3 = C[self.N][2][3]  # Z third derivative/3!
+        self.TPZ0 = _c[self.N][2][0]  # Z value
+        self.TPZ1 = _c[self.N][2][1]  # Z first derivative
+        self.TPZ2 = _c[self.N][2][2]  # Z second derivative/2!
+        self.TPZ3 = _c[self.N][2][3]  # Z third derivative/3!
 
-    def BuildParam(self):
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
 
-        # Generate raw ASCII record without sequence number
-        param = ""
-        param += "{},".format(self.directory.Entity_Type_Number)
+        """Generate raw ASCII record without sequence number"""
+        param = "{},".format(self.directory.entity_type_number)
         param += "{},".format(self.CTYPE)
         param += "{},".format(self.H)
         param += "{},".format(self.NDIM)
@@ -81,4 +87,5 @@ class IGES_Entity112(IGES_Entity):
         param += "{},".format(self.TPZ2)
         param += "{};".format(self.TPZ3)
 
-        return self.ConvertRawToFormatted(param)
+        '''Convert to IGES formatted strings'''
+        return self.to_formatted(param)

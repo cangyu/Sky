@@ -1,14 +1,34 @@
 import numpy as np
-from src.iges.iges_core import IGES_Entity
+from ..iges.iges_core import Entity
 
 
-class IGES_Entity126(IGES_Entity):
-    '''
-    NURBS Curve Entity
-    '''
-
+class Entity126(Entity):
     def __init__(self, p, n, planar, closed, polynomial, periodic, knots, weights, ctrl_pts, sp, ep, norm, form=0):
-        super(IGES_Entity126, self).__init__(126)
+        """
+        NURBS Curve Entity
+        :param p: Degree of basis functions.
+        :type p: int
+        :param n: The last index of control points.
+        :type n: int
+        :param planar: 0 = non-planar, 1 = planar
+        :type planar: int
+        :param closed: 0 = open curve, 1 = closed curve
+        :type closed: int
+        :param polynomial: 0 = rational, 1 = polynomial
+        :type polynomial: int
+        :param periodic: 0 = non-periodic, 1 = periodic
+        :type periodic: int
+        :param knots: Knot vector.
+        :param weights: Rational weight coefficients.
+        :param ctrl_pts: Control points.
+        :param sp: Starting point.
+        :param ep: Ending point.
+        :param norm: Unit normal vector. (If curve is planar)
+        :param form: Form number. (0-5).
+        :type form: int
+        """
+
+        super(Entity126, self).__init__(126)
         self.directory.Form_Number = form
 
         m = n + p + 1
@@ -48,9 +68,14 @@ class IGES_Entity126(IGES_Entity):
             self.Y[i] = ctrl_pts[i][1]
             self.Z[i] = ctrl_pts[i][2]
 
-    def BuildParam(self):
-        param = ""
-        param += "{},".format(self.directory.Entity_Type_Number)
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
         param += "{},{},".format(self.K, self.M)
         param += "{},{},{},{},".format(self.PROP1, self.PROP2, self.PROP3, self.PROP4)
 
@@ -65,4 +90,4 @@ class IGES_Entity126(IGES_Entity):
 
         param += "{},{},{},{},{};".format(self.V[0], self.V[1], self.XNORM, self.YNORM, self.ZNORM)
 
-        return self.ConvertRawToFormatted(param)
+        return self.to_formatted(param)

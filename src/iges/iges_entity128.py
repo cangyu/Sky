@@ -1,15 +1,46 @@
 import numpy as np
-from src.iges.iges_core import IGES_Entity
+from ..iges.iges_core import Entity
 
 
-class IGES_Entity128(IGES_Entity):
-    '''
-    NURBS Surface Entity
-    '''
+class Entity128(Entity):
+    def __init__(self, u, v, p1, p2, n1, n2, ctrl_pts, weights, closed_u=0, closed_v=0, poly=1, periodic_u=0, periodic_v=0, us=0.0, ue=1.0, vs=0.0, ve=1.0, form=0):
+        """
+        NURBS Surface Entity
+        :param u: Knot vector in U direction.
+        :param v: Knot vector in V direction.
+        :param p1: Degree of the basis function in U direction.
+        :type p1: int
+        :param p2: Degree of the basis function in V direction.
+        :type p2: int
+        :param n1: The last index of the control points in U Direction.
+        :type n1: int
+        :param n2: The last index of the control points in V Direction.
+        :type n2: int
+        :param ctrl_pts: Control points.
+        :param weights: Weight on each control point.
+        :param closed_u: 1 = Closed in first parametric variable direction 0 = Not closed
+        :type closed_u: int
+        :param closed_v: 1 = Closed in second parametric variable direction 0 = Not closed
+        :type closed_v: int
+        :param poly: 0 = Rational 1 = Polynomial
+        :type poly: int
+        :param periodic_u: 0 = Non-periodic in first parametric variable direction 1 = Periodic in first parametric variable direction
+        :type periodic_u: int
+        :param periodic_v: 0 = Non-periodic in second parametric variable direction 1 = Periodic in second parametric variable direction
+        :type periodic_v: int
+        :param us: Starting value for first parametric direction.
+        :type us: float
+        :param ue: Ending value for first parametric direction.
+        :type ue: float
+        :param vs: Starting value for second parametric direction.
+        :type vs: float
+        :param ve: Ending value for second parametric direction.
+        :type ve: float
+        :param form: Form number.
+        :type form: int
+        """
 
-    def __init__(self, u, v, p1, p2, n1, n2, ctrl_pts, weights, closed_u=0, closed_v=0, poly=1, periodic_u=0, periodic_v=0, us=0.0, ue=1.0, vs=0.0, ve=1.0,
-                 form=0):
-        super(IGES_Entity128, self).__init__(128)
+        super(Entity128, self).__init__(128)
         self.directory.Form_Number = form
 
         if len(u) != 2 + p1 + n1:
@@ -54,9 +85,14 @@ class IGES_Entity128(IGES_Entity):
                 self.Y[i][j] = ctrl_pts[i][j][1]
                 self.Z[i][j] = ctrl_pts[i][j][2]
 
-    def BuildParam(self):
-        param = ""
-        param += "{},".format(self.directory.Entity_Type_Number)
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
         param += "{},{},{},{},".format(self.K1, self.K2, self.M1, self.M2)
         param += "{},{},{},{},{},".format(self.PROP1, self.PROP2, self.PROP3, self.PROP4, self.PROP5)
 
@@ -76,4 +112,4 @@ class IGES_Entity128(IGES_Entity):
 
         param += "{},{},{},{};".format(self.U[0], self.U[1], self.V[0], self.V[1])
 
-        return self.ConvertRawToFormatted(param)
+        return self.to_formatted(param)
