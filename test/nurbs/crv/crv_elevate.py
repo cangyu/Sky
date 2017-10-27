@@ -1,9 +1,11 @@
 import math
-import numpy as np
 from copy import deepcopy
-from src.nurbs.utility import equal
+
+import numpy as np
+
+from src.iges import IGES_Model
 from src.nurbs.curve import ClampedNURBSCrv
-from src.iges.iges_core import IGES_Model
+from src.nurbs.utility import equal
 
 try:
     from src.misc.catia import view

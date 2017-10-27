@@ -1,13 +1,13 @@
-import numpy as np
-import multiprocessing
-import os
 import math
-from src.aircraft.wing import Wing
-from src.aircraft.frame import HWBFrame
-from src.msh.spacing import chebshev_dist_multi
-from src.opt.latin import LatinHyperCube
-from src.iges.iges_core import IGES_Model
+import os
+
+import numpy as np
 from matplotlib import pylab as plt
+
+from src.aircraft.frame import HWBFrame
+from src.aircraft.wing import Wing
+from src.iges import IGES_Model
+from src.msh.spacing import chebshev_dist_multi
 
 try:
     from src.misc.catia import view
@@ -60,7 +60,7 @@ for i in range(sec_num):
     tg = frm.front_crv(u_dist[i], 1)
     front_swp[i] = math.degrees(math.atan2(tg[0], tg[2]))
 
-tc_3d = np.array([22, 22, 21, 18, 16, 14, 12, 10, 10, 10, 10, 10, 10, 10], float)
+tc_3d = np.array([22, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
 cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
 cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(28)) ** 2
 print(cl_2d)
@@ -104,7 +104,7 @@ fn = 'HWB_Wing.igs'
 model = IGES_Model(fn)
 model.add_entity(wg.surf().to_iges())
 model.write()
-if auto_view:
-    view(fn)
+# if auto_view:
+#     view(fn)
 
 # wg.gen_grid('HWB_Wing.msh')

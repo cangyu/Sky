@@ -1,6 +1,7 @@
 import unittest
+
+from src.iges import IGES_Model
 from src.nurbs.curve import Arc
-from src.iges.iges_core import IGES_Model
 
 try:
     from src.misc.catia import view

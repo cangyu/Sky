@@ -1,10 +1,12 @@
 import unittest
-import numpy as np
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+
 from src.aircraft.wing import Airfoil
+from src.iges import IGES_Model
 from src.nurbs.curve import Spline, GlobalInterpolatedCrv
-from src.iges.iges_core import IGES_Model
 
 try:
     from src.misc.catia import view

@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from src.nurbs.curve import GlobalInterpolatedCrv
 import matplotlib.pyplot as plt
+from settings import AIRFOIL_DIR
 
 
 def plot_airfoil_curvature(airfoil, p, method, sample_num=2000):
@@ -15,7 +16,7 @@ def plot_airfoil_curvature(airfoil, p, method, sample_num=2000):
     """
 
     '''Read points'''
-    fin = open('../../airfoil/' + airfoil + '.dat')
+    fin = open("{}/{}.dat".format(AIRFOIL_DIR, airfoil))
     pnt_list = []
     for pnt in fin:
         x, y, z = pnt.split()

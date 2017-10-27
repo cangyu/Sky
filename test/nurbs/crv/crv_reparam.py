@@ -1,7 +1,9 @@
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+
+from src.iges import IGES_Model
 from src.nurbs.curve import ClampedNURBSCrv
-from src.iges.iges_core import IGES_Model
 
 try:
     from src.misc.catia import view

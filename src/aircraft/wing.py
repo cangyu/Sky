@@ -1,18 +1,20 @@
 import math
 import os
-import matplotlib.pyplot as plt
 from copy import deepcopy
+
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-from src.iges.iges_core import IGES_Model
+
+from settings import AIRFOIL_DIR
+from src.aircraft.frame import WingFrame
+from src.iges import IGES_Model
+from src.msh.fluent import XF_MSH, BCType
+from src.msh.spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
+from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.nurbs.curve import GlobalInterpolatedCrv, Line, Arc, ClampedNURBSCrv
 from src.nurbs.surface import Skinned, RuledSurf, ClampedNURBSSurf
 from src.nurbs.utility import equal, pnt_dist
-from src.msh.spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from src.msh.fluent import XF_MSH, BCType
-from src.msh.tfi import LinearTFI3D, LinearTFI2D
-from src.aircraft.frame import WingFrame
-from settings import AIRFOIL_DIR
 
 
 class Airfoil(object):

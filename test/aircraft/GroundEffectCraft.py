@@ -1,12 +1,14 @@
+import math
 from copy import deepcopy
-from src.iges.iges_core import IGES_Model
-from src.nurbs.utility import *
+
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+from src.aircraft.wing import WingProfile
+from src.iges import IGES_Model
 from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc
 from src.nurbs.surface import Coons, RuledSurf
-from src.aircraft.wing import WingProfile
-from matplotlib.lines import Line2D
-import matplotlib.pyplot as plt
-import math
+from src.nurbs.utility import *
 
 try:
     from src.misc.catia import view

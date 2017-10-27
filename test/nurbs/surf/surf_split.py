@@ -1,6 +1,7 @@
-from src.nurbs.surface import ClampedNURBSSurf
-from src.iges.iges_core import IGES_Model
 import numpy as np
+
+from src.iges import IGES_Model
+from src.nurbs.surface import ClampedNURBSSurf
 
 try:
     from src.misc.catia import view

@@ -1,6 +1,8 @@
 import unittest
+
 import numpy as np
-from src.iges.iges_core import IGES_Model
+
+from src.iges import IGES_Model
 from src.nurbs.surface import GlobalInterpolatedSurf
 
 

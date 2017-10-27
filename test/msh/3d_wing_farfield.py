@@ -1,14 +1,15 @@
 import math
 from copy import deepcopy
-from src.aircraft.wing import Wing, WingProfile
+
 from src.aircraft.frame import BWBFrame
+from src.aircraft.wing import Wing, WingProfile
+from src.iges import IGES_Model
+from src.msh.fluent import XF_MSH, BCType
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
+from src.msh.spacing import *
+from src.msh.tfi import LinearTFI3D, LinearTFI2D
 from src.nurbs.curve import ClampedNURBSCrv, Line, Arc
 from src.nurbs.surface import ClampedNURBSSurf, RuledSurf
-from src.iges.iges_core import IGES_Model
-from src.msh.tfi import LinearTFI3D, LinearTFI2D
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
-from src.msh.fluent import XF_MSH, BCType
-from src.msh.spacing import *
 
 try:
     from src.misc.catia import view
@@ -304,8 +305,8 @@ for _sf in s:
     model.add_entity(_sf.to_iges())
 
 model.write()
-# if auto_view:
-#     view(fn)
+if auto_view:
+    view(fn)
 
 n0 = 60
 n1 = 60

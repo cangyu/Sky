@@ -1,6 +1,9 @@
 import time
 import getpass
 import platform
+import unittest
+import numpy as np
+from abc import abstractmethod
 
 
 class StartSection(object):
@@ -628,6 +631,10 @@ class Entity(object):
         self.prev_pos = int(-1)
         self.line_cnt = int(-1)
 
+    @abstractmethod
+    def __repr__(self):
+        pass
+
     def to_formatted(self, _param):
         """
         Add sequence number and pointer back to directory
@@ -669,17 +676,32 @@ class Model(object):
         self.EntitySeqCnt = 0
 
     @property
-    def entity_num(self):
+    def size(self):
         return len(self.comp)
 
-    def add_entity(self, part):
+    def add(self, part):
+        """
+        Add entity into current IGES model.
+        :param part: Entity to be added.
+        :type part: Entity
+        :return: None.
+        """
+
         self.comp.append(part)
+
+    def clear(self):
+        """
+        Clear all the entities in current IGES model.
+        :return: None.
+        """
+
+        self.comp.clear()
 
     def assemble_all(self):
         self.DirectorySeqCnt = 0
         self.EntitySeqCnt = 0
 
-        for i in range(self.entity_num):
+        for i in range(self.size):
             self.comp[i].directory.parameter_data = self.EntitySeqCnt + 1
             self.comp[i].directory.sequence_number = self.DirectorySeqCnt + 1
             self.DirectorySeqCnt += 2
@@ -720,7 +742,481 @@ class Model(object):
             model.write(cp.param_record)
 
         '''Write Terminate Section'''
-        model.write("{:72}T{:7d}\n".format("S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt), 1))
+        tp1 = "S{:7}G{:7}D{:7}P{:7}".format(self.StartSection.SeqCnt, self.GlobalSection.SeqCnt, self.DirectorySeqCnt, self.EntitySeqCnt)
+        tp2 = "{:72}T{:7d}\n".format(tp1, 1)
+        model.write(tp2)
 
         '''Done'''
         model.close()
+
+
+class Entity110(Entity):
+    def __init__(self, _p1, _p2, _form=0):
+        """
+        Line Entity
+        :param _p1: Starting point.
+        :param _p2: Ending point.
+        :param _form: Form number.
+        :type _form: int
+        """
+
+        super(Entity110, self).__init__(110)
+        self.directory.form_number = _form
+
+        self.X1 = float(_p1[0])
+        self.Y1 = float(_p1[1])
+        self.Z1 = float(_p1[2])
+        self.X2 = float(_p2[0])
+        self.Y2 = float(_p2[1])
+        self.Z2 = float(_p2[2])
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        ret = "{},".format(self.directory.entity_type_number)
+        ret += "{},{},{},".format(self.X1, self.Y1, self.Z1)
+        ret += "{},{},{};".format(self.X2, self.Y2, self.Z2)
+
+        return self.to_formatted(ret)
+
+
+class Entity112(Entity):
+    def __init__(self, _t, _c):
+        """
+        Parametric Spline Curve
+        :param _t: Number of segments
+        :param _c: Coordinate polynomial
+        """
+
+        super(Entity112, self).__init__(112)
+
+        # Spline Type
+        self.CTYPE = int(3)
+
+        # Degree of continuity with respect to arc length
+        self.H = int(2)
+
+        # Number of dimensions
+        self.NDIM = int(3)
+
+        # Number of segments
+        self.N = len(_t) - 1
+
+        # Break points of piecewise polynomial
+        self.T = np.zeros(len(_t))
+        for i in range(0, len(_t)):
+            self.T[i] = _t[i]
+
+        # Coordinate polynomial
+        self.C = np.zeros((self.N, 3, 4))
+        for i in range(0, self.N):
+            for j in range(0, 3):
+                for k in range(0, 4):
+                    self.C[i][j][k] = _c[i][j][k]
+
+        # Terminal info
+        self.TPX0 = _c[self.N][0][0]  # X value
+        self.TPX1 = _c[self.N][0][1]  # X first derivative
+        self.TPX2 = _c[self.N][0][2]  # X second derivative/2!
+        self.TPX3 = _c[self.N][0][3]  # X third derivative/3!
+
+        self.TPY0 = _c[self.N][1][0]  # Y value
+        self.TPY1 = _c[self.N][1][1]  # Y first derivative
+        self.TPY2 = _c[self.N][1][2]  # Y second derivative/2!
+        self.TPY3 = _c[self.N][1][3]  # Y third derivative/3!
+
+        self.TPZ0 = _c[self.N][2][0]  # Z value
+        self.TPZ1 = _c[self.N][2][1]  # Z first derivative
+        self.TPZ2 = _c[self.N][2][2]  # Z second derivative/2!
+        self.TPZ3 = _c[self.N][2][3]  # Z third derivative/3!
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        """Generate raw ASCII record without sequence number"""
+        param = "{},".format(self.directory.entity_type_number)
+        param += "{},".format(self.CTYPE)
+        param += "{},".format(self.H)
+        param += "{},".format(self.NDIM)
+        param += "{},".format(self.N)
+
+        for i in range(0, len(self.T)):
+            param += "{},".format(self.T[i])
+
+        for i in range(0, self.N):
+            for j in range(0, 3):
+                for k in range(0, 4):
+                    param += "{},".format(self.C[i][j][k])
+
+        param += "{},".format(self.TPX0)
+        param += "{},".format(self.TPX1)
+        param += "{},".format(self.TPX2)
+        param += "{},".format(self.TPX3)
+        param += "{},".format(self.TPY0)
+        param += "{},".format(self.TPY1)
+        param += "{},".format(self.TPY2)
+        param += "{},".format(self.TPY3)
+        param += "{},".format(self.TPZ0)
+        param += "{},".format(self.TPZ1)
+        param += "{},".format(self.TPZ2)
+        param += "{};".format(self.TPZ3)
+
+        '''Convert to IGES formatted strings'''
+        return self.to_formatted(param)
+
+
+class Entity114(Entity):
+    def __init__(self, _u, _v, _c):
+        """
+        Parametric Spline Surface
+        :param _u: Knot vector in U direction.
+        :param _v: Knot vector in V direction.
+        :param _c: Coefficients.
+        """
+
+        super(Entity114, self).__init__(114)
+
+        self.CTYPE = int(3)
+        self.PTYPE = 0
+        self.M = len(_u) - 1
+        self.N = len(_v) - 1
+
+        self.Tu = np.zeros(len(_u))
+        for i in range(0, len(_u)):
+            self.Tu[i] = _u[i]
+
+        self.Tv = np.zeros(len(_v))
+        for j in range(0, len(_v)):
+            self.Tv[i] = _v[i]
+
+        self.Coef = np.zeros((self.M + 1, self.N + 1, 3, 4, 4))
+
+        assert _c.shape == self.Coef.shape
+
+        for m in range(0, self.M + 1):
+            for n in range(0, self.N + 1):
+                for dim in range(0, 3):
+                    for i in range(0, 4):
+                        for j in range(0, 4):
+                            self.Coef[m][n][dim][i][j] = _c[m][n][dim][i][j]
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
+        param += "{},".format(self.CTYPE)
+        param += "{},".format(self.PTYPE)
+        param += "{},".format(self.M)
+        param += "{},".format(self.N)
+
+        for i in range(0, self.M + 1):
+            param += "{},".format(self.Tu[i])
+
+        for i in range(0, self.N + 1):
+            param += "{},".format(self.Tv[i])
+
+        for m in range(0, self.M + 1):
+            for n in range(0, self.N + 1):
+                for dim in range(0, 3):
+                    for i in range(0, 4):
+                        for j in range(0, 4):
+                            if m == self.M and n == self.N and dim == 2 and i == 3 and j == 3:
+                                param += "{};".format(self.Coef[m][n][dim][i][j])
+                            else:
+                                param += "{},".format(self.Coef[m][n][dim][i][j])
+
+        return self.to_formatted(param)
+
+
+class Entity116(Entity):
+    def __init__(self, _x, _y, _z, _ptr=0):
+        """
+        Point Entity
+        :param _x: X-Coordinate.
+        :type _x: float
+        :param _y: Y-Coordinate.
+        :type _y: float
+        :param _z: Z-Coordinate.
+        :type _z: float
+        :param _ptr: Pointer to the DE of the Sub-figure Definition Entity specifying the display symbol or zero. If zero, no display symbol is specified.
+        :type _ptr: int
+        """
+
+        super(Entity116, self).__init__(116)
+        self.X = float(_x)
+        self.Y = float(_y)
+        self.Z = float(_z)
+        self.PTR = int(_ptr)
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
+        param += "{},{},{},{};".format(self.X, self.Y, self.Z, self.PTR)
+
+        return self.to_formatted(param)
+
+
+class Entity126(Entity):
+    def __init__(self, p, n, planar, closed, polynomial, periodic, knots, weights, ctrl_pts, sp, ep, norm, form=0):
+        """
+        NURBS Curve Entity
+        :param p: Degree of basis functions.
+        :type p: int
+        :param n: The last index of control points.
+        :type n: int
+        :param planar: 0 = non-planar, 1 = planar
+        :type planar: int
+        :param closed: 0 = open curve, 1 = closed curve
+        :type closed: int
+        :param polynomial: 0 = rational, 1 = polynomial
+        :type polynomial: int
+        :param periodic: 0 = non-periodic, 1 = periodic
+        :type periodic: int
+        :param knots: Knot vector.
+        :param weights: Rational weight coefficients.
+        :param ctrl_pts: Control points.
+        :param sp: Starting point.
+        :param ep: Ending point.
+        :param norm: Unit normal vector. (If curve is planar)
+        :param form: Form number. (0-5).
+        :type form: int
+        """
+
+        super(Entity126, self).__init__(126)
+        self.directory.Form_Number = form
+
+        m = n + p + 1
+        if len(knots) != m + 1:
+            raise ValueError("Invalid Knot Vector!")
+        if len(weights) != n + 1:
+            raise ValueError("Invalid Weights!")
+        if ctrl_pts.shape != (n + 1, 3):
+            raise ValueError("Invalid Control Points!")
+        if len(norm) != 3:
+            raise ValueError("Invalid Norm!")
+
+        self.K = int(n)
+        self.M = int(p)
+        self.PROP1 = int(planar)
+        self.PROP2 = int(closed)
+        self.PROP3 = int(polynomial)
+        self.PROP4 = int(periodic)
+
+        self.T = np.zeros(m + 1, float)
+        self.W = np.zeros(n + 1, float)
+        self.X = np.zeros(n + 1, float)
+        self.Y = np.zeros(n + 1, float)
+        self.Z = np.zeros(n + 1, float)
+
+        self.V = np.array([float(sp), float(ep)])
+        self.XNORM = float(norm[0])
+        self.YNORM = float(norm[1])
+        self.ZNORM = float(norm[2])
+
+        for i in range(0, m + 1):
+            self.T[i] = knots[i]
+
+        for i in range(0, n + 1):
+            self.W[i] = weights[i]
+            self.X[i] = ctrl_pts[i][0]
+            self.Y[i] = ctrl_pts[i][1]
+            self.Z[i] = ctrl_pts[i][2]
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
+        param += "{},{},".format(self.K, self.M)
+        param += "{},{},{},{},".format(self.PROP1, self.PROP2, self.PROP3, self.PROP4)
+
+        for i in range(0, len(self.T)):
+            param += "{},".format(self.T[i])
+
+        for i in range(0, len(self.W)):
+            param += "{},".format(self.W[i])
+
+        for i in range(0, len(self.X)):
+            param += "{},{},{},".format(self.X[i], self.Y[i], self.Z[i])
+
+        param += "{},{},{},{},{};".format(self.V[0], self.V[1], self.XNORM, self.YNORM, self.ZNORM)
+
+        return self.to_formatted(param)
+
+
+class Entity128(Entity):
+    def __init__(self, u, v, p1, p2, n1, n2, ctrl_pts, weights, closed_u=0, closed_v=0, poly=1, periodic_u=0, periodic_v=0, us=0.0, ue=1.0, vs=0.0, ve=1.0, form=0):
+        """
+        NURBS Surface Entity
+        :param u: Knot vector in U direction.
+        :param v: Knot vector in V direction.
+        :param p1: Degree of the basis function in U direction.
+        :type p1: int
+        :param p2: Degree of the basis function in V direction.
+        :type p2: int
+        :param n1: The last index of the control points in U Direction.
+        :type n1: int
+        :param n2: The last index of the control points in V Direction.
+        :type n2: int
+        :param ctrl_pts: Control points.
+        :param weights: Weight on each control point.
+        :param closed_u: 1 = Closed in first parametric variable direction 0 = Not closed
+        :type closed_u: int
+        :param closed_v: 1 = Closed in second parametric variable direction 0 = Not closed
+        :type closed_v: int
+        :param poly: 0 = Rational 1 = Polynomial
+        :type poly: int
+        :param periodic_u: 0 = Non-periodic in first parametric variable direction 1 = Periodic in first parametric variable direction
+        :type periodic_u: int
+        :param periodic_v: 0 = Non-periodic in second parametric variable direction 1 = Periodic in second parametric variable direction
+        :type periodic_v: int
+        :param us: Starting value for first parametric direction.
+        :type us: float
+        :param ue: Ending value for first parametric direction.
+        :type ue: float
+        :param vs: Starting value for second parametric direction.
+        :type vs: float
+        :param ve: Ending value for second parametric direction.
+        :type ve: float
+        :param form: Form number.
+        :type form: int
+        """
+
+        super(Entity128, self).__init__(128)
+        self.directory.Form_Number = form
+
+        if len(u) != 2 + p1 + n1:
+            raise ValueError("Invalid U Knot!")
+        if len(v) != 2 + p2 + n2:
+            raise ValueError("Invalid U Knot!")
+        if ctrl_pts.shape != (1 + n1, 1 + n2, 3):
+            raise ValueError("Invalid Control Points!")
+        if weights.shape != (1 + n1, 1 + n2):
+            raise ValueError("Invalid Weights!")
+
+        self.K1 = int(n1)  # U方向控制点最后一个下标
+        self.K2 = int(n2)  # V方向控制点最后一个下标
+        self.M1 = int(p1)  # U方向的阶
+        self.M2 = int(p2)  # V方向的阶
+        self.PROP1 = int(closed_u)
+        self.PROP2 = int(closed_v)
+        self.PROP3 = int(poly)
+        self.PROP4 = int(periodic_u)
+        self.PROP5 = int(periodic_v)
+
+        self.U = np.array([us, ue])
+        self.V = np.array([vs, ve])
+
+        self.S = np.zeros(len(u), float)
+        for i in range(0, len(u)):
+            self.S[i] = u[i]
+
+        self.T = np.zeros(len(v), float)
+        for i in range(0, len(v)):
+            self.T[i] = v[i]
+
+        self.W = np.zeros((self.K1 + 1, self.K2 + 1), float)
+        self.X = np.zeros((self.K1 + 1, self.K2 + 1), float)
+        self.Y = np.zeros((self.K1 + 1, self.K2 + 1), float)
+        self.Z = np.zeros((self.K1 + 1, self.K2 + 1), float)
+
+        for j in range(0, self.K2 + 1):
+            for i in range(0, self.K1 + 1):
+                self.W[i][j] = weights[i][j]
+                self.X[i][j] = ctrl_pts[i][j][0]
+                self.Y[i][j] = ctrl_pts[i][j][1]
+                self.Z[i][j] = ctrl_pts[i][j][2]
+
+    def __repr__(self):
+        """
+        Generate raw ASCII record without sequence number.
+        :return: Raw ASCII record.
+        :rtype: str
+        """
+
+        param = "{},".format(self.directory.entity_type_number)
+        param += "{},{},{},{},".format(self.K1, self.K2, self.M1, self.M2)
+        param += "{},{},{},{},{},".format(self.PROP1, self.PROP2, self.PROP3, self.PROP4, self.PROP5)
+
+        for u in self.S:
+            param += "{},".format(u)
+
+        for v in self.T:
+            param += "{},".format(v)
+
+        for j in range(0, self.K2 + 1):
+            for i in range(0, self.K1 + 1):
+                param += "{},".format(self.W[i][j])
+
+        for j in range(0, self.K2 + 1):
+            for i in range(0, self.K1 + 1):
+                param += "{},{},{},".format(self.X[i][j], self.Y[i][j], self.Z[i][j])
+
+        param += "{},{},{},{};".format(self.U[0], self.U[1], self.V[0], self.V[1])
+
+        return self.to_formatted(param)
+
+
+class TestIGES(unittest.TestCase):
+    def test_size(self):
+        model = Model()
+        print("Current Entity Num: {}".format(model.size))
+        model.add(Entity116(3.14, -2.718, 0.618))
+        print("After add a point: {}".format(model.size))
+        model.add(Entity110((0, 0, 0), (10, 20, 30)))
+        print(("After add a line: {}".format(model.size)))
+
+    def test_clear(self):
+        model = Model()
+        print("Current Entity Num: {}".format(model.size))
+        model.add(Entity116(3.14, -2.718, 0.618))
+        model.add(Entity110((0, 0, 0), (10, 20, 30)))
+        print("After add 2 entities: {}".format(model.size))
+        model.clear()
+        print("After clear: {}".format(model.size))
+
+    def test_save(self):
+        model = Model()
+        model.add(Entity116(3.14, 2.718, 0.618))
+        model.save('save1.igs')
+        print("1st copy saved.")
+        model.save('save2.igs')
+        print("2nd copy saved.")
+
+    def test_point(self):
+        model = Model()
+        pnt = Entity116(3.14, -2.718, 0.618)
+        model.add(pnt)
+        model.save('pnt.igs')
+
+    def test_line(self):
+        model = Model()
+        line = [((0, 0, 0), (10, 20, 30)),
+                ((5, 5, 5), (-2, -3.14, 1.618))]
+        for l in line:
+            model.add(Entity110(l[0], l[1]))
+        model.save('line.igs')
+
+
+if __name__ == '__main__':
+    unittest.main()

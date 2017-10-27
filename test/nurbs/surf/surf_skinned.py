@@ -1,9 +1,11 @@
 import unittest
+
 import numpy as np
-from src.iges.iges_core import IGES_Model
+
+from src.aircraft.wing import Airfoil
+from src.iges import IGES_Model
 from src.nurbs.curve import GlobalInterpolatedCrv
 from src.nurbs.surface import Skinned
-from src.aircraft.wing import Airfoil
 
 try:
     from src.misc.catia import view

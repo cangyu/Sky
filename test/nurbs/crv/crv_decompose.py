@@ -1,8 +1,10 @@
 import math
+
 import numpy as np
+
+from src.iges import Model
 from src.nurbs.curve import ClampedNURBSCrv
 from src.nurbs.utility import equal
-from src.iges.iges_core import IGES_Model
 
 try:
     from src.misc.catia import view
@@ -24,9 +26,9 @@ Pw = np.array([[0, 0, 0, 1],
 
 '''原始曲线'''
 C0 = ClampedNURBSCrv(U, Pw)
-model = IGES_Model('before.igs')
+model = Model()
 model.add_entity(C0.to_iges())
-model.write()
+model.save('before.igs')
 
 print('C0:')
 print('Knot vector:')
@@ -36,10 +38,10 @@ print(C0.Pw)
 
 '''Bezier Decompose'''
 C1 = ClampedNURBSCrv.decompose(C0)
-model = IGES_Model('after.igs')
+model = Model()
 for crv in C1:
     model.add_entity(crv.to_iges())
-model.write()
+model.save('after.igs')
 
 if auto_view:
     view('before.igs')

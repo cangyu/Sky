@@ -3,7 +3,7 @@ from math import sin, cos, radians
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print("Usage \'python LD_convert.py r theta\'")
+        print("Usage \'python ld_convert.py r theta\'")
         exit(-1)
 
     r = float(sys.argv[1])

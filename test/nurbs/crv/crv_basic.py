@@ -1,9 +1,11 @@
-import unittest
-import numpy as np
 import math
-from src.nurbs.utility import to_homogeneous
+import unittest
+
+import numpy as np
+
+from src.iges import Model
 from src.nurbs.curve import ClampedNURBSCrv
-from src.iges.iges_core import IGES_Model
+from src.nurbs.utility import to_homogeneous
 
 
 def build_nurbs_crv_2d(U, w, P, z=0):
@@ -23,9 +25,9 @@ class CurveTest(unittest.TestCase):
         P = np.array([[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]])
 
         circle = build_nurbs_crv_2d(U, w, P)
-        iges_file = IGES_Model('circle1.igs')
+        iges_file = Model()
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
-        iges_file.write()
+        iges_file.save('circle1.igs')
 
     @staticmethod
     def test_circle2():
@@ -34,9 +36,9 @@ class CurveTest(unittest.TestCase):
         P = np.array([[1, 0], [1, 1], [-1, 1], [-1, 0]])
 
         circle = build_nurbs_crv_2d(U, w, P)
-        iges_file = IGES_Model('circle2.igs')
+        iges_file = Model()
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
-        iges_file.write()
+        iges_file.save('circle2.igs')
 
     @staticmethod
     def test_circle3():
@@ -45,9 +47,9 @@ class CurveTest(unittest.TestCase):
         P = np.array([[1, 0], [1, 2], [-1, 2], [-1, 0]])
 
         circle = build_nurbs_crv_2d(U, w, P)
-        iges_file = IGES_Model('circle3.igs')
+        iges_file = Model()
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
-        iges_file.write()
+        iges_file.save('circle3.igs')
 
     @staticmethod
     def test_circle4():
@@ -57,9 +59,9 @@ class CurveTest(unittest.TestCase):
         P = np.array([[a, 1 / 2], [2 * a, -3], [-2 * a, -3], [-a, 1 / 2]])
 
         circle = build_nurbs_crv_2d(U, w, P)
-        iges_file = IGES_Model('circle4.igs')
+        iges_file = Model()
         iges_file.add_entity(circle.to_iges(1, 0, [0, 0, 1]))
-        iges_file.write()
+        iges_file.save('circle4.igs')
 
     @staticmethod
     def test_line():
@@ -68,6 +70,6 @@ class CurveTest(unittest.TestCase):
         P = np.array([[10, 10], [100, 100]])
 
         line = build_nurbs_crv_2d(U, w, P)
-        iges_file = IGES_Model('line.igs')
+        iges_file = Model()
         iges_file.add_entity(line.to_iges(1, 0, [0, 0, 1]))
-        iges_file.write()
+        iges_file.save('line.igs')
