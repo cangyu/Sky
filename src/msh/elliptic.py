@@ -4,6 +4,7 @@ from abc import abstractmethod
 import pyamg
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
+import math
 
 '''
 统一约定：
@@ -429,3 +430,59 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
             iteration_cnt += 1
             residual = EllipticGrid2D.calc_diff(self.r, old_grid)
             print("{}: {}".format(iteration_cnt, residual))
+
+
+class EllipticGrid3D(object):
+    def __init__(self, grid):
+        self.r = np.copy(grid)
+        self.d_xi = 1.0
+        self.d_eta = 1.0
+        self.d_zeta = 1.0
+
+    def r_xi(self, i, j, k):
+        return 0.5 * (self.r[i + 1][j][k] - self.r[i - 1][j][k]) / self.d_xi
+
+    def r_eta(self, i, j, k):
+        return 0.5 * (self.r[i][j + 1][k] - self.r[i][j - 1][k]) / self.d_eta
+
+    def r_zeta(self, i, j, k):
+        return 0.5 * (self.r[i][j][k + 1] - self.r[i][j][k - 1]) / self.d_zeta
+
+    def r_xi2(self, i, j, k):
+        return (self.r[i - 1][j][k] - 2 * self.r[i][j][k] + self.r[i + 1][j][k]) / math.pow(self.d_xi, 2)
+
+    def r_eta2(self, i, j, k):
+        return (self.r[i][j - 1][k] - 2 * self.r[i][j][k] + self.r[i][j + 1][k]) / math.pow(self.d_eta, 2)
+
+    def r_zeta2(self, i, j, k):
+        return (self.r[i][j][k - 1] - 2 * self.r[i][j][k] + self.r[i][j][k + 1]) / math.pow(self.d_zeta, 2)
+
+    def r_xi_eta(self, i, j, k):
+        return 0.25 * (self.r[i + 1][j + 1][k] - self.r[i + 1][j - 1][k] - self.r[i - 1][j + 1][k] + self.r[i - 1][j - 1][k]) / (self.d_xi * self.d_eta)
+
+    def r_eta_zeta(self, i, j, k):
+        return 0.25 * (self.r[i][j + 1][k + 1] - self.r[i][j - 1][k + 1] - self.r[i][j + 1][k - 1] + self.r[i][j - 1][k - 1]) / (self.d_eta * self.d_zeta)
+
+    def r_zeta_xi(self, i, j, k):
+        return 0.25 * (self.r[i + 1][j][k + 1] - self.r[i - 1][j][k + 1] - self.r[i + 1][j][k - 1] + self.r[i - 1][j][k - 1]) / (self.d_zeta * self.d_xi)
+
+    def alpha1(self, i, j, k):
+        pass
+
+    def alpha2(self, i, j, k):
+        pass
+
+    def alpha3(self, i, j, k):
+        pass
+
+    def beta12(self, i, j, k):
+        pass
+
+    def beta23(self, i, j, k):
+        pass
+
+    def beta31(self, i, j, k):
+        pass
+
+    def jacobi(self, i, j, k):
+        t = np.matrix()
