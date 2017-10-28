@@ -4,8 +4,8 @@ from copy import deepcopy
 import numpy as np
 
 from src.iges import IGES_Model
-from src.nurbs.curve import ClampedNURBSCrv
-from src.nurbs.utility import equal
+from src.geom.curve import ClampedNURBSCrv
+from src.geom.utility import equal
 
 try:
     from src.misc.catia import view

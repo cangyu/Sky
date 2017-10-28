@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import math
 from src.aircraft.wing import Airfoil
-from src.nurbs.curve import GlobalInterpolatedCrv
+from src.geom.curve import GlobalInterpolatedCrv
 from src.msh.elliptic import Laplace2D
 from src.msh.tfi import LinearTFI2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D

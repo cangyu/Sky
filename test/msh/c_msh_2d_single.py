@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from src.nurbs.curve import GlobalInterpolatedCrv, Line
+from src.geom.curve import GlobalInterpolatedCrv, Line
 from src.aircraft.wing import WingProfile
 from src.msh.spacing import linear_expand, single_exponential, double_exponential
 from src.msh.tfi import LinearTFI2D

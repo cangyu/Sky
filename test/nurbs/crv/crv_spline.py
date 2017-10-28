@@ -6,7 +6,7 @@ import numpy as np
 
 from src.aircraft.wing import Airfoil
 from src.iges import IGES_Model
-from src.nurbs.curve import Spline, GlobalInterpolatedCrv
+from src.geom.curve import Spline, GlobalInterpolatedCrv
 
 try:
     from src.misc.catia import view

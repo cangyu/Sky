@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.nurbs.curve import GlobalInterpolatedCrv
+from src.geom.curve import GlobalInterpolatedCrv
 import matplotlib.pyplot as plt
 from settings import AIRFOIL_DIR
 

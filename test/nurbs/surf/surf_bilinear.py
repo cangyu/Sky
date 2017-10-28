@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from src.iges import IGES_Model
-from src.nurbs.surface import BilinearSurf
+from src.geom.surface import BilinearSurf
 
 try:
     from src.misc.catia import view

@@ -12,9 +12,9 @@ from src.iges import IGES_Model
 from src.msh.fluent import XF_MSH, BCType
 from src.msh.spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
-from src.nurbs.curve import GlobalInterpolatedCrv, Line, Arc, ClampedNURBSCrv
-from src.nurbs.surface import Skinned, RuledSurf, ClampedNURBSSurf
-from src.nurbs.utility import equal, pnt_dist
+from src.geom.curve import GlobalInterpolatedCrv, Line, Arc, ClampedNURBSCrv
+from src.geom.surface import Skinned, RuledSurf, ClampedNURBSSurf
+from src.geom.utility import equal, pnt_dist
 
 
 class Airfoil(object):

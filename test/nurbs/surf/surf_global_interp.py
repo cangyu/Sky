@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from src.iges import IGES_Model
-from src.nurbs.surface import GlobalInterpolatedSurf
+from src.geom.surface import GlobalInterpolatedSurf
 
 
 def build_wing(foil, N: int, L: float, p: int, q: int):

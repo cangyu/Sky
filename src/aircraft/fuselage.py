@@ -1,9 +1,9 @@
 import numpy as np
 import math
 from copy import deepcopy
-from src.nurbs.utility import to_homogeneous, to_cartesian
-from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc
-from src.nurbs.surface import Coons
+from src.geom.utility import to_homogeneous, to_cartesian
+from src.geom.curve import Arc, Line, ClampedNURBSCrv, ConicArc
+from src.geom.surface import Coons
 
 sqrt2 = math.sqrt(2)
 
@@ -78,9 +78,9 @@ class Fuselage(object):
         """
         Simplified fuselage of a 'Wing-Tube' configuration aircraft.
         :param l1: Upper part of the front section curve.
-        :type l1: ClampedNURBSCrv
+        :type l1: Crv
         :param l2: Lower part of the front section curve.
-        :type l2: ClampedNURBSCrv
+        :type l2: Crv
         :param fl: Length of the fuselage.
         :type fl: float
         """
@@ -114,9 +114,9 @@ class Tail(object):
         """
         Simplified tail of a 'Wing-Tube' configuration aircraft.
         :param fu: Upper part of the front section.
-        :type fu: ClampedNURBSCrv
+        :type fu: Crv
         :param fd: Lower part of the front section.
-        :type fd: ClampedNURBSCrv
+        :type fd: Crv
         :param tl: Length of the tail.
         :type tl: float
         :param dh: Delta of the upper frame on back section.

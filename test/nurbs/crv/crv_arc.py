@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from src.iges import Model
-from src.nurbs.curve import Arc
+from src.geom.curve import Arc
 
 
 class PlanarArcTest(unittest.TestCase):

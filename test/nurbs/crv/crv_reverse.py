@@ -1,5 +1,5 @@
 from src.iges import IGES_Model
-from src.nurbs.curve import Arc
+from src.geom.curve import Arc
 
 model = IGES_Model('original.igs')
 arc1 = Arc(200, 180)

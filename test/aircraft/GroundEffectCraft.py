@@ -6,9 +6,9 @@ from matplotlib.lines import Line2D
 
 from src.aircraft.wing import WingProfile
 from src.iges import IGES_Model
-from src.nurbs.curve import Arc, Line, ClampedNURBSCrv, ConicArc
-from src.nurbs.surface import Coons, RuledSurf
-from src.nurbs.utility import *
+from src.geom.curve import Arc, Line, ClampedNURBSCrv, ConicArc
+from src.geom.surface import Coons, RuledSurf
+from src.geom.utility import *
 
 try:
     from src.misc.catia import view

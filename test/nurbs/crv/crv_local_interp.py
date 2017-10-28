@@ -3,7 +3,7 @@ from math import tan, sin, cos
 import numpy as np
 
 from src.iges import IGES_Model
-from src.nurbs.curve import LocalCubicInterpolatedCrv
+from src.geom.curve import LocalCubicInterpolatedCrv
 
 try:
     from src.misc.catia import view

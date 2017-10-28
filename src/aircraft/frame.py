@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
-from src.nurbs.curve import LocalCubicInterpolatedCrv, Line, point_inverse
-from src.nurbs.surface import Coons
+from src.geom.curve import LocalCubicInterpolatedCrv, Line, point_inverse
+from src.geom.surface import Coons
 
 
 class WingFrame(metaclass=ABCMeta):

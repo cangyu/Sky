@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from src.msh.tfi import LinearTFI2D
 from src.msh.fluent import XF_MSH, BCType
-from src.nurbs.curve import Arc, Line
+from src.geom.curve import Arc, Line
 from src.aircraft.wing import WingProfile
 
 

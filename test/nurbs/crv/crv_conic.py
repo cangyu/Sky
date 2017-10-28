@@ -1,7 +1,7 @@
 import math
 
 from src.iges import Model
-from src.nurbs.curve import ConicArc
+from src.geom.curve import ConicArc
 
 try:
     from src.misc.catia import view
@@ -16,7 +16,7 @@ def show(crv, fn):
     """
     将曲线输出并显示
     :param crv: Curve to be inspected
-    :type crv: ClampedNURBSCrv
+    :type crv: Crv
     :param fn: File name
     :type fn: str
     :return: None

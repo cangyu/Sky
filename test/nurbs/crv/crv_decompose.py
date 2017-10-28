@@ -3,8 +3,8 @@ import math
 import numpy as np
 
 from src.iges import Model
-from src.nurbs.curve import ClampedNURBSCrv
-from src.nurbs.utility import equal
+from src.geom.curve import ClampedNURBSCrv
+from src.geom.utility import equal
 
 try:
     from src.misc.catia import view

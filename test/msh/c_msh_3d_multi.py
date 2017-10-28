@@ -3,8 +3,8 @@ import math
 from copy import deepcopy
 from src.aircraft.wing import Wing
 from src.aircraft.frame import BWBFrame, chebshev_dist_multi
-from src.nurbs.curve import Line, Arc
-from src.nurbs.surface import BilinearSurf, Coons
+from src.geom.curve import Line, Arc
+from src.geom.surface import BilinearSurf, Coons
 from src.msh.tfi import LinearTFI3D
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
