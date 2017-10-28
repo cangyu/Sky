@@ -2171,7 +2171,7 @@ class Crv(object):
             for l in range(1, self.p + 1):
                 index = k - self.p + l
                 alpha = nu[k + l] - extra_knots[j]
-                if equal(alpha, 0.0):
+                if math.isclose(alpha, 0.0):
                     npw[index - 1] = np.copy(npw[index])
                 else:
                     alpha /= (nu[k + l] - self.U[i - self.p + l])
@@ -2198,12 +2198,12 @@ class Crv(object):
         '''Defensive check'''
         if not (u in self.U):
             raise ValueError("Target knot not exist.")
-        if equal(u, 0) or equal(u, 1):
+        if math.isclose(u, 0) or math.isclose(u, 1):
             raise ValueError("Invalid input.")
 
         '''Find position and duplication'''
         r = 0
-        while not equal(self.U[r], u):
+        while not math.isclose(self.U[r], u):
             r += 1
 
         s = 0
@@ -2319,7 +2319,7 @@ class Crv(object):
 
         while b < crv.m:
             i = b
-            while b < crv.m and equal(crv.U[b + 1], crv.U[b]):
+            while b < crv.m and math.isclose(crv.U[b + 1], crv.U[b]):
                 b += 1
             mult = b - i + 1
             if mult < crv.p:
@@ -2536,7 +2536,7 @@ class Crv(object):
         for crv in bezier_list:
             if not isinstance(crv, BezierCrv):
                 raise AssertionError("Invalid input.")
-            if not equal(norm(crv.start - prev_ending), 0):
+            if not math.isclose(norm(crv.start - prev_ending), 0):
                 raise AssertionError("Not continuous.")
             prev_ending = crv.end
 
@@ -3791,9 +3791,9 @@ class RuledSurf(ClampedNURBSSurf):
         c2 = deepcopy(_c2)
 
         '''Check'''
-        if not equal(c1.U[0], c2.U[0]):
+        if not math.isclose(c1.U[0], c2.U[0]):
             raise ValueError('Incompatible starting knot!')
-        if not equal(c1.U[-1], c2.U[-1]):
+        if not math.isclose(c1.U[-1], c2.U[-1]):
             raise ValueError('Incompatible ending knot!')
 
         '''Knot vector'''
@@ -3801,7 +3801,7 @@ class RuledSurf(ClampedNURBSSurf):
         c1.elevate(p - c1.p)
         c2.elevate(p - c2.p)
 
-        if len(c1.U) != len(c2.U) or not equal(norm(c1.U - c2.U), 0):
+        if len(c1.U) != len(c2.U) or not math.isclose(norm(c1.U - c2.U), 0):
             all_knot = merge_knot(c1.U, c2.U)
             x1 = different_knot(all_knot, c1.U)
             x2 = different_knot(all_knot, c2.U)
@@ -3916,10 +3916,10 @@ class Coons(ClampedNURBSSurf):
         """
 
         '''Check 4 corners'''
-        assert equal(norm(c0u(0) - c0v(0)), 0.0)
-        assert equal(norm(c0u(1) - c1v(0)), 0.0)
-        assert equal(norm(c1v(1) - c1u(1)), 0.0)
-        assert equal(norm(c0v(1) - c1u(0)), 0.0)
+        assert math.isclose(norm(c0u(0) - c0v(0)), 0.0)
+        assert math.isclose(norm(c0u(1) - c1v(0)), 0.0)
+        assert math.isclose(norm(c1v(1) - c1u(1)), 0.0)
+        assert math.isclose(norm(c0v(1) - c1u(0)), 0.0)
 
         '''Corner points'''
         s = np.zeros((2, 2, 3))
