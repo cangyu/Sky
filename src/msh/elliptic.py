@@ -7,7 +7,7 @@ from scipy.sparse.linalg import dsolve
 
 '''
 统一约定：
-1. (i,j,k)对应(x,y,z),(u,v.w),(xi, eta, mu),(x1,x2,x3), (I,J,K)...
+1. (i,j,k)对应(x,y,z),(u,v.w),(xi, eta, zeta),(x1,x2,x3), (I,J,K)...
 2. 不用(N,M),避免行列混淆
 '''
 
