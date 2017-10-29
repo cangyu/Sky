@@ -969,7 +969,8 @@ class Entity116(Entity):
         :type _y: float
         :param _z: Z-Coordinate.
         :type _z: float
-        :param _ptr: Pointer to the DE of the Sub-figure Definition Entity specifying the display symbol or zero. If zero, no display symbol is specified.
+        :param _ptr: Pointer to the DE of the Sub-figure Definition Entity specifying the display symbol or zero.
+                     If zero, no display symbol is specified.
         :type _ptr: int
         """
 
@@ -1197,49 +1198,46 @@ class Entity128(Entity):
 
 
 class IGESTester(unittest.TestCase):
-    @staticmethod
-    def test_size():
+    def test_size(self):
         model = Model()
-        print("Current Entity Num: {}".format(model.size))
+        self.assertTrue(model.size == 0)
         model.add(Entity116(3.14, -2.718, 0.618))
-        print("After add a point: {}".format(model.size))
+        self.assertTrue(model.size == 1)
         model.add(Entity110((0, 0, 0), (10, 20, 30)))
-        print(("After add a line: {}".format(model.size)))
+        self.assertTrue(model.size == 2)
 
-    @staticmethod
-    def test_clear():
+    def test_clear(self):
         model = Model()
-        print("Current Entity Num: {}".format(model.size))
+        self.assertTrue(model.size == 0)
         model.add(Entity116(3.14, -2.718, 0.618))
         model.add(Entity110((0, 0, 0), (10, 20, 30)))
-        print("After add 2 entities: {}".format(model.size))
+        self.assertTrue(model.size == 2)
         model.clear()
-        print("After clear: {}".format(model.size))
+        self.assertTrue(model.size == 0)
 
-    @staticmethod
-    def test_save():
+    def test_save(self):
         model = Model()
         model.add(Entity116(3.14, 2.718, 0.618))
-        model.save('save1.igs')
-        print("1st copy saved.")
-        model.save('save2.igs')
-        print("2nd copy saved.")
+        model.save('test_save1.igs')
+        self.assertTrue(model.size == 1)
+        model.save('test_save2.igs')
+        self.assertTrue(model.size == 1)
 
-    @staticmethod
-    def test_point():
+    def test_pnt(self):
         model = Model()
         pnt = Entity116(3.14, -2.718, 0.618)
         model.add(pnt)
-        model.save('pnt.igs')
+        self.assertTrue(model.size == 1)
+        model.save('test_pnt.igs')
 
-    @staticmethod
-    def test_line():
+    def test_line(self):
         model = Model()
         line = [((0, 0, 0), (10, 20, 30)),
                 ((5, 5, 5), (-2, -3.14, 1.618))]
         for l in line:
             model.add(Entity110(l[0], l[1]))
         model.save('line.igs')
+        self.assertTrue(model.size == len(line))
 
 
 """
@@ -1584,7 +1582,8 @@ Note:
 All the NURBS notations are in the 'Clamped' format by default.
 
 TODO:
-(1) Optimize the calculation of derivative in Crv.__call__(u, d)
+(1) Optimize the calculation of derivatives inside Crv.__call__(u, d)
+(2) Update testing answers inside NURBSCrvTester.test_rotate
 """
 
 
@@ -2070,21 +2069,15 @@ class Crv(object):
 
     def rotate(self, ref, ax, ang):
         """
-        将曲线绕过指定点的转轴旋转一定角度
-        :param ref: 参考点
-        :param ax: 旋转轴方向向量，按右手定则确定角度的正方向
-        :param ang: 旋转角(Degree)
+        Rotate the curve with specific angle along specific rotation axis.
+        :param ref: Anchor point of the rotation axis.
+        :param ax: Direction vector of the rotation axis(positive direction is given by the right-hand rule).
+        :param ang: Rotation angle(in degree).
         :return: None
         """
 
         q = Quaternion.from_u_theta(ax, math.radians(ang))
-        npw = np.empty(self.Pw.shape, float)
-        for i in range(self.n + 1):
-            cv = to_cartesian(self.Pw[i])
-            cv -= ref
-            cv = ref + q.rotate(cv)
-            npw[i] = to_homogeneous(cv, self.Pw[i][-1])
-
+        npw = list(map(lambda pnt: to_homogeneous(ref + q.rotate(to_cartesian(pnt) - ref), pnt[-1]), self.Pw))
         self.reset(self.U, npw)
 
     def insert_knot(self, u, r=1):
@@ -4208,10 +4201,50 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(np.array_equal(crv.cpt, q))
 
     def test_pan(self):
-        pass
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        pan_dir = (3, 4, 5)
+        ans = [(4, 4, 5), (4, 5, 5), (3, 5, 5)]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        iges_model = Model()
+        iges_model.add(crv.to_iges())
+        crv.pan(pan_dir)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_pan.igs')
+
+        self.assertTrue(np.array_equal(crv.cpt, ans))
+        self.assertTrue(np.array_equal(crv.weight, w))
 
     def test_rotate(self):
-        pass
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        # anchor point, rotation axis, rotation angle
+        data = [[(0, 0, 0), (1, 1, 1), 30],
+                [(0, 0, 0), (0, 0, 1), 45],
+                [(0, 0, 0), (0, 0, 1), 90],
+                [(0, 0, 0), (0, 0, 1), 180]]
+        ans = [[(1, 0, 0), (1, 1, 0), (0, 1, 0)],
+               [(1, 0, 0), (1, 1, 0), (0, 1, 0)],
+               [(1, 0, 0), (1, 1, 0), (0, 1, 0)],
+               [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+
+        for i, rt in enumerate(data):
+            iges_model = Model()
+            crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+            iges_model.add(crv.to_iges())
+            crv.rotate(rt[0], rt[1], rt[2])
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_rotate-{}.igs'.format(i))
+
+            self.assertTrue(np.array_equal(crv.U, u_vec))
+            self.assertTrue(np.array_equal(crv.cpt, ans[i]))
 
 
 if __name__ == '__main__':
