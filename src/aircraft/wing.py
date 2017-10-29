@@ -98,7 +98,31 @@ class Airfoil(object):
         plt.gca().set_aspect('equal')
         plt.show()
 
-    def nurbs_rep(self, p=5, method='centripetal'):
+    def plot_curvature(self, n=2000):
+        """
+        Plot the curvature along the airfoil from tail-up to tail_down, anti-clockwise.
+        By default, the interpolated curve is cubic
+        :param n: Number of sampling points.
+        :type n: int
+        :return: None
+        """
+
+        '''Build curve'''
+        crv = self.nurbs_rep()
+
+        '''Calculate curvature'''
+        ul = np.linspace(crv.U[0], crv.U[-1], n)
+        kappa = list(map(lambda u: crv.curvature(u), ul))
+
+        '''Plot'''
+        plt.figure()
+        plt.plot(u, kappa)
+        plt.xlabel('Parameter along curve')
+        plt.ylabel('Curvature')
+        plt.title(self.name)
+        plt.show()
+
+    def nurbs_rep(self, p=3, method='centripetal'):
         """
         NURBS Representation
         :param p: 插值次数
