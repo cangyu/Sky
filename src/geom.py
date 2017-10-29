@@ -1582,6 +1582,9 @@ Implementation of the NURBS curve and surface utility.
 
 Note:
 All the NURBS notations are in the 'Clamped' format by default.
+
+TODO:
+(1) Optimize the calculation of derivative in Crv.__call__(u, d)
 """
 
 
@@ -1978,20 +1981,27 @@ class Crv(object):
 
         return Entity126(self.p, self.n, planar, closed, poly, periodic, self.U, w, cpt, self.U[0], self.U[-1], norm_vector, form)
 
-    def __call__(self, u, d=0, return_cartesian=True):
+    def __call__(self, u, d=0):
         """
         Calculate the point corresponding to given parameter.
         :param u: Target parameter.
         :param d: Degree of derivation.
         :type d: int
-        :param return_cartesian: Indicate in which format the result is returned.
-        :type return_cartesian: bool
         :return: Value at u with d times derivation.
         """
 
-        pw = self.spl(u, d)
-        return to_cartesian(pw) if return_cartesian else pw
+        aw = np.copy(list(map(lambda der: self.spl(u, der), range(d + 1))))
+        ck = np.empty((d + 1, 3), float)
 
+        for k in range(d + 1):
+            v = aw[k][:3]
+            for i in range(1, k + 1):
+                v -= comb(k, i) * aw[i][-1] * ck[k - i]
+            ck[k] = v / aw[0][-1]
+
+        return ck[d]
+
+    @property
     def length(self):
         """
         Calculate the length of the whole curve approximately.
@@ -4096,8 +4106,8 @@ def different_knot(lhs, rhs):
 
 
 class NURBSCrvTester(unittest.TestCase):
-    @staticmethod
-    def test_construction():
+    def test_construction(self):
+        # knot, ctrl points, weights
         u_vec = [[0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1],
                  [0, 0, 0, 0.5, 1, 1, 1],
                  [0, 0, 0, 0, 1, 1, 1, 1],
@@ -4115,6 +4125,9 @@ class NURBSCrvTester(unittest.TestCase):
              [1, 1]]
         ans = ['circle1.igs', 'circle2.igs', 'circle3.igs', 'circle4.igs', 'line.igs']
 
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(pnt) == len(w) == len(ans))
+
         iges_model = Model()
         for k in range(len(ans)):
             iges_model.clear()
@@ -4124,16 +4137,75 @@ class NURBSCrvTester(unittest.TestCase):
             print(repr(geom))
 
     def test_call(self):
-        pass
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 0, 1, 2, 3, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0), (3, 2, 0), (4, 1, 0), (5, -1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 4, 1, 1, 1],
+             [1, 1, 2]]
+
+        # u, derivative
+        data = [[(0, 0), (1, 0), (3, 0)],
+                [(0, 1), (0, 2), (1, 1)]]
+        ans = [[(0, 0, 0), (7 / 5, 6 / 5, 0), (5, -1, 0)],
+               [(0, 2, 0), (-4, 0, 0), (-1, 0, 0)]]
+
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(p) == len(w) == len(data) == len(ans))
+
+        for i in range(len(data)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda t: crv(t[0], t[1]), data[i]))
+            np.testing.assert_array_equal(cur_ans, ans[i])
 
     def test_length(self):
-        pass
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        ans = [sqrt2, math.pi / 2]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = crv.length
+            self.assertTrue(math.isclose(cur_ans, ans[i]))
 
     def test_curvature(self):
-        pass
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        data = [[0, 1.5, 3],
+                [0, 0.5, 1]]
+        ans = [[0, 0, 0],
+               [1, 1, 1]]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda u: crv.curvature(u), data[i]))
+            for j in range(len(cur_ans)):
+                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
 
     def test_reverse(self):
-        pass
+        u_vec = [0, 0, 0, 1, 3, 6, 6, 8, 8, 8]
+        s_vec = [0, 0, 0, 2, 2, 5, 7, 8, 8, 8]
+        p = [(1, 2, 2), (2, 4, 8), (3, 9, 27), (4, 16, 64), (5, 25, 125), (6, 36, 216)]
+        q = [(6, 36, 216), (5, 25, 125), (4, 16, 64), (3, 9, 27), (2, 4, 8), (1, 2, 2)]
+        w = [1, 1, 1, 1, 1, 1]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        crv.reverse()
+        self.assertTrue(np.array_equal(crv.U, s_vec))
+        self.assertTrue(np.array_equal(crv.cpt, q))
 
     def test_pan(self):
         pass
