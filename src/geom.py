@@ -1575,6 +1575,27 @@ class DCM(object):
         return self.dcm
 
 
+class TransformTester(unittest.TestCase):
+    def test_quaternion(self):
+        # axis, angle
+        data = [[(1, 1, 1), 30],
+                [(1, 1, 1), 45],
+                [(1, 1, 1), 90],
+                [(1, 1, 1), 180]]
+
+        # w, x, y, z
+        ans = [(0.9659258, 0.1494292, 0.1494292, 0.1494292),
+               (0.9238795, 0.2209424, 0.2209424, 0.2209424),
+               (0.7071068, 0.4082483, 0.4082483, 0.4082483),
+               (0, 0.5773503, 0.5773503, 0.5773503)]
+
+        for k, dt in enumerate(data):
+            q = Quaternion.from_u_theta(dt[0], math.radians(dt[1]))
+            print(q)
+            for i in range(4):
+                self.assertTrue(math.isclose(ans[k][i], q.comp[i], abs_tol=1e-7))
+
+
 """
 Implementation of the NURBS curve and surface utility.
 
@@ -1583,7 +1604,6 @@ All the NURBS notations are in the 'Clamped' format by default.
 
 TODO:
 (1) Optimize the calculation of derivatives inside Crv.__call__(u, d)
-(2) Update testing answers inside NURBSCrvTester.test_rotate
 """
 
 
@@ -1889,7 +1909,8 @@ class Crv(object):
     def __repr__(self):
         ret = 'NURBS Curve in clamped format.\n'
         ret += 'Knot Vector:\n{}\n'.format(self.U)
-        ret += 'Ctrl point:\n{}\n'.format(self.Pw)
+        ret += 'Ctrl point:\n{}\n'.format(self.cpt)
+        ret += 'Weight:\n{}\n'.format(self.weight)
         return ret
 
     @property
@@ -3108,6 +3129,158 @@ def point_inverse(c, p, dim=None):
     return u0
 
 
+class NURBSCrvTester(unittest.TestCase):
+    def test_construction(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1],
+                 [0, 0, 0, 0.5, 1, 1, 1],
+                 [0, 0, 0, 0, 1, 1, 1, 1],
+                 [0, 0, 0, 0, 1, 1, 1, 1],
+                 [0, 0, 1, 1]]
+        pnt = [[[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]],
+               [[1, 0], [1, 1], [-1, 1], [-1, 0]],
+               [[1, 0], [1, 2], [-1, 2], [-1, 0]],
+               [[sqrt3 / 2, 1 / 2], [sqrt3, -3], [-sqrt3, -3], [-sqrt3 / 2, 1 / 2]],
+               [[10, 10], [100, 100]]]
+        w = [[1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1],
+             [1, 0.5, 0.5, 1],
+             [1, 1 / 3, 1 / 3, 1],
+             [1, 1 / 6, 1 / 6, 1],
+             [1, 1]]
+        ans = ['circle1.igs', 'circle2.igs', 'circle3.igs', 'circle4.igs', 'line.igs']
+
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(pnt) == len(w) == len(ans))
+
+        iges_model = Model()
+        for k in range(len(ans)):
+            iges_model.clear()
+            geom = Crv(u_vec[k], list(map(lambda _p, _w: to_homogeneous(np.append(_p, [0]), _w), pnt[k], w[k])))
+            iges_model.add(geom.to_iges())
+            iges_model.save(ans[k])
+            print(repr(geom))
+
+    def test_call(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 0, 1, 2, 3, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0), (3, 2, 0), (4, 1, 0), (5, -1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 4, 1, 1, 1],
+             [1, 1, 2]]
+
+        # u, derivative
+        data = [[(0, 0), (1, 0), (3, 0)],
+                [(0, 1), (0, 2), (1, 1)]]
+        ans = [[(0, 0, 0), (7 / 5, 6 / 5, 0), (5, -1, 0)],
+               [(0, 2, 0), (-4, 0, 0), (-1, 0, 0)]]
+
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(p) == len(w) == len(data) == len(ans))
+
+        for i in range(len(data)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda t: crv(t[0], t[1]), data[i]))
+            np.testing.assert_array_equal(cur_ans, ans[i])
+
+    def test_length(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        ans = [sqrt2, math.pi / 2]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = crv.length
+            self.assertTrue(math.isclose(cur_ans, ans[i]))
+
+    def test_curvature(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        data = [[0, 1.5, 3],
+                [0, 0.5, 1]]
+        ans = [[0, 0, 0],
+               [1, 1, 1]]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda u: crv.curvature(u), data[i]))
+            for j in range(len(cur_ans)):
+                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
+
+    def test_reverse(self):
+        u_vec = [0, 0, 0, 1, 3, 6, 6, 8, 8, 8]
+        s_vec = [0, 0, 0, 2, 2, 5, 7, 8, 8, 8]
+        p = [(1, 2, 2), (2, 4, 8), (3, 9, 27), (4, 16, 64), (5, 25, 125), (6, 36, 216)]
+        q = [(6, 36, 216), (5, 25, 125), (4, 16, 64), (3, 9, 27), (2, 4, 8), (1, 2, 2)]
+        w = [1, 1, 1, 1, 1, 1]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        crv.reverse()
+        self.assertTrue(np.array_equal(crv.U, s_vec))
+        self.assertTrue(np.array_equal(crv.cpt, q))
+
+    def test_pan(self):
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        pan_dir = (3, 4, 5)
+        ans = [(4, 4, 5), (4, 5, 5), (3, 5, 5)]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        iges_model = Model()
+        iges_model.add(crv.to_iges())
+        crv.pan(pan_dir)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_pan.igs')
+
+        self.assertTrue(np.array_equal(crv.cpt, ans))
+        self.assertTrue(np.array_equal(crv.weight, w))
+
+    def test_rotate(self):
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        # anchor point, rotation axis, rotation angle
+        data = [[(0, 0, 0), (1, 1, 1), 30],
+                [(0, 0, 0), (1, 1, 1), 45],
+                [(0, 0, 0), (1, 1, 1), 90],
+                [(0, 0, 0), (1, 1, 1), 180]]
+        ans = [[(0.9106836, 1 / 3, -0.2440169), (2 / 3, 1.2440169, 0.0893164), (-0.2440169, 0.9106836, 1 / 3)],
+               [(0.8047379, 0.5058793, -0.3106172), (0.4941207, 1.3106172, 0.1952621), (-0.3106172, 0.8047379, 0.5058793)],
+               [(1 / 3, 0.9106836, -0.2440169), (0.0893164, 1.2440169, 2 / 3), (-0.2440169, 1 / 3, 0.9106836)],
+               [(-1 / 3, 2 / 3, 2 / 3), (1 / 3, 1 / 3, 4 / 3), (2 / 3, -1 / 3, 2 / 3)]]
+
+        self.assertTrue(len(data) == len(ans))
+
+        for i, rt in enumerate(data):
+            iges_model = Model()
+            crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+            # print(crv)
+            iges_model.add(crv.to_iges())
+            crv.rotate(rt[0], rt[1], rt[2])
+            # print(crv)
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_rotate-{}.igs'.format(i))
+
+            np.testing.assert_array_almost_equal(crv.cpt, ans[i])
+
+
 class ClampedNURBSSurf(object):
     def __init__(self, u, v, pw):
         """
@@ -4096,155 +4269,6 @@ def different_knot(lhs, rhs):
             k += 1
 
     return ans
-
-
-class NURBSCrvTester(unittest.TestCase):
-    def test_construction(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1],
-                 [0, 0, 0, 0.5, 1, 1, 1],
-                 [0, 0, 0, 0, 1, 1, 1, 1],
-                 [0, 0, 0, 0, 1, 1, 1, 1],
-                 [0, 0, 1, 1]]
-        pnt = [[[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]],
-               [[1, 0], [1, 1], [-1, 1], [-1, 0]],
-               [[1, 0], [1, 2], [-1, 2], [-1, 0]],
-               [[sqrt3 / 2, 1 / 2], [sqrt3, -3], [-sqrt3, -3], [-sqrt3 / 2, 1 / 2]],
-               [[10, 10], [100, 100]]]
-        w = [[1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1],
-             [1, 0.5, 0.5, 1],
-             [1, 1 / 3, 1 / 3, 1],
-             [1, 1 / 6, 1 / 6, 1],
-             [1, 1]]
-        ans = ['circle1.igs', 'circle2.igs', 'circle3.igs', 'circle4.igs', 'line.igs']
-
-        # Just used to avoid warning
-        self.assertTrue(len(u_vec) == len(pnt) == len(w) == len(ans))
-
-        iges_model = Model()
-        for k in range(len(ans)):
-            iges_model.clear()
-            geom = Crv(u_vec[k], list(map(lambda _p, _w: to_homogeneous(np.append(_p, [0]), _w), pnt[k], w[k])))
-            iges_model.add(geom.to_iges())
-            iges_model.save(ans[k])
-            print(repr(geom))
-
-    def test_call(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 0, 1, 2, 3, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0), (3, 2, 0), (4, 1, 0), (5, -1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 4, 1, 1, 1],
-             [1, 1, 2]]
-
-        # u, derivative
-        data = [[(0, 0), (1, 0), (3, 0)],
-                [(0, 1), (0, 2), (1, 1)]]
-        ans = [[(0, 0, 0), (7 / 5, 6 / 5, 0), (5, -1, 0)],
-               [(0, 2, 0), (-4, 0, 0), (-1, 0, 0)]]
-
-        # Just used to avoid warning
-        self.assertTrue(len(u_vec) == len(p) == len(w) == len(data) == len(ans))
-
-        for i in range(len(data)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = list(map(lambda t: crv(t[0], t[1]), data[i]))
-            np.testing.assert_array_equal(cur_ans, ans[i])
-
-    def test_length(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 1],
-             [1, 1, 2]]
-
-        ans = [sqrt2, math.pi / 2]
-
-        for i in range(len(ans)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = crv.length
-            self.assertTrue(math.isclose(cur_ans, ans[i]))
-
-    def test_curvature(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 1],
-             [1, 1, 2]]
-
-        data = [[0, 1.5, 3],
-                [0, 0.5, 1]]
-        ans = [[0, 0, 0],
-               [1, 1, 1]]
-
-        for i in range(len(ans)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = list(map(lambda u: crv.curvature(u), data[i]))
-            for j in range(len(cur_ans)):
-                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
-
-    def test_reverse(self):
-        u_vec = [0, 0, 0, 1, 3, 6, 6, 8, 8, 8]
-        s_vec = [0, 0, 0, 2, 2, 5, 7, 8, 8, 8]
-        p = [(1, 2, 2), (2, 4, 8), (3, 9, 27), (4, 16, 64), (5, 25, 125), (6, 36, 216)]
-        q = [(6, 36, 216), (5, 25, 125), (4, 16, 64), (3, 9, 27), (2, 4, 8), (1, 2, 2)]
-        w = [1, 1, 1, 1, 1, 1]
-
-        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-        crv.reverse()
-        self.assertTrue(np.array_equal(crv.U, s_vec))
-        self.assertTrue(np.array_equal(crv.cpt, q))
-
-    def test_pan(self):
-        # knot, ctrl points, weights
-        u_vec = [0, 0, 0, 1, 1, 1]
-        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
-        w = [1, 1, 2]
-
-        pan_dir = (3, 4, 5)
-        ans = [(4, 4, 5), (4, 5, 5), (3, 5, 5)]
-
-        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-        iges_model = Model()
-        iges_model.add(crv.to_iges())
-        crv.pan(pan_dir)
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_pan.igs')
-
-        self.assertTrue(np.array_equal(crv.cpt, ans))
-        self.assertTrue(np.array_equal(crv.weight, w))
-
-    def test_rotate(self):
-        # knot, ctrl points, weights
-        u_vec = [0, 0, 0, 1, 1, 1]
-        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
-        w = [1, 1, 2]
-
-        # anchor point, rotation axis, rotation angle
-        data = [[(0, 0, 0), (1, 1, 1), 30],
-                [(0, 0, 0), (0, 0, 1), 45],
-                [(0, 0, 0), (0, 0, 1), 90],
-                [(0, 0, 0), (0, 0, 1), 180]]
-        ans = [[(1, 0, 0), (1, 1, 0), (0, 1, 0)],
-               [(1, 0, 0), (1, 1, 0), (0, 1, 0)],
-               [(1, 0, 0), (1, 1, 0), (0, 1, 0)],
-               [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-
-        for i, rt in enumerate(data):
-            iges_model = Model()
-            crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-            iges_model.add(crv.to_iges())
-            crv.rotate(rt[0], rt[1], rt[2])
-            iges_model.add(crv.to_iges())
-            iges_model.save('test_rotate-{}.igs'.format(i))
-
-            self.assertTrue(np.array_equal(crv.U, u_vec))
-            self.assertTrue(np.array_equal(crv.cpt, ans[i]))
 
 
 if __name__ == '__main__':
