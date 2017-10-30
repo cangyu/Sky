@@ -9,9 +9,6 @@ Implementation of the Plot3D standard.
 
 Note:
 All the units are SI by default.
-
-TODO:
-Import testing cases for multi-block Plot3D
 """
 
 grid_debug = False
@@ -240,10 +237,11 @@ class Plot3D(object):
         report_process("Writing grid: \'{}\' with {} block(s) ...".format(fn, self.size))
 
         for blk in self.blk_list:
-            f_out.write("\n{} {} {}".format(blk.I, blk.J, blk.K))
+            ii, jj, kk = blk.dim
+            f_out.write("\n{} {} {}".format(ii, jj, kk))
 
         for k, blk in enumerate(self.blk_list):
-            report_process("Writing block \'{}\' with dimension \'{}\' ...".format(k, repr(blk)))
+            report_process("->Writing block \'{}\' with dimension \'{}\' ...".format(k, repr(blk)))
             blk.write(f_out, with_iblank)
 
         f_out.close()
@@ -251,8 +249,7 @@ class Plot3D(object):
 
 
 class Plot3DTester(unittest.TestCase):
-    @staticmethod
-    def test_single():
+    def test_single(self):
         # x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw
         rect_param = [(0, 100, 0, 60, 0, 40, 61, 16, 21),
                       (0, 100, 0, 60, 0, 40, 61, 16, 1)]
@@ -288,17 +285,51 @@ class Plot3DTester(unittest.TestCase):
                         pts[i][j][k] = np.array([u_list[i] * math.cos(ct), u_list[i] * math.sin(ct), w_list[k]])
             ans.append(pts)
 
+        self.assertTrue(len(ans) == len(rect_param) + len(sect_param))
+
         grid = Plot3D()
         for t in range(len(ans)):
             grid.clear()
             blk = Plot3DBlock.construct_from_array(ans[t])
             grid.add(blk)
-            print(grid)
-            fn = "SingleBlk-{}.xyz".format(t)
+            fn = "'test_plot3d_single-{}.xyz".format(t)
             grid.save(fn)
 
     def test_multi(self):
-        pass
+        # x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw
+        rect_param = [(0, 100, 0, 60, 0, 40, 61, 16, 21),
+                      (120, 200, 75, 100, 50, 80, 61, 16, 21)]
+        ans = []
+
+        for p in rect_param:
+            x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw = p
+            pts = np.zeros((nu, nv, nw, 3))
+            u_list = np.linspace(x_min, x_max, nu)
+            v_list = np.linspace(y_min, y_max, nv)
+            w_list = np.linspace(z_min, z_max, nw)
+            for i in range(nu):
+                for j in range(nv):
+                    for k in range(nw):
+                        pts[i][j][k][0] = u_list[i]
+                        pts[i][j][k][1] = v_list[j]
+                        pts[i][j][k][2] = w_list[k]
+            ans.append(pts)
+
+        self.assertTrue(len(ans) == len(rect_param))
+
+        grid = Plot3D()
+        for t in range(len(ans)):
+            blk = Plot3DBlock.construct_from_array(ans[t])
+            grid.add(blk)
+        grid.save('test_plot3d_multi.xyz')
+
+
+"""
+Implementation of the Trans-finite Interpolation(TFI) technique.
+
+Note:
+Here only linear version are implemented.
+"""
 
 
 def equal_check(*args):
@@ -666,6 +697,14 @@ class LinearTFI3D(TFI):
                     self.grid[i][j][k] -= pvc[j] * pwc[k] * pc35[i] + pvc[j] * pw[k] * pc36[i] + pv[j] * pwc[k] * pc45[i] + pv[j] * pw[k] * pc46[i]
                     self.grid[i][j][k] -= pwc[k] * puc[i] * pc15[j] + pwc[k] * pu[i] * pc25[j] + pw[k] * puc[i] * pc16[j] + pw[k] * pu[i] * pc26[j]
                     self.grid[i][j][k] += puc[i] * pvc[j] * pwc[k] * self.p135 + puc[i] * pvc[j] * pw[k] * self.p136 + puc[i] * pv[j] * pwc[k] * self.p145 + puc[i] * pv[j] * pw[k] * self.p146 + pu[i] * pvc[j] * pwc[k] * self.p235 + pu[i] * pvc[j] * pw[k] * self.p236 + pu[i] * pv[j] * pwc[k] * self.p245 + pu[i] * pv[j] * pw[k] * self.p246
+
+
+class TFITester(unittest.TestCase):
+    def test_2d(self):
+        pass
+
+    def test_3d(self):
+        pass
 
 
 if __name__ == '__main__':
