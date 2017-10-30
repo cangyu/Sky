@@ -3320,6 +3320,23 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(np.array_equal(crv1.U, crv2.U))
         self.assertTrue(np.array_equal(crv1.Pw, crv2.Pw))
 
+    def test_refine(self):
+        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        data = [2.5, 2.5, 2.5]
+        ans = [0, 0, 0, 0, 1, 2, 2.5, 2.5, 2.5, 3, 4, 5, 5, 5, 5]
+
+        crv = Crv(u_vec, pw)
+        iges_model = Model()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_refine_original.igs')
+        crv.refine(data)
+        iges_model.clear()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_refine_after.igs')
+        self.assertTrue(np.array_equal(crv.U, ans))
+
 
 class ClampedNURBSSurf(object):
     def __init__(self, u, v, pw):
