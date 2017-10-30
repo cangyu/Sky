@@ -2103,54 +2103,57 @@ class Crv(object):
 
     def insert_knot(self, u, r=1):
         """
-        插入一个节点若干次
-        :param u: 待插入节点
-        :param r: 插入的次数，要求s+r<=p, 其中s为u在原节点矢量中的重复度,p为曲线次数
+        Insert a knot several times.
+        :param u: Knot to be inserted.
+        :type u: float
+        :param r: Times of insertion.
+                  It's required that s+r<=p, where s is the multiplicity inside the original knot vector,
+                  and p is the degree of the curve.
+        :type r: int
         :return: None.
         """
 
         if r < 0:
-            raise AssertionError('Invalid times!')
-
+            raise ValueError('Invalid times!')
         if r == 0:
             return
 
         '''Insert'''
         s = sum(x == u for x in self.U)  # Counts of duplicates
         if s + r > self.p:
-            raise ValueError('Too many Knot: {}\nExisting: {}, Targeting: {} Max: {}'.format(u, s, s + r, self.p))
+            raise ValueError('Too many Knot: {}, existing: {}, targeting: {}, max: {}.'.format(u, s, s + r, self.p))
 
         k = find_span(self.n, self.p, u, self.U)
-        nU = np.insert(self.U, k + 1, np.full(r, u, float))  # New knot vector
-        nPw = np.zeros((self.n + r + 1, 4))  # New homogeneous control points
+        nu = np.insert(self.U, k + 1, np.full(r, u, float))  # New knot vector
+        npw = np.zeros((self.n + r + 1, 4))  # New homogeneous control points
 
         '''Calculate new control points'''
-        Rw = np.zeros((self.p + 1, 4))  # Holding temporary points
+        rw = np.zeros((self.p + 1, 4))  # Holding temporary points
 
         '''Store unchanged control points'''
         for i in range(k - self.p + 1):
-            nPw[i] = np.copy(self.Pw[i])
+            npw[i] = np.copy(self.Pw[i])
         for i in range(k - s, self.n + 1):
-            nPw[i + r] = np.copy(self.Pw[i])
+            npw[i + r] = np.copy(self.Pw[i])
         for i in range(self.p - s + 1):
-            Rw[i] = np.copy(self.Pw[k - self.p + i])
+            rw[i] = np.copy(self.Pw[k - self.p + i])
 
         '''Insert target knot r times'''
-        L = 0
+        ll = 0
         for j in range(1, r + 1):
-            L = k - self.p + j
+            ll = k - self.p + j
             for i in range(self.p - j - s + 1):
-                alpha = (u - self.U[L + i]) / (self.U[i + k + 1] - self.U[L + i])
-                Rw[i] = alpha * Rw[i + 1] + (1.0 - alpha) * Rw[i]
-            nPw[L] = np.copy(Rw[0])
-            nPw[k + r - j - s] = np.copy(Rw[self.p - j - s])
+                alpha = (u - self.U[ll + i]) / (self.U[i + k + 1] - self.U[ll + i])
+                rw[i] = alpha * rw[i + 1] + (1.0 - alpha) * rw[i]
+            npw[ll] = np.copy(rw[0])
+            npw[k + r - j - s] = np.copy(rw[self.p - j - s])
 
         '''Load remaining control points'''
-        for i in range(L + 1, k - s):
-            nPw[i] = np.copy(Rw[i - L])
+        for i in range(ll + 1, k - s):
+            npw[i] = np.copy(rw[i - ll])
 
         '''Update'''
-        self.reset(nU, nPw)
+        self.reset(nu, npw)
 
     def refine(self, extra_knots):
         """
@@ -3266,6 +3269,7 @@ class NURBSCrvTester(unittest.TestCase):
                [(1 / 3, 0.9106836, -0.2440169), (0.0893164, 1.2440169, 2 / 3), (-0.2440169, 1 / 3, 0.9106836)],
                [(-1 / 3, 2 / 3, 2 / 3), (1 / 3, 1 / 3, 4 / 3), (2 / 3, -1 / 3, 2 / 3)]]
 
+        # Just used to avoid warning
         self.assertTrue(len(data) == len(ans))
 
         for i, rt in enumerate(data):
@@ -3279,6 +3283,42 @@ class NURBSCrvTester(unittest.TestCase):
             iges_model.save('test_rotate-{}.igs'.format(i))
 
             np.testing.assert_array_almost_equal(crv.cpt, ans[i])
+
+    def test_insert_knot(self):
+        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        data = [(2.5, 1),  # 插入1个不在原节点矢量中的节点
+                (2, 1),  # 插入1个在原节点矢量中的节点
+                (2.5, 3),  # 插入1个不在原节点矢量中的节点3次
+                (2, 2),  # 插入1个在原节点矢量中的节点2次
+                (2.5, 4)]  # 插入1个不在原节点矢量中的节点4次
+        ans = ['test_insert-0.igs',
+               'test_insert-1.igs',
+               'test_insert-2.igs',
+               'test_insert-3.igs',
+               None]
+
+        for i in range(len(data)):
+            crv = Crv(u_vec, pw)
+            try:
+                crv.insert_knot(data[i][0], data[i][1])
+            except ValueError as e:
+                print('Ok, illegal insertion detected with following msg:\n{}'.format(e))
+            else:
+                iges_model = Model()
+                iges_model.add(crv.to_iges())
+                iges_model.save(ans[i])
+
+        # Should yield identical results
+        crv1 = Crv(u_vec, pw)
+        crv2 = Crv(u_vec, pw)
+        crv1.insert_knot(2)
+        crv1.insert_knot(2)
+        crv2.insert_knot(2, 2)
+
+        self.assertTrue(np.array_equal(crv1.U, crv2.U))
+        self.assertTrue(np.array_equal(crv1.Pw, crv2.Pw))
 
 
 class ClampedNURBSSurf(object):
