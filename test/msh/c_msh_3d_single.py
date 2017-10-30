@@ -2,12 +2,12 @@ import copy
 import math
 
 import numpy as np
-
-from src.aircraft.frame import BWBFrame, chebshev_dist_multi
-from src.aircraft.wing import Wing
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
 from src.msh.tfi import LinearTFI2D, LinearTFI3D
-from src.geom.curve import Line, Arc
+
+from nurbs import Line, Arc
+from src.aircraft.frame import BWBFrame, chebshev_dist_multi
+from src.aircraft.wing import Wing
 
 try:
     from src.misc.catia import view

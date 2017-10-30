@@ -1,5 +1,5 @@
-from src.geom.curve import Line
-from src.geom.surface import Skinned, RuledSurf, Coons
+from nurbs import Line
+from nurbs import Skinned, RuledSurf, Coons
 from src.aircraft.wing import WingProfile
 
 

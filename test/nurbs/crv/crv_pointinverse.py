@@ -1,5 +1,6 @@
 import numpy as np
-from src.geom.curve import point_inverse
+
+from nurbs import point_inverse
 from src.aircraft.frame import HWBFrame
 
 try:

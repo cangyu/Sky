@@ -1,10 +1,11 @@
-import numpy as np
 import math
-from src.aircraft.wing import Airfoil
-from src.geom.curve import Spline
+
+import numpy as np
 from src.msh.tfi import LinearTFI2D
+
+from nurbs import Spline
+from src.aircraft.wing import Airfoil
 from src.msh.elliptic import Laplace2D
-from src.msh.plot3d import PLOT3D, PLOT3D_Block
 
 
 def airfoil(foil, L, R):

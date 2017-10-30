@@ -3,10 +3,10 @@ import unittest
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-
-from src.aircraft.wing import Airfoil
 from src.iges import IGES_Model
-from src.geom.curve import Spline, GlobalInterpolatedCrv
+
+from nurbs import Spline, GlobalInterpolatedCrv
+from src.aircraft.wing import Airfoil
 
 try:
     from src.misc.catia import view

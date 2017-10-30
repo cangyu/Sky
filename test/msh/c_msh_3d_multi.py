@@ -1,12 +1,14 @@
-import numpy as np
 import math
 from copy import deepcopy
-from src.aircraft.wing import Wing
-from src.aircraft.frame import BWBFrame, chebshev_dist_multi
-from src.geom.curve import Line, Arc
-from src.geom.surface import BilinearSurf, Coons
-from src.msh.tfi import LinearTFI3D
+
+import numpy as np
 from src.msh.plot3d import PLOT3D, PLOT3D_Block
+from src.msh.tfi import LinearTFI3D
+
+from nurbs import BilinearSurf, Coons
+from nurbs import Line, Arc
+from src.aircraft.frame import BWBFrame, chebshev_dist_multi
+from src.aircraft.wing import Wing
 
 p3d_msh = PLOT3D()
 fn = '3d_multi_blk_grid.xyz'

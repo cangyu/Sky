@@ -1,10 +1,12 @@
-import numpy as np
 import math
 import multiprocessing
 import os
-from src.aircraft.wing import Wing
+
+import numpy as np
+
+from spacing import chebshev_dist_multi
 from src.aircraft.frame import BWBFrame
-from src.msh.spacing import chebshev_dist_multi
+from src.aircraft.wing import Wing
 from src.opt.latin import LatinHyperCube
 
 try:

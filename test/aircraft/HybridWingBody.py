@@ -3,11 +3,11 @@ import os
 
 import numpy as np
 from matplotlib import pylab as plt
+from src.iges import IGES_Model
 
+from spacing import chebshev_dist_multi
 from src.aircraft.frame import HWBFrame
 from src.aircraft.wing import Wing
-from src.iges import IGES_Model
-from src.msh.spacing import chebshev_dist_multi
 
 try:
     from src.misc.catia import view

@@ -1,9 +1,11 @@
-import numpy as np
 import math
 from copy import deepcopy
-from src.geom.utility import to_homogeneous, to_cartesian
-from src.geom.curve import Arc, Line, ClampedNURBSCrv, ConicArc
-from src.geom.surface import Coons
+
+import numpy as np
+
+from nurbs import Arc, Line, ClampedNURBSCrv, ConicArc
+from nurbs import Coons
+from nurbs import to_homogeneous, to_cartesian
 
 sqrt2 = math.sqrt(2)
 

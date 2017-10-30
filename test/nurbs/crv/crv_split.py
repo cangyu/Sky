@@ -1,7 +1,7 @@
 import numpy as np
-
 from src.iges import IGES_Model
-from src.geom.curve import ClampedNURBSCrv, GlobalInterpolatedCrv
+
+from nurbs import ClampedNURBSCrv, GlobalInterpolatedCrv
 
 try:
     from src.misc.catia import view

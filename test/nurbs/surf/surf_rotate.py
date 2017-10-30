@@ -2,9 +2,9 @@ import unittest
 from copy import deepcopy
 
 import numpy as np
-
 from src.iges import IGES_Model
-from src.geom.surface import BilinearSurf
+
+from nurbs import BilinearSurf
 
 try:
     from src.misc.catia import view

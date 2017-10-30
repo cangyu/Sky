@@ -1,15 +1,15 @@
-import math
 from copy import deepcopy
 
+from src.iges import IGES_Model
+from src.msh.plot3d import PLOT3D_Block, PLOT3D
+from src.msh.tfi import LinearTFI3D, LinearTFI2D
+
+from nurbs import ClampedNURBSCrv, Line, Arc
+from nurbs import ClampedNURBSSurf, RuledSurf
+from spacing import *
 from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing, WingProfile
-from src.iges import IGES_Model
 from src.msh.fluent import XF_MSH, BCType
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
-from src.msh.spacing import *
-from src.msh.tfi import LinearTFI3D, LinearTFI2D
-from src.geom.curve import ClampedNURBSCrv, Line, Arc
-from src.geom.surface import ClampedNURBSSurf, RuledSurf
 
 try:
     from src.misc.catia import view

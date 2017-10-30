@@ -1,9 +1,9 @@
 from math import tan, sin, cos
 
 import numpy as np
-
 from src.iges import IGES_Model
-from src.geom.curve import LocalCubicInterpolatedCrv
+
+from nurbs import LocalCubicInterpolatedCrv
 
 try:
     from src.misc.catia import view

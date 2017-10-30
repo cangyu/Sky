@@ -1,10 +1,12 @@
 import unittest
+
 import numpy as np
-from src.geom.curve import Line, Arc
-from src.aircraft.wing import WingProfile
-from src.msh.spacing import single_exponential, double_exponential, hyperbolic_tangent
-from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.tfi import LinearTFI2D
+
+from nurbs import Line, Arc
+from spacing import single_exponential, double_exponential, hyperbolic_tangent
+from src.aircraft.wing import WingProfile
+from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.fluent import XF_MSH, BCType
 
 

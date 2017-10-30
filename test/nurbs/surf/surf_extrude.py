@@ -1,8 +1,9 @@
 import unittest
 
 from src.iges import IGES_Model
-from src.geom.curve import Arc
-from src.geom.surface import ExtrudedSurf
+
+from nurbs import Arc
+from nurbs import ExtrudedSurf
 
 try:
     from src.misc.catia import view

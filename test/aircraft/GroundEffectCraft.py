@@ -1,14 +1,10 @@
-import math
-from copy import deepcopy
-
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-
-from src.aircraft.wing import WingProfile
 from src.iges import IGES_Model
-from src.geom.curve import Arc, Line, ClampedNURBSCrv, ConicArc
-from src.geom.surface import Coons, RuledSurf
-from src.geom.utility import *
+
+from nurbs import *
+from nurbs import ClampedNURBSCrv
+from src.aircraft.wing import WingProfile
 
 try:
     from src.misc.catia import view

@@ -1,11 +1,9 @@
-import numpy as np
 import math
-from src.msh.spacing import uniform, linear_expand
-from src.opt.surrogate import Kriging
+
+import numpy as np
+
 from src.opt.latin import LatinHyperCube
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.ticker import LinearLocator
+from src.opt.surrogate import Kriging
 
 
 class Branin(object):

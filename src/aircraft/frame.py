@@ -1,12 +1,14 @@
-from math import sin, cos, tan, radians, fabs, atan2
 from abc import ABCMeta, abstractmethod
+from math import sin, cos, tan, radians, fabs, atan2
+
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
+from scipy.interpolate import make_interp_spline
 from scipy.optimize import root
-from src.geom.curve import LocalCubicInterpolatedCrv, Line, point_inverse
-from src.geom.surface import Coons
+
+from nurbs import Coons
+from nurbs import LocalCubicInterpolatedCrv, Line, point_inverse
 
 
 class WingFrame(metaclass=ABCMeta):

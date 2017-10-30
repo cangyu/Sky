@@ -1,6 +1,7 @@
-from src.aircraft.wing import WingProfile
 from src.iges import IGES_Model
-from src.geom.surface import RuledSurf
+
+from nurbs import RuledSurf
+from src.aircraft.wing import WingProfile
 
 try:
     from src.misc.catia import view

@@ -1,10 +1,12 @@
-import unittest
-import numpy as np
 import math
-from src.msh.tfi import LinearTFI2D
+import unittest
+
+import numpy as np
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
+from src.msh.tfi import LinearTFI2D
+
+from nurbs import GlobalInterpolatedCrv
 from src.aircraft.wing import Airfoil
-from src.geom.curve import GlobalInterpolatedCrv
 
 
 def write_uniform_p3d(msh: LinearTFI2D, U: int, V: int, fn="msh_p3d.xyz"):

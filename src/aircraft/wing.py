@@ -5,16 +5,16 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-
-from settings import AIRFOIL_DIR
-from src.aircraft.frame import WingFrame
 from src.iges import IGES_Model
-from src.msh.fluent import XF_MSH, BCType
-from src.msh.spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
-from src.geom.curve import GlobalInterpolatedCrv, Line, Arc, ClampedNURBSCrv
-from src.geom.surface import Skinned, RuledSurf, ClampedNURBSSurf
-from src.geom.utility import equal, pnt_dist
+
+from nurbs import GlobalInterpolatedCrv, Line, Arc, ClampedNURBSCrv
+from nurbs import Skinned, RuledSurf, ClampedNURBSSurf
+from nurbs import equal, pnt_dist
+from settings import AIRFOIL_DIR
+from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
+from src.aircraft.frame import WingFrame
+from src.msh.fluent import XF_MSH, BCType
 
 
 class Airfoil(object):

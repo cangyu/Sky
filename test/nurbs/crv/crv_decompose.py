@@ -1,10 +1,10 @@
 import math
 
 import numpy as np
-
 from src.iges import Model
-from src.geom.curve import ClampedNURBSCrv
-from src.geom.utility import equal
+
+from nurbs import ClampedNURBSCrv
+from nurbs import equal
 
 try:
     from src.misc.catia import view

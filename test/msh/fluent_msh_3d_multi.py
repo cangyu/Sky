@@ -1,11 +1,13 @@
-import numpy as np
 import math
 from copy import deepcopy
-from src.aircraft.wing import Wing
-from src.aircraft.frame import BWBFrame, chebshev_dist_multi
-from src.geom.curve import Line, Arc
-from src.geom.surface import BilinearSurf, Coons
+
+import numpy as np
 from src.msh.tfi import LinearTFI3D
+
+from nurbs import BilinearSurf, Coons
+from nurbs import Line, Arc
+from src.aircraft.frame import BWBFrame, chebshev_dist_multi
+from src.aircraft.wing import Wing
 from src.msh.fluent import XF_MSH, BCType
 
 c_root = 10

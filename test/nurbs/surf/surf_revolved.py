@@ -1,6 +1,7 @@
 from src.iges import IGES_Model
-from src.geom.curve import Arc, Line
-from src.geom.surface import RevolvedSurf
+
+from nurbs import Arc, Line
+from nurbs import RevolvedSurf
 
 try:
     from src.misc.catia import view

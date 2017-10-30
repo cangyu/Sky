@@ -1,7 +1,8 @@
 import math
 
 from src.iges import Model
-from src.geom.curve import ConicArc
+
+from nurbs import ConicArc
 
 try:
     from src.misc.catia import view
