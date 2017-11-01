@@ -1714,6 +1714,21 @@ class NURBSCrvTester(unittest.TestCase):
         iges_model.save('test_refine_after.igs')
         self.assertTrue(np.array_equal(crv.U, ans))
 
+    def test_elevate(self):
+        pass
+
+    def test_reparameterization(self):
+        pass
+
+    def test_split(self):
+        pass
+
+    def test_decompose(self):
+        pass
+
+    def test_point_inverse(self):
+        pass
+
 
 class ClampedNURBSSurf(object):
     def __init__(self, u, v, pw):
