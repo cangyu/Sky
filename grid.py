@@ -354,6 +354,10 @@ def equal_check(*args):
     return True
 
 
+def share(p, a, b):
+    return (1 - p) * a + p * b
+
+
 class TFI(object):
     def __init__(self):
         self.grid = None
@@ -804,8 +808,58 @@ class TFITester(unittest.TestCase):
             msh.add(blk)
             msh.save('test_2d_crv_rect-{}.xyz'.format(k))
 
-    def test_3d(self):
-        pass
+    def test_3d_cuboid(self):
+        # L, W, H, U, V, W
+        data = [(5, 4, 3, 11, 9, 5),
+                (10, 10, 10, 21, 31, 41)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI3D(lambda v, w: np.array([0, v * dt[1], w * dt[2]]),
+                              lambda v, w: np.array([dt[0], v * dt[1], w * dt[2]]),
+                              lambda w, u: np.array([u * dt[0], 0, w * dt[2]]),
+                              lambda w, u: np.array([u * dt[0], dt[1], w * dt[2]]),
+                              lambda u, v: np.array([u * dt[0], v * dt[1], 0]),
+                              lambda u, v: np.array([u * dt[0], v * dt[1], dt[2]]))
+            tfi.calc_grid(np.linspace(0, 1.0, dt[3]),
+                          np.linspace(0, 1.0, dt[4]),
+                          np.linspace(0, 1.0, dt[5]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_3d_cuboid-{}.xyz'.format(k))
+
+    def test_3d_sect(self):
+        # R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W
+        data = [(5, 20, 60, 120, -50, 50, 31, 16, 61)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI3D(lambda v, w: np.array([dt[0] * math.cos(math.radians(share(v, dt[2], dt[3]))), dt[0] * math.sin(math.radians(share(v, dt[2], dt[3]))), share(w, dt[4], dt[5])]),
+                              lambda v, w: np.array([dt[1] * math.cos(math.radians(share(v, dt[2], dt[3]))), dt[1] * math.sin(math.radians(share(v, dt[2], dt[3]))), share(w, dt[4], dt[5])]),
+                              lambda w, u: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(dt[2])), share(u, dt[0], dt[1]) * math.sin(math.radians(dt[2])), share(w, dt[4], dt[5])]),
+                              lambda w, u: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(dt[3])), share(u, dt[0], dt[1]) * math.sin(math.radians(dt[3])), share(w, dt[4], dt[5])]),
+                              lambda u, v: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(share(v, dt[2], dt[3]))), share(u, dt[0], dt[1]) * math.sin(math.radians(share(v, dt[2], dt[3]))), dt[4]]),
+                              lambda u, v: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(share(v, dt[2], dt[3]))), share(u, dt[0], dt[1]) * math.sin(math.radians(share(v, dt[2], dt[3]))), dt[5]]))
+            tfi.calc_grid(np.linspace(0, 1.0, dt[6]),
+                          np.linspace(0, 1.0, dt[7]),
+                          np.linspace(0, 1.0, dt[8]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_3d_sect-{}.xyz'.format(k))
 
 
 if __name__ == '__main__':
