@@ -167,9 +167,8 @@ class Plot3DBlock(object):
     def construct_from_array(cls, pts):
         """
         Construct the Plot3D Block from grid array.
-        :param pts: Input grid points, maybe 2 or 3 Dimensional.
-                    The index traverse (I, J)/(I, J, K) from left to right,
-                    Each element is consist of (X, Y, Z)/(X, Y).
+        :param pts: Input grid points, the index traverse (I, J)/(I, J, K) from left to right,
+                    point should be 3D, each element is consist of (X, Y, Z).
         :return: Single-Block grid in Plot3D notation.
         :rtype: Plot3DBlock
         """
@@ -182,12 +181,20 @@ class Plot3DBlock(object):
         else:
             raise AssertionError("Invalid input grid array.")
 
-        p3d = np.ones((ni, nj, nk, 4))  # Denote all the points as Normal by default.
-        for i in range(ni):
-            for j in range(nj):
-                for k in range(nk):
+        p3d = np.zeros((ni, nj, nk, 4))
+        if len(pts.shape) == 3:
+            for i in range(ni):
+                for j in range(nj):
                     for d in range(nd):
-                        p3d[i][j][k][d] = pts[i][j][k][d]
+                        p3d[i][j][0][d] = pts[i][j][d]
+                    p3d[i][j][0][-1] = 1
+        else:
+            for i in range(ni):
+                for j in range(nj):
+                    for k in range(nk):
+                        for d in range(nd):
+                            p3d[i][j][k][d] = pts[i][j][k][d]
+                        p3d[i][j][k][-1] = 1
 
         ret = cls(p3d)
         ret.set_boundary_iblank(2)  # Close the boundary by default.
@@ -337,10 +344,8 @@ def equal_check(*args):
         return True
 
     prev = args[0]
-    for k, crd in enumerate(args):
-        if k == 0:
-            continue
-
+    for k in range(1, len(args)):
+        crd = args[k]
         if not norm(prev - crd) < 1e-8:
             return False
         else:
@@ -700,8 +705,104 @@ class LinearTFI3D(TFI):
 
 
 class TFITester(unittest.TestCase):
-    def test_2d(self):
-        pass
+    def test_2d_rect(self):
+        # L, W, U, V
+        data = [(5, 4, 11, 9),
+                (8, 8, 31, 21)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI2D(lambda u: np.array([dt[0] * u, 0, 0]),  # C1
+                              lambda v: np.array([0, dt[1] * v, 0]),  # C3
+                              lambda u: np.array([dt[0] * u, dt[1], 0]),  # C2
+                              lambda v: np.array([dt[0], dt[1] * v, 0]))  # C4
+            tfi.calc_grid(np.linspace(0, 1, dt[2]),
+                          np.linspace(0, 1, dt[3]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_2d_rect-{}.xyz'.format(k))
+
+    def test_2d_circle(self):
+        # R1, R2, U, V
+        data = [(1, 2, 6, 11),
+                (0, 5, 16, 33)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI2D(lambda u: np.array([(1 - u) * dt[0] + u * dt[1], 0, 0]),
+                              lambda v: np.array([dt[0] * math.cos(0.5 * math.pi * v), dt[0] * math.sin(0.5 * math.pi * v), 0]),
+                              lambda u: np.array([0, (1 - u) * dt[0] + u * dt[1], 0]),
+                              lambda v: np.array([dt[1] * math.cos(0.5 * math.pi * v), dt[1] * math.sin(0.5 * math.pi * v), 0]))
+
+            tfi.calc_grid(np.linspace(0, 1, dt[2]),
+                          np.linspace(0, 1, dt[3]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_2d_circle-{}.xyz'.format(k))
+
+    def test_2d_eccentric(self):
+        # Delta, R1, R2, U, V
+        data = [(-10, 4, 25, 16, 41),
+                (-10, 0, 25, 16, 41),
+                (-1, 2, 5, 16, 33)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI2D(lambda u: np.array([(dt[0] + dt[1]) * (1 - u) + dt[2] * u, 0, 0]),
+                              lambda v: np.array([dt[1] * math.cos(math.pi * v) + dt[0], dt[1] * math.sin(math.pi * v), 0]),
+                              lambda u: np.array([(dt[0] - dt[1]) * (1 - u) - dt[2] * u, 0, 0]),
+                              lambda v: np.array([dt[2] * math.cos(math.pi * v), dt[2] * math.sin(math.pi * v), 0]))
+
+            tfi.calc_grid(np.linspace(0, 1, dt[3]),
+                          np.linspace(0, 1, dt[4]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_2d_eccentric-{}.xyz'.format(k))
+
+    def test_2d_crv_rect(self):
+        # L, H1, H2, H3
+        data = [(100, 40, 60, 10, 50, 25)]
+        ans = []
+
+        for k, dt in enumerate(data):
+            tfi = LinearTFI2D(lambda u: np.array([u * dt[0], 4 * dt[3] * u * (1 - u), 0]),
+                              lambda v: np.array([0, v * dt[1], 0]),
+                              lambda u: np.array([u * dt[0], (dt[1] * (1 - u * u) + dt[2] * u * u), 0]),
+                              lambda v: np.array([dt[0], v * dt[2], 0]))
+
+            tfi.calc_grid(np.linspace(0, 1, dt[4]),
+                          np.linspace(0, 1, dt[5]))
+            ans.append(tfi.grid)
+
+        self.assertTrue(len(data) == len(ans))
+
+        msh = Plot3D()
+        for k, g in enumerate(ans):
+            msh.clear()
+            blk = Plot3DBlock.construct_from_array(g)
+            msh.add(blk)
+            msh.save('test_2d_crv_rect-{}.xyz'.format(k))
 
     def test_3d(self):
         pass

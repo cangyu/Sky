@@ -485,4 +485,4 @@ class EllipticGrid3D(object):
         pass
 
     def jacobi(self, i, j, k):
-        t = np.matrix()
+        pass
