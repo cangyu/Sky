@@ -1,13 +1,13 @@
 import math
 
 import numpy as np
+from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import LinearTFI2D
 
 from nurbs import GlobalInterpolatedCrv, Line
 from spacing import linear_expand, single_exponential, double_exponential
 from src.aircraft.wing import WingProfile
-from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
 
 
 def l0(_u):

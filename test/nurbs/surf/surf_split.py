@@ -1,7 +1,7 @@
 import numpy as np
-from src.iges import IGES_Model
 
 from nurbs import Surf
+from src.iges import IGES_Model
 
 try:
     from src.misc.catia import view

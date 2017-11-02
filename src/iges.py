@@ -9,7 +9,7 @@ from abc import abstractmethod
 Implementation of the IGES v6 standard.
 
 Note:
-All the metrics are SI.
+All the units are SI.
 """
 
 

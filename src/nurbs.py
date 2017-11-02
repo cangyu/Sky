@@ -1,17 +1,17 @@
-import sys
-import math
-import unittest
 import bisect
-import numpy as np
+import math
+import sys
+import unittest
 from copy import deepcopy
+import numpy as np
 from numpy.linalg import norm
 from scipy.integrate import romberg
 from scipy.interpolate import BSpline, make_interp_spline
 from scipy.linalg import solve
 from scipy.misc import comb
 from iges import Model, Entity110, Entity126, Entity128
-from transform import Quaternion, DCM
 from misc import array_smart_copy, normalize, pnt_dist
+from transform import Quaternion, DCM
 
 sqrt2 = math.sqrt(2)
 sqrt3 = math.sqrt(3)
@@ -1222,13 +1222,14 @@ class Line(Crv):
 
         super(Line, self).__init__(u, pw)
 
+    @property
     def length(self):
         return pnt_dist(self.start, self.end)
 
     def curvature(self, u):
         return 0.0
 
-    def to_iges(self):
+    def to_iges(self, *args, **kwargs):
         return Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
 
 
@@ -1290,6 +1291,7 @@ class Arc(Crv):
     def curvature(self, u):
         return 1.0 / self.radius
 
+    @property
     def length(self):
         return self.radius * np.deg2rad(self.theta)
 
@@ -1378,7 +1380,7 @@ class ConicArc(Crv):
         npw[1] = to_homogeneous(p1, w1)
         npw[2] = to_homogeneous(p2, 1)
 
-        '''Set-up'''
+        '''Setup'''
         super(ConicArc, self).__init__(nu, npw)
 
 
@@ -1884,14 +1886,13 @@ class Surf(object):
                 ans[i][j] = to_cartesian(self.Pw[i][j])
         return ans
 
-    def __call__(self, u, v, k=0, l=0, return_cartesian=True):
+    def __call__(self, u, v, k=0, l=0):
         """
         求在给定位置(u,v)处的导矢量
         :param u: U方向参数
         :param v: V方向参数
         :param k: U方向求导次数
         :param l: V方向求导次数
-        :param return_cartesian: 返回结果形式
         :return: (u,v)处偏导矢量
         """
 
@@ -1902,7 +1903,7 @@ class Surf(object):
         rw = np.copy(r)
         spl = BSpline.construct_fast(self.U, rw, self.p)
         pw = spl(u, k)
-        return to_cartesian(pw) if return_cartesian else pw
+        return to_cartesian(pw)
 
     def reset(self, u, v, pw):
         """
@@ -2802,6 +2803,14 @@ def different_knot(lhs, rhs):
             k += 1
 
     return ans
+
+
+class NURBSSurfTester(unittest.TestCase):
+    def test_construction(self):
+        pass
+
+    def test_call(self):
+        pass
 
 
 if __name__ == '__main__':

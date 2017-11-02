@@ -1,9 +1,9 @@
 import unittest
 
 import numpy as np
-from src.iges import IGES_Model
 
 from nurbs import GlobalInterpolatedSurf
+from src.iges import IGES_Model
 
 
 def build_wing(foil, N: int, L: float, p: int, q: int):

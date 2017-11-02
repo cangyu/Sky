@@ -1,17 +1,18 @@
-import os
 import math
+import os
+from copy import deepcopy
+
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-import matplotlib.pyplot as plt
-from copy import deepcopy
-from grid import LinearTFI2D, LinearTFI3D
-from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from iges import Model
-from nurbs import Spline, GlobalInterpolatedCrv, Line, Arc, Crv, Skinned, RuledSurf, Surf
-from misc import pnt_dist
-from settings import AIRFOIL_DIR
 from src.msh.elliptic import Laplace2D
-from src.msh.fluent import XF_MSH, BCType
+
+from fluent import XF_MSH, BCType
+from grid import LinearTFI2D, LinearTFI3D
+from misc import pnt_dist
+from nurbs import GlobalInterpolatedCrv, Line, Arc, Skinned, RuledSurf, Surf
+from settings import AIRFOIL_DIR
+from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from src.aircraft.frame import WingFrame
 
 

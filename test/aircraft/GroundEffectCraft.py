@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from src.iges import IGES_Model
 
 from nurbs import *
 from nurbs import ClampedNURBSCrv
 from src.aircraft.wing import WingProfile
+from src.iges import IGES_Model
 
 try:
     from src.misc.catia import view

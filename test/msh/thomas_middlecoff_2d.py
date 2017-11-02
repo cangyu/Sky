@@ -1,13 +1,13 @@
 import math
 
 import numpy as np
+from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import LinearTFI2D
 
 from nurbs import GlobalInterpolatedCrv
 from spacing import single_exponential, double_exponential
 from src.aircraft.wing import Airfoil
-from src.msh.elliptic import ThomasMiddlecoff2D
 
 
 def write_airfoil_o_msh(foil, L, R, U, V, fn=''):

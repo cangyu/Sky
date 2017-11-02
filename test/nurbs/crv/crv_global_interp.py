@@ -1,10 +1,10 @@
 import unittest
 
 import numpy as np
-from src.iges import IGES_Model
 
 from nurbs import GlobalInterpolatedCrv
 from settings import AIRFOIL_DIR
+from src.iges import IGES_Model
 
 try:
     from src.misc.catia import view

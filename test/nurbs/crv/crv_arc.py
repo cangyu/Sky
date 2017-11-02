@@ -1,9 +1,9 @@
 import unittest
 
 import numpy as np
-from src.iges import Model
 
 from nurbs import Arc
+from src.iges import Model
 
 
 class PlanarArcTest(unittest.TestCase):

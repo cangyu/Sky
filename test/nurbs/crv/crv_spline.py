@@ -1,7 +1,9 @@
 import unittest
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+
 from iges import Model
 from nurbs import Spline, GlobalInterpolatedCrv
 from src.aircraft.wing import Airfoil

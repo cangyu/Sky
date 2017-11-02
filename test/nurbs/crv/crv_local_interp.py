@@ -1,7 +1,6 @@
 from math import tan, sin, cos
 
 import numpy as np
-from iges import Model
 
 from nurbs import LocalCubicInterpolatedCrv
 

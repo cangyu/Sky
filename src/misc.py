@@ -1,7 +1,10 @@
+import os
+import sys
+import win32com.client
+import subprocess
 import math
 import numpy as np
 from numpy.linalg import norm
-import subprocess
 
 
 def array_smart_copy(src, dst):
@@ -45,6 +48,30 @@ def pnt_dist(lhs, rhs):
         ans += math.pow(lhs[i] - rhs[i], 2)
 
     return math.sqrt(ans)
+
+
+def view(file):
+    app = win32com.client.Dispatch('catia.application')
+    app.Visible = True
+    app.DisplayFileAlerts = True
+    doc = app.Documents.Open(os.path.abspath(file))
+
+
+def convert(file, target_format):
+    cur_dir, filename = os.path.split(file)
+    base, ext = os.path.splitext(filename)
+    fileout = os.path.join(cur_dir, base + '.' + target_format)
+
+    app = win32com.client.Dispatch('catia.application')
+    app.DisplayFileAlerts = False
+    doc = app.Documents.Open(os.path.abspath(file))
+
+    doc.ExportData(fileout, format)
+    doc.Close()
+    app.Quit()
+    print("Conversion Done!")
+
+    return fileout
 
 
 class XFoil(object):

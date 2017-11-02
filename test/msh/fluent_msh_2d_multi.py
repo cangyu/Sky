@@ -1,13 +1,13 @@
 import unittest
 
 import numpy as np
+from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.tfi import LinearTFI2D
 
+from fluent import XF_MSH, BCType
 from nurbs import Line, Arc
 from spacing import single_exponential, double_exponential, hyperbolic_tangent
 from src.aircraft.wing import WingProfile
-from src.msh.elliptic import ThomasMiddlecoff2D
-from src.msh.fluent import XF_MSH, BCType
 
 
 def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):

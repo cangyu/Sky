@@ -1,15 +1,15 @@
 from copy import deepcopy
 
-from src.iges import IGES_Model
 from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 
+from fluent import XF_MSH, BCType
 from nurbs import ClampedNURBSCrv, Line, Arc
 from nurbs import Surf, RuledSurf
 from spacing import *
 from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing, WingProfile
-from src.msh.fluent import XF_MSH, BCType
+from src.iges import IGES_Model
 
 try:
     from src.misc.catia import view

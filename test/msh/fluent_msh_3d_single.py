@@ -1,8 +1,10 @@
-import numpy as np
-import unittest
 import math
+import unittest
+
+import numpy as np
 from src.msh.tfi import LinearTFI3D
-from src.msh.fluent import XF_MSH
+
+from fluent import XF_MSH
 
 
 def sect(r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw):

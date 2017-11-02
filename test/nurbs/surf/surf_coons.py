@@ -1,8 +1,7 @@
-from src.iges import IGES_Model
-
 from nurbs import Arc, Line
 from nurbs import Coons
 from src.aircraft.wing import WingProfile
+from src.iges import IGES_Model
 
 try:
     from src.misc.catia import view
