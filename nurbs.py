@@ -23,7 +23,8 @@ Note:
 All the NURBS notations are in the 'Clamped' format by default.
 
 TODO:
-(1) Optimize the calculation of derivatives inside Crv.__call__(u, d)
+(1) Optimize the calculation of derivatives inside 'Crv.__call__(u, d)'.
+(2) Determine better converge criteria inside 'point_inverse(c, p)'.
 """
 
 
@@ -617,14 +618,14 @@ class Crv(object):
         r -= 1
 
         '''Tolerance'''
-        TOL = math.fabs(delta * min(self.weight) / (1 + max(list(map(lambda _p: norm(_p), self.cpt)))))
+        tolerance = math.fabs(delta * min(self.weight) / (1 + max(list(map(lambda _p: norm(_p), self.cpt)))))
 
         '''Basic variables'''
         p = self.p
         m = self.m
         n = self.n
-        ord = p + 1
-        fout = (2 * r - s - p) // 2
+        order = p + 1
+        f_out = (2 * r - s - p) // 2
         last = r - s
         first = r - p
 
@@ -642,8 +643,8 @@ class Crv(object):
             ii = 1
             jj = last - off
             while j - i > t:
-                alfi = (u - self.U[i]) / (self.U[i + ord + t] - self.U[i])
-                alfj = (u - self.U[j - t]) / (self.U[j + ord] - self.U[j - t])
+                alfi = (u - self.U[i]) / (self.U[i + order + t] - self.U[i])
+                alfj = (u - self.U[j - t]) / (self.U[j + order] - self.U[j - t])
                 temp[ii] = (self.Pw[i] - (1 - alfi) * temp[ii - 1]) / alfi
                 temp[jj] = (self.Pw[j] - alfj * temp[jj + 1]) / (1 - alfj)
                 i += 1
@@ -652,11 +653,11 @@ class Crv(object):
                 jj -= 1
 
             if j - i < t:
-                remflag = pnt_dist(temp[ii - 1], temp[jj + 1]) <= TOL
+                remflag = pnt_dist(temp[ii - 1], temp[jj + 1]) <= tolerance
             else:
-                alfi = (u - self.U[i]) / (self.U[i + ord + t] - self.U[i])
+                alfi = (u - self.U[i]) / (self.U[i + order + t] - self.U[i])
                 tpnt = alfi * temp[ii + t + 1] + (1 - alfi) * temp[ii - 1]
-                remflag = pnt_dist(self.Pw[i], tpnt) <= TOL
+                remflag = pnt_dist(self.Pw[i], tpnt) <= tolerance
 
             if not remflag:
                 break
@@ -679,7 +680,7 @@ class Crv(object):
         for k in range(r + 1, m + 1):
             self.U[k - t] = self.U[k]
 
-        j = fout
+        j = f_out
         i = j
         for k in range(1, t):
             if k % 2 == 0:
@@ -711,7 +712,7 @@ class Crv(object):
         '''New knot vector and control points'''
         val = np.unique(crv.U)
         sorted(val)
-        Qw = np.empty((len(val) - 1, crv.p + 1, 4), float)
+        qw = np.empty((len(val) - 1, crv.p + 1, 4), float)
 
         '''Calculate new control points'''
         alphas = np.empty(crv.p, float)
@@ -719,7 +720,7 @@ class Crv(object):
         b = crv.p + 1
         nb = 0
         for i in range(crv.p + 1):
-            Qw[nb][i] = np.copy(crv.Pw[i])
+            qw[nb][i] = np.copy(crv.Pw[i])
 
         while b < crv.m:
             i = b
@@ -739,26 +740,26 @@ class Crv(object):
                     k = crv.p
                     while k >= s:
                         alpha = alphas[k - s]
-                        Qw[nb][k] = alpha * Qw[nb][k] + (1.0 - alpha) * Qw[nb][k - 1]
+                        qw[nb][k] = alpha * qw[nb][k] + (1.0 - alpha) * qw[nb][k - 1]
                         k -= 1
                     if b < crv.m:
-                        Qw[nb + 1][save] = np.copy(Qw[nb][crv.p])
+                        qw[nb + 1][save] = np.copy(qw[nb][crv.p])
 
             nb += 1
             if b < crv.m:
                 for i in range(crv.p - mult, crv.p + 1):
-                    Qw[nb][i] = np.copy(crv.Pw[b - crv.p + i])
+                    qw[nb][i] = np.copy(crv.Pw[b - crv.p + i])
                 a = b
                 b += 1
 
         '''Defensive Check'''
-        if nb != len(Qw):
+        if nb != len(qw):
             raise AssertionError("Internal Error.")
 
         ret = []
         kidx = 0
         for i in range(nb):
-            crv = BezierCrv(val[kidx], val[kidx + 1], crv.p, Qw[i])
+            crv = BezierCrv(val[kidx], val[kidx + 1], crv.p, qw[i])
             ret.append(crv)
             kidx += 1
 
@@ -1034,30 +1035,30 @@ def bezier_merge(bezier_list):
     seg_num = len(bezier_list)
 
     '''Construct knots'''
-    nU = np.empty((seg_num + 1) * crv_order + 2, float)
-    nU[0] = bezier_list[0].a
+    nu = np.empty((seg_num + 1) * crv_order + 2, float)
+    nu[0] = bezier_list[0].a
     k = 1
     for bsg in bezier_list:
         tmp = bsg.a
         for i in range(crv_order):
-            nU[k] = tmp
+            nu[k] = tmp
             k += 1
     tmp = bezier_list[-1].b
     for i in range(crv_order + 1):
-        nU[k] = tmp
+        nu[k] = tmp
         k += 1
 
     '''Construct control points'''
-    nPw = np.empty((seg_num * crv_order + 1, 4), float)
+    npw = np.empty((seg_num * crv_order + 1, 4), float)
     k = 0
     for bsg in bezier_list:
         for i in range(bsg.n):
-            nPw[k] = np.copy(bsg.Pw[i])
+            npw[k] = np.copy(bsg.Pw[i])
             k += 1
-    nPw[-1] = np.copy(bezier_list[-1].Pw[-1])
+    npw[-1] = np.copy(bezier_list[-1].Pw[-1])
 
     '''Construct NURBS curve'''
-    return Crv(nU, nPw)
+    return Crv(nu, npw)
 
 
 class GlobalInterpolatedCrv(Crv):
@@ -1146,10 +1147,10 @@ def calc_knot_vector(param, p):
     return knots
 
 
-def calc_ctrl_pts(U, p, pts, param):
+def calc_ctrl_pts(u_vec, p, pts, param):
     """
     求解线性方程组得到控制点
-    :param U: 节点矢量
+    :param u_vec: 节点矢量
     :param p: 目标曲线次数
     :param pts: 插值点序列
     :param param: 插值点所对应参数
@@ -1163,22 +1164,22 @@ def calc_ctrl_pts(U, p, pts, param):
     '''Coefficient Matrix'''
     cm = np.zeros((n + 1, n + 1))
     for k in range(0, n + 1):
-        cm[k] = all_basis_val(param[k], p, U)
+        cm[k] = all_basis_val(param[k], p, u_vec)
 
     '''Solve'''
-    Q = np.zeros((dim, n + 1))
-    P = np.zeros((dim, n + 1))
+    bq = np.zeros((dim, n + 1))
+    bp = np.zeros((dim, n + 1))
 
     for i in range(0, dim):
         for j in range(0, n + 1):
-            Q[i][j] = pts[j][i]
+            bq[i][j] = pts[j][i]
 
     for i in range(0, dim):
-        P[i] = solve(cm, Q[i])
+        bp[i] = solve(cm, bq[i])
 
     for i in range(0, n + 1):
         for j in range(0, dim):
-            ctrl_pts[i][j] = P[j][i]
+            ctrl_pts[i][j] = bp[j][i]
 
     return ctrl_pts
 
@@ -1440,7 +1441,7 @@ class LocalCubicInterpolatedCrv(Crv):
         super(LocalCubicInterpolatedCrv, self).__init__(u, pw)
 
 
-def point_inverse(c, p, dim=None):
+def point_inverse(c, p, dim=None, e1=1e-7):
     """
     Find the parameter 'u' s.t. c(u) = p
     :param c: Target curve.
@@ -1448,6 +1449,8 @@ def point_inverse(c, p, dim=None):
     :param p: Target point.
     :param dim: Dimension indicator.
     :type dim: int
+    :param e1: Default error criteria.
+    :type e1: float
     :return: The parameter.
     :rtype: float
     """
@@ -1482,7 +1485,7 @@ def point_inverse(c, p, dim=None):
         eps1 = norm(tmp1)
         tmp2 = c(u0, 1)
         eps2 = math.fabs(np.dot(tmp1, tmp2)) / (norm(tmp1) * norm(tmp2))
-        while eps1 > 1e-7 or eps2 > 1e-7:
+        while eps1 > e1 or eps2 > e1:
             u = u0 - np.dot(tmp2, tmp1) / (np.dot(c(u0, 2), tmp1) + norm(tmp2) ** 2)
             tmp1 = c(u) - p
             eps1 = norm(tmp1)
@@ -1500,7 +1503,7 @@ def point_inverse(c, p, dim=None):
         '''Newton Iteration'''
         tmp1 = c(u0)[dim] - p
         eps1 = math.fabs(tmp1)
-        while eps1 > 1e-7:
+        while eps1 > e1:
             u = u0 - tmp1 / c(u0, 1)[dim]
             tmp1 = c(u)[dim] - p
             eps1 = math.fabs(tmp1)
@@ -1731,7 +1734,23 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(True)
 
     def test_reparameterization(self):
-        pass
+        # Knot, ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.3, 0.7, 1.0, 1.0, 1.0, 1.0]
+        pw = [(0, 3.14, 0, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        param = [(2, 1, 3, 2),
+                 (2, 0, 3, 1)]
+
+        iges_model = Model()
+        for k, dt in enumerate(param):
+            iges_model.clear()
+            crv = Crv(u_vec, pw)
+            iges_model.add(crv.to_iges())
+            crv.reparameterization(dt[0], dt[1], dt[2], dt[3])
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_reparameterization-{}.igs'.format(k))
+
+        self.assertTrue(True)
 
     def test_split(self):
         # Knot , ctrl_pnt
@@ -1770,10 +1789,32 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(True)
 
     def test_point_inverse(self):
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+        crv = Crv(u_vec, pw)
+
+        data = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.9, 1]
+        for u in data:
+            self.assertEqual(u, point_inverse(crv, crv(u)))
+
+    def test_spline(self):
+        pass
+
+    def test_global_interp(self):
+        pass
+
+    def test_local_interp(self):
+        pass
+
+    def test_arc(self):
+        pass
+
+    def test_conic(self):
         pass
 
 
-class ClampedNURBSSurf(object):
+class Surf(object):
     def __init__(self, u, v, pw):
         """
         NURBS曲面
@@ -2225,7 +2266,7 @@ class ClampedNURBSSurf(object):
         """
         将曲面分割成若干子部分
         :param surf: Surface to be split
-        :type surf: ClampedNURBSSurf
+        :type surf: Surf
         :param ubrk: breaking knot in u-direction
         :param vbrk: breaking knot in v-direction
         :return: Collection of split surf
@@ -2318,7 +2359,7 @@ class ClampedNURBSSurf(object):
                 vcpn = len(vseg) - cq - 1
                 cpt = vsrf.Pw[ucpis:ucpis + ucpn, vcpis:vcpis + vcpn]
                 vcpis += vcpn - 1
-                csrf = ClampedNURBSSurf(useg, vseg, cpt)
+                csrf = Surf(useg, vseg, cpt)
                 csrf.standard_reparameterization()
                 csrf_seg.append(csrf)
             ucpis += ucpn - 1
@@ -2327,7 +2368,7 @@ class ClampedNURBSSurf(object):
         return ret
 
 
-class GlobalInterpolatedSurf(ClampedNURBSSurf):
+class GlobalInterpolatedSurf(Surf):
     def __init__(self, pts, p, q, u_method='centripetal', v_method='chord'):
         """
         (n+1)x(m+1)个数据点全局插值，非有理
@@ -2388,7 +2429,7 @@ class GlobalInterpolatedSurf(ClampedNURBSSurf):
         super(GlobalInterpolatedSurf, self).__init__(u_knot, v_knot, Pw)
 
 
-class BilinearSurf(ClampedNURBSSurf):
+class BilinearSurf(Surf):
     def __init__(self, P):
         """
         双线性曲面
@@ -2422,7 +2463,7 @@ class BilinearSurf(ClampedNURBSSurf):
         super(BilinearSurf, self).__init__(U, V, Pw)
 
 
-class ExtrudedSurf(ClampedNURBSSurf):
+class ExtrudedSurf(Surf):
     def __init__(self, crv, direction):
         """
         拉伸曲面
@@ -2444,7 +2485,7 @@ class ExtrudedSurf(ClampedNURBSSurf):
         super(ExtrudedSurf, self).__init__(U, V, Pw)
 
 
-class RuledSurf(ClampedNURBSSurf):
+class RuledSurf(Surf):
     def __init__(self, _c1, _c2):
         """
         生成V方向的直纹面,即两条曲线之间的线性插值
@@ -2488,7 +2529,7 @@ class RuledSurf(ClampedNURBSSurf):
         super(RuledSurf, self).__init__(uknot, vknot, pw)
 
 
-class RevolvedSurf(ClampedNURBSSurf):
+class RevolvedSurf(Surf):
     def __init__(self, center, axis, theta, crv):
         """
         曲线绕过指定点的轴线旋转指定角度得到的曲面
@@ -2556,7 +2597,7 @@ class RevolvedSurf(ClampedNURBSSurf):
         super(RevolvedSurf, self).__init__(u_knot, crv.U, npw)
 
 
-class Coons(ClampedNURBSSurf):
+class Coons(Surf):
     def __init__(self, c0u, c1u, c0v, c1v):
         """
         双线性混合Coons曲面
@@ -2636,7 +2677,7 @@ class Coons(ClampedNURBSSurf):
         super(Coons, self).__init__(xu, xv, npw)
 
 
-class Skinned(ClampedNURBSSurf):
+class Skinned(Surf):
     def __init__(self, crv, p, q, v_method='chord'):
         """
         蒙皮曲面，非有理

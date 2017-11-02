@@ -1,10 +1,8 @@
 import unittest
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from src.iges import IGES_Model
-
+from iges import Model
 from nurbs import Spline, GlobalInterpolatedCrv
 from src.aircraft.wing import Airfoil
 
@@ -24,9 +22,9 @@ def get_airfoil_pts(foil):
 def write_airfoil(airfoil):
     spline_foil = Spline(get_airfoil_pts(airfoil))
     fn = airfoil + '_spline' + '.igs'
-    model_file = IGES_Model(fn)
-    model_file.add_entity(spline_foil.to_iges())
-    model_file.write()
+    model_file = Model()
+    model_file.add(spline_foil.to_iges())
+    model_file.save(fn)
     if auto_view:
         view(fn)
 

@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from src.iges import IGES_Model
 
-from nurbs import BilinearSurf, ClampedNURBSSurf
+from nurbs import BilinearSurf, Surf
 
 try:
     from src.misc.catia import view
@@ -25,7 +25,7 @@ def surf_extract_cmp(s, fn):
     """
     构造对比
     :param s: 原始曲面
-    :type s: ClampedNURBSSurf
+    :type s: Surf
     :param fn: 文件名
     :return: None
     """

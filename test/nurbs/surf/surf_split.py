@@ -1,7 +1,7 @@
 import numpy as np
 from src.iges import IGES_Model
 
-from nurbs import ClampedNURBSSurf
+from nurbs import Surf
 
 try:
     from src.misc.catia import view
@@ -22,8 +22,8 @@ Pw = np.array([[[0, 0, 0, 1], [0, 1, 1, 1], [0, 2, 3, 1], [0, 3, 2, 1]],
                [[2, 0, 0, 1], [2, 2, 2, 1], [2, 3, 6, 1], [2, 5, 7, 1]],
                [[3, 0, 0, 1], [3, 1, 1, 1], [3, 2, 2, 1], [3, 3, 3, 1]]], float)
 
-s0 = ClampedNURBSSurf(U, V, Pw)
-spt = ClampedNURBSSurf.split(s0, (0.4, 0.5, 0.6), [])
+s0 = Surf(U, V, Pw)
+spt = Surf.split(s0, (0.4, 0.5, 0.6), [])
 
 fn0 = 'origin.igs'
 model0 = IGES_Model(fn0)

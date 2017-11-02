@@ -7,7 +7,7 @@ from copy import deepcopy
 from grid import LinearTFI2D, LinearTFI3D
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model
-from nurbs import Spline, GlobalInterpolatedCrv, Line, Arc, Crv, Skinned, RuledSurf, ClampedNURBSSurf
+from nurbs import Spline, GlobalInterpolatedCrv, Line, Arc, Crv, Skinned, RuledSurf, Surf
 from misc import pnt_dist
 from settings import AIRFOIL_DIR
 from src.msh.elliptic import Laplace2D
@@ -684,11 +684,11 @@ class Wing(object):
         c.append(c22)
         c.append(c23)
 
-        ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
+        ts1 = Surf.split(wsf, brk_root, [])
         s0 = ts1[0][0]
         s1 = ts1[1][0]
         s2 = ts1[2][0]
-        ts2 = ClampedNURBSSurf.split(fsf, brk_tip, [])
+        ts2 = Surf.split(fsf, brk_tip, [])
         s3 = ts2[0][0]
         s4 = ts2[1][0]
         s5 = ts2[2][0]

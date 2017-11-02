@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 from src.iges import IGES_Model
 
-from nurbs import BilinearSurf, ClampedNURBSSurf
+from nurbs import BilinearSurf, Surf
 
 try:
     from src.misc.catia import view
@@ -26,7 +26,7 @@ def surf_pan_cmp(s, dv, fn):
     """
     构造对比
     :param s: 原始曲面
-    :type s: ClampedNURBSSurf
+    :type s: Surf
     :param dv: 偏移向量
     :param fn: 文件名
     :return: None

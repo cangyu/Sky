@@ -5,7 +5,7 @@ from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 
 from nurbs import ClampedNURBSCrv, Line, Arc
-from nurbs import ClampedNURBSSurf, RuledSurf
+from nurbs import Surf, RuledSurf
 from spacing import *
 from src.aircraft.frame import BWBFrame
 from src.aircraft.wing import Wing, WingProfile
@@ -279,12 +279,12 @@ c.append(c21)
 c.append(c22)
 c.append(c23)
 
-ts1 = ClampedNURBSSurf.split(wsf, brk_root, [])
+ts1 = Surf.split(wsf, brk_root, [])
 s0 = ts1[0][0]
 s1 = ts1[1][0]
 s2 = ts1[2][0]
 
-ts2 = ClampedNURBSSurf.split(fsf, brk_tip, [])
+ts2 = Surf.split(fsf, brk_tip, [])
 s3 = ts2[0][0]
 s4 = ts2[1][0]
 s5 = ts2[2][0]
