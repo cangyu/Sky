@@ -1715,16 +1715,59 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(np.array_equal(crv.U, ans))
 
     def test_elevate(self):
-        pass
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_elevate_before.igs')
+        crv.elevate(2)
+        iges_model.clear()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_elevate_after.igs')
+
+        self.assertTrue(True)
 
     def test_reparameterization(self):
         pass
 
     def test_split(self):
-        pass
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_split_before.igs')
+
+        iges_model.clear()
+        crv_seg = Crv.split(crv, [0.2, 0.6])
+        for seg in crv_seg:
+            iges_model.add(seg.to_iges())
+        iges_model.save('test_split_after.igs')
+
+        self.assertTrue(True)
 
     def test_decompose(self):
-        pass
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_decompose_before.igs')
+
+        iges_model.clear()
+        crv_seg = Crv.decompose(crv)
+        for seg in crv_seg:
+            iges_model.add(seg.to_iges())
+        iges_model.save('test_decompose_after.igs')
+
+        self.assertTrue(True)
 
     def test_point_inverse(self):
         pass
