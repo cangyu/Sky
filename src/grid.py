@@ -1331,24 +1331,51 @@ class EllipticGrid3D(object):
         return 0.25 * (self.r[i + 1][j][k + 1] - self.r[i - 1][j][k + 1] - self.r[i + 1][j][k - 1] + self.r[i - 1][j][k - 1]) / (self.d_zeta * self.d_xi)
 
     def alpha1(self, i, j, k):
-        pass
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return (r2[0] ** 2 + r2[1] ** 2 + r2[2] ** 2) * (r3[0] ** 2 + r3[1] ** 2 + r3[2] ** 2) - (r2[0] * r3[0] + r2[1] * r3[1] + r2[2] * r3[2]) ** 2
 
     def alpha2(self, i, j, k):
-        pass
+        r3 = self.r_zeta(i, j, k)
+        r1 = self.r_xi(i, j, k)
+        return (r3[0] ** 2 + r3[1] ** 2 + r3[2] ** 2) * (r1[0] ** 2 + r1[1] ** 2 + r1[2] ** 2) - (r3[0] * r1[0] + r3[1] * r1[1] + r3[2] * r1[2]) ** 2
 
     def alpha3(self, i, j, k):
-        pass
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, j)
+        return (r1[0] ** 2 + r1[1] ** 2 + r1[2] ** 2) * (r2[0] ** 2 + r2[1] ** 2 + r2[2] ** 2) - (r1[0] * r2[0] + r1[1] * r2[1] + r1[2] * r2[2]) ** 2
 
     def beta12(self, i, j, k):
-        pass
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r1, r3) * np.dot(r2, r3) - np.dot(r1, r2) * norm(r3)
 
     def beta23(self, i, j, k):
-        pass
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r2, r1) * np.dot(r3, r1) - np.dot(r2, r3) * norm(r1)
 
     def beta31(self, i, j, k):
-        pass
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r3, r2) * np.dot(r1, r2) - np.dot(r3, r1) * norm(r2)
 
     def jacobi(self, i, j, k):
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        j = np.matrix([r1, r2, r3])
+        return np.linalg.det(j)
+
+
+class Laplace3D(EllipticGrid3D):
+    def __init__(self, grid):
+        super(Laplace3D, self).__init__(grid)
+
+    def smooth(self):
         pass
 
 

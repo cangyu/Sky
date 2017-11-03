@@ -1226,3 +1226,7 @@ class IGESTester(unittest.TestCase):
             model.add(Entity110(l[0], l[1]))
         model.save('line.igs')
         self.assertTrue(model.size == len(line))
+
+
+if __name__ == '__main__':
+    unittest.main()
