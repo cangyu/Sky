@@ -8,6 +8,10 @@ from numpy.linalg import norm
 from settings import GRID_DBG
 
 
+def vector_square(u):
+    return sum(map(lambda x: x ** 2, u))
+
+
 def report_process(msg):
     if GRID_DBG:
         print(msg)

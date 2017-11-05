@@ -6,6 +6,7 @@ from abc import abstractmethod
 from scipy.linalg import norm
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
+from misc import vector_square
 
 """
 Implementation of the grid smoothing tools using elliptic PDE operator.
@@ -13,13 +14,9 @@ Implementation of the grid smoothing tools using elliptic PDE operator.
 Note:
 1. (i,j,k) is corresponding to (x,y,z),(u,v.w),(xi, eta, zeta),(x1,x2,x3),(I,J,K)...
 2. (N,M) notation is not suggested to avoid confuse on column-and-row.
-3. By default, delta_xi = delta_eta = delta_zeta = 1
+3. By default, delta_xi = delta_eta = delta_zeta = 1, and is neglected in code.
 4. All the partial derivatives in elliptic PDE are calculated with the central scheme.
 """
-
-
-def vector_square(u):
-    return sum(map(lambda x: x ** 2, u))
 
 
 class EllipticGrid2D(object):
@@ -29,8 +26,7 @@ class EllipticGrid2D(object):
     def __init__(self, grid):
         """
         2D curvilinear grid based on the elliptic PDE.
-        :param grid: Initial grid.
-                     The sub-index iterate through (Dim1, Dim2) in sequence, Each element contains (X, Y).
+        :param grid: Initial grid. The subscript iterate through (Dim1, Dim2), each element contains (X, Y).
         """
 
         '''Pre-check'''
@@ -114,8 +110,8 @@ class EllipticGrid2D(object):
 class Laplace2D(EllipticGrid2D):
     def __init__(self, grid):
         """
-        对网格做Laplace光顺
-        :param grid: 初始网格
+        Smooth the grid with Laplace operator.
+        :param grid: The initial grid.
         """
 
         super(Laplace2D, self).__init__(grid)
@@ -198,7 +194,8 @@ class Laplace2D(EllipticGrid2D):
 class ThomasMiddlecoff2D(EllipticGrid2D):
     def __init__(self, grid):
         """
-        基于Thomas-Middlecoff方法对网格进行光顺
+        Smooth the grid with the Thomas-Middlecoff method.
+        :param grid: Initial grid.
         """
 
         super(ThomasMiddlecoff2D, self).__init__(grid)
@@ -408,6 +405,40 @@ class Laplace3D(EllipticGrid3D):
     def __init__(self, grid):
         super(Laplace3D, self).__init__(grid)
 
+    def calc_all_param(self):
+        for i in range(1, self.i_dim - 1):
+            for j in range(1, self.j_dim - 1):
+                for k in range(1, self.k_dim - 1):
+                    self.r1[i][j][k] = self.r_xi(i, j, k)
+                    self.r2[i][j][k] = self.r_eta(i, j, k)
+                    self.r3[i][j][k] = self.r_zeta(i, j, k)
+                    self.r11[i][j][k] = self.r_xi2(i, j, k)
+                    self.r22[i][j][k] = self.r_eta2(i, j, k)
+                    self.r33[i][j][k] = self.r_zeta2(i, j, k)
+                    self.r12[i][j][k] = self.r_xi_eta(i, j, k)
+                    self.r23[i][j][k] = self.r_eta_zeta(i, j, k)
+                    self.r31[i][j][k] = self.r_zeta_xi(i, j, k)
+                    self.a1[i][j][k] = self.alpha1(i, j, k)
+                    self.a2[i][j][k] = self.alpha2(i, j, k)
+                    self.a3[i][j][k] = self.alpha3(i, j, k)
+                    self.b12[i][j][k] = self.beta12(i, j, k)
+                    self.b23[i][j][k] = self.beta23(i, j, k)
+                    self.b31[i][j][k] = self.beta31(i, j, k)
+
+    def calc_eqn_param(self, i, j, k):
+        ans = np.empty(19, float)
+        ans[0] = -2 * (self.a1[i][j][k] + self.a2[i][j][k] + self.a3[i][j][k])
+        ans[1] = ans[2] = self.a1[i][j][k]
+        ans[3] = ans[4] = self.a2[i][j][k]
+        ans[5] = ans[6] = self.a3[i][j][k]
+        ans[7] = ans[8] = 0.5 * self.b12[i][j][k]
+        ans[9] = ans[10] = -ans[8]
+        ans[11] = ans[12] = 0.5 * self.b23[i][j][k]
+        ans[13] = ans[14] = -ans[12]
+        ans[15] = ans[16] = 0.5 * self.b31[i][j][k]
+        ans[17] = ans[18] = -ans[16]
+        return ans
+
     def smooth(self):
         """
         Smooth the grid using Picard Iteration.
@@ -424,24 +455,7 @@ class Laplace3D(EllipticGrid3D):
         residual = sys.float_info.max
         while not math.isclose(residual, 0, abs_tol=1e-5):
             '''Calculate all coefficients'''
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
-                    for k in range(1, self.k_dim - 1):
-                        self.r1[i][j][k] = self.r_xi(i, j, k)
-                        self.r2[i][j][k] = self.r_eta(i, j, k)
-                        self.r3[i][j][k] = self.r_zeta(i, j, k)
-                        self.r11[i][j][k] = self.r_xi2(i, j, k)
-                        self.r22[i][j][k] = self.r_eta2(i, j, k)
-                        self.r33[i][j][k] = self.r_zeta2(i, j, k)
-                        self.r12[i][j][k] = self.r_xi_eta(i, j, k)
-                        self.r23[i][j][k] = self.r_eta_zeta(i, j, k)
-                        self.r31[i][j][k] = self.r_zeta_xi(i, j, k)
-                        self.a1[i][j][k] = self.alpha1(i, j, k)
-                        self.a2[i][j][k] = self.alpha2(i, j, k)
-                        self.a3[i][j][k] = self.alpha3(i, j, k)
-                        self.b12[i][j][k] = self.beta12(i, j, k)
-                        self.b23[i][j][k] = self.beta23(i, j, k)
-                        self.b31[i][j][k] = self.beta31(i, j, k)
+            self.calc_all_param()
 
             '''Build Ar=b'''
             coefficient_matrix.fill(0.0)
@@ -451,17 +465,7 @@ class Laplace3D(EllipticGrid3D):
                 for j in range(1, self.j_dim - 1):
                     for k in range(1, self.k_dim - 1):
                         '''Calculate stencil coefficients'''
-                        ca = np.empty(19, float)
-                        ca[0] = -2 * (self.a1[i][j][k] + self.a2[i][j][k] + self.a3[i][j][k])
-                        ca[1] = ca[2] = self.a1[i][j][k]
-                        ca[3] = ca[4] = self.a2[i][j][k]
-                        ca[5] = ca[6] = self.a3[i][j][k]
-                        ca[7] = ca[8] = 0.5 * self.b12[i][j][k]
-                        ca[9] = ca[10] = -ca[8]
-                        ca[11] = ca[12] = 0.5 * self.b23[i][j][k]
-                        ca[13] = ca[14] = -ca[12]
-                        ca[15] = ca[16] = 0.5 * self.b31[i][j][k]
-                        ca[17] = ca[18] = -ca[16]
+                        ca = self.calc_eqn_param(i, j, k)
 
                         '''Construct the equation'''
                         for t in range(19):
