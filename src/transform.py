@@ -1,8 +1,6 @@
 import math
 import unittest
-
 import numpy as np
-
 from misc import normalize
 
 """

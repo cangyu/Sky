@@ -8,7 +8,7 @@ from numpy.linalg import norm
 from src.msh.elliptic import Laplace2D
 
 from fluent import XF_MSH, BCType
-from grid import LinearTFI2D, LinearTFI3D
+from smooth import LinearTFI2D, LinearTFI3D
 from misc import pnt_dist
 from nurbs import GlobalInterpolatedCrv, Line, Arc, Skinned, RuledSurf, Surf
 from settings import AIRFOIL_DIR
