@@ -1,7 +1,7 @@
 import unittest
 import math
 import numpy as np
-from settings import GRID_DBG
+from misc import report_process
 
 """
 Implementation of the Plot3D standard.
@@ -9,11 +9,6 @@ Implementation of the Plot3D standard.
 Note:
 All the units are SI by default.
 """
-
-
-def report_process(msg):
-    if GRID_DBG:
-        print(msg)
 
 
 class Plot3DBlock(object):

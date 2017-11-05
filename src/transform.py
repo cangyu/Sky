@@ -360,3 +360,7 @@ class TransformTester(unittest.TestCase):
             print(q)
             for i in range(4):
                 self.assertTrue(math.isclose(ans[k][i], q.comp[i], abs_tol=1e-7))
+
+
+if __name__ == '__main__':
+    unittest.main()

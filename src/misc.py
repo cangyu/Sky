@@ -5,6 +5,12 @@ import subprocess
 import math
 import numpy as np
 from numpy.linalg import norm
+from settings import GRID_DBG
+
+
+def report_process(msg):
+    if GRID_DBG:
+        print(msg)
 
 
 def array_smart_copy(src, dst):
