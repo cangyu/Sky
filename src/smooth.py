@@ -499,6 +499,10 @@ class ThomasMiddlecoff3D(EllipticGrid3D):
     def __init__(self, grid):
         super(ThomasMiddlecoff3D, self).__init__(grid)
 
+        self.phi = np.zeros((self.i_dim, self.j_dim, self.k_dim))
+        self.psi = np.zeros((self.i_dim, self.j_dim, self.k_dim))
+        self.omega = np.zeros((self.i_dim, self.j_dim, self.k_dim))
+
     def smooth(self):
         pass
 

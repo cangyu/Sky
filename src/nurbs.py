@@ -1077,7 +1077,7 @@ class GlobalInterpolatedCrv(Crv):
         cpt = calc_ctrl_pts(kv, p, pts, param)
 
         pw = np.zeros((n + 1, dim + 1))
-        for i in range(0, n + 1):
+        for i in range(n + 1):
             pw[i] = to_homogeneous(cpt[i])
 
         super(GlobalInterpolatedCrv, self).__init__(kv, pw)
@@ -1234,105 +1234,92 @@ class Line(Crv):
 
 
 class Arc(Crv):
-    def __init__(self, r, theta):
+    def __init__(self, center, start, theta, norm_vec):
         """
-        XY平面内简化圆弧，以原点为圆心，起始点为(r,0),法向量为(0,0,1)
-        :param r: 半径
-        :param theta: 圆心角, will be fitted into range (0,360]
+        Spatial Arc.
+        The direction of the arc is defined by the right-hand rule.
+        :param center: Coordinate of the center.
+        :param start: Coordinate of the starting point.
+        :param theta: Central angle(in degree).
+        :type theta: float
+        :param norm_vec: The norm vector of the plane on which the arc is located.
         """
 
-        while theta <= 0:
-            theta += 360
-        while theta > 360:
-            theta -= 360
+        if theta <= 0 or theta > 360:
+            raise ValueError('Invalid angle.')
 
-        self.radius = r
+        self.center = np.copy(center)
+        self.radius = pnt_dist(center, start)
         self.theta = theta
+        self.norm_vec = np.copy(norm_vec)
 
-        narcs = int(np.ceil(theta / 90))
-        theta = np.deg2rad(theta)
-        dtheta = theta / narcs
-        w1 = np.cos(dtheta / 2)
-        dknot = 1.0 / narcs
+        arc_num = int(math.ceil(self.theta / 90))
+        theta_rad = math.radians(self.theta)
+        dlt_theta = theta_rad / arc_num
+        w1 = math.cos(dlt_theta / 2)
+        dlt_knot = 1.0 / arc_num
 
-        m = 2 * narcs + 3  # 最后一个节点下标
-        n = 2 * narcs  # 最后一个控制点下标
+        m = 2 * arc_num + 3  # Subscript of the last knot vector
+        n = 2 * arc_num  # Subscript of the last control points
 
-        U = np.zeros(m + 1)
-        P = np.zeros((n + 1, 3))
-        Pw = np.zeros((n + 1, 4))
+        nu = np.zeros(m + 1)
+        ncp = np.zeros((n + 1, 3))
+        npw = np.zeros((n + 1, 4))
 
         '''Knot Vector'''
-        U[-1] = U[-2] = U[-3] = 1.0
-        for i in range(1, narcs):
+        nu[-1] = nu[-2] = nu[-3] = 1.0
+        for i in range(1, arc_num):
             cur_index = 1 + 2 * i
-            U[cur_index] = U[cur_index + 1] = i * dknot
+            nu[cur_index] = nu[cur_index + 1] = i * dlt_knot
 
         '''Control Points'''
-        P[0] = np.array([r, 0, 0], float)
-        Pw[0] = to_homogeneous(P[0], 1.0)
-        T0 = np.array([0.0, 1.0, 0.0])
+        ncp[0] = np.array([self.radius, 0, 0], float)
+        npw[0] = to_homogeneous(ncp[0], 1.0)
+        t0 = np.array([0.0, 1.0, 0.0])
 
-        index = 0
+        idx = 0
         angle = 0.0
-        for i in range(1, narcs + 1):
-            angle += dtheta
-            P[index + 2] = np.array([r * np.cos(angle), r * np.sin(angle), 0.0])
-            Pw[index + 2] = to_homogeneous(P[index + 2], 1.0)
-            T2 = np.array([-np.sin(angle), np.cos(angle), 0.0])
-            P[index + 1] = line_intersection(P[index], T0, P[index + 2], T2)
-            Pw[index + 1] = to_homogeneous(P[index + 1], w1)
-            index += 2
-            if i < narcs:
-                T0 = T2
+        for i in range(1, arc_num + 1):
+            angle += dlt_theta
+            ncp[idx + 2] = np.array([self.radius * math.cos(angle), self.radius * math.sin(angle), 0.0])
+            npw[idx + 2] = to_homogeneous(ncp[idx + 2], 1.0)
+            t2 = np.array([-math.sin(angle), math.cos(angle), 0.0])
+            ncp[idx + 1] = line_intersection(ncp[idx], t0, ncp[idx + 2], t2)
+            npw[idx + 1] = to_homogeneous(ncp[idx + 1], w1)
+            idx += 2
+            if i < arc_num:
+                t0 = t2
 
-        super(Arc, self).__init__(U, Pw)
+        super(Arc, self).__init__(nu, npw)
 
-    def curvature(self, u):
-        return 1.0 / self.radius
+        '''Pan and Rotate'''
+        sp = np.copy(start)
+        nx = sp - self.center
+        base1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        base2 = np.array([nx, np.cross(self.norm_vec, nx), self.norm_vec])
+        rot_mtx = np.transpose(DCM(base1, base2).rot_matrix)
+        for i in range(n + 1):
+            ncp[i] = ncp[i] * rot_mtx + self.center
+            npw[i] = to_homogeneous(ncp[i], npw[i][-1])
+        self.reset(self.U, npw)
+
+    @classmethod
+    def from_2pnt(cls, start, end, theta, norm_vec):
+        sp = np.copy(start)
+        ep = np.copy(end)
+        theta_rad = math.radians(theta)
+        radius = 0.5 * pnt_dist(sp, ep) / math.sin(theta_rad / 2)
+        w = radius * math.cos(theta_rad / 2)
+        center_axis = normalize(np.cross(norm_vec, ep - sp))
+        center = 0.5 * (sp + ep) + center_axis * w
+        return cls(center, start, theta, norm_vec)
 
     @property
     def length(self):
-        return self.radius * np.deg2rad(self.theta)
+        return self.radius * math.radians(self.theta)
 
-    @classmethod
-    def from_2pnt(cls, start_pnt, end_pnt, theta, norm_vector):
-        """
-        空间圆弧
-        :param start_pnt: 起始点坐标
-        :param end_pnt: 终止点坐标
-        :param theta: 圆心角
-        :param norm_vector: 所在平面的法向量，按右手定则， 四指依次扫过start_pnt和end_pnt
-        """
-
-        '''Basic Variables'''
-        sp = np.copy(start_pnt)
-        ep = np.copy(end_pnt)
-        theta = np.deg2rad(theta)
-        radius = 0.5 * pnt_dist(sp, ep) / np.sin(theta / 2)
-        w = radius * np.cos(theta / 2)
-        cdir = normalize(np.cross(norm_vector, ep - sp))
-        center = 0.5 * (sp + ep) + cdir * w
-
-        '''Rotate and pan'''
-        arc = cls(radius, np.rad2deg(theta))
-        base1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], float)
-        xdir = sp - center
-        base2 = np.array([xdir, np.cross(norm_vector, xdir), norm_vector], float)
-
-        mrot = DCM(base1, base2).rot_matrix
-        mrot_trans = np.transpose(mrot)
-        pts = np.copy(arc.cpt)
-        wg = np.copy(arc.weight)
-        pw = np.zeros((len(pts), 4))
-        for i in range(len(pts)):
-            pts[i] = pts[i] * mrot_trans
-            pts[i] += center
-            pw[i] = to_homogeneous(pts[i], wg[i])
-
-        '''Reconstruct'''
-        arc.reset(arc.U, pw)
-        return arc
+    def curvature(self, u):
+        return 1.0 / self.radius
 
 
 class ConicArc(Crv):
