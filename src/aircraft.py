@@ -792,29 +792,6 @@ class Airfoil(object):
         return GlobalInterpolatedCrv(self.pts, p, method)
 
     @classmethod
-    def read_pts(cls, fn):
-        """
-        Get the coordinates from local database.
-        :param fn: Name of the airfoil. (Capital case)
-        :return: n x 3 array with 'z' dimension being 0.
-        """
-
-        pts = []
-        fin = open(os.path.join(AIRFOIL_DIR, fn + '.dat'))
-        for line in fin:
-            (x, y, z) = line.split()
-            pts.append([x, y, z])
-        fin.close()
-
-        n = len(pts)
-        ret = np.empty((n, 3), float)
-        for k, pnt in enumerate(pts):
-            for d in range(3):
-                ret[k][d] = pnt[d]
-
-        return ret
-
-    @classmethod
     def from_database(cls, fn):
         """
         Construct airfoil from local database.

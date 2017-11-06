@@ -1,9 +1,7 @@
 import unittest
-
 import numpy as np
-
 from nurbs import Arc
-from src.iges import Model
+from iges import Model
 
 
 class PlanarArcTest(unittest.TestCase):
@@ -15,7 +13,7 @@ class PlanarArcTest(unittest.TestCase):
         crv = Arc(r, ang)
         fn = 'Arc_{}_{}.igs'.format(r, ang)
         arc = Model()
-        arc.add_entity(crv.to_iges(1, 0, [0, 0, 1]))
+        arc.add(crv.to_iges(1, 0, [0, 0, 1]))
         arc.save(fn)
 
     @staticmethod
@@ -32,8 +30,8 @@ class SpatialArcTest(unittest.TestCase):
         arc2 = Arc.from_2pnt([0, 0, 500], [0, 0, 100], 180, [0, 1, 0])
 
         model = Model()
-        model.add_entity(arc1.to_iges(1, 0, [0, 0, 1]))
-        model.add_entity(arc2.to_iges(1, 0, [0, 1, 0]))
+        model.add(arc1.to_iges(1, 0, [0, 0, 1]))
+        model.add(arc2.to_iges(1, 0, [0, 1, 0]))
         model.save('test.igs')
 
 
