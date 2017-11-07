@@ -1,5 +1,4 @@
 import unittest
-import bisect
 import math
 import numpy as np
 from misc import normalize
@@ -55,7 +54,7 @@ def to_cartesian(pnt):
     return p
 
 
-def find_span(n: int, p: int, u: float, u_vec):
+def find_span(n, p, u, u_vec):
     """
     Determine the segment where parameter u is located.
     The binary-search algorithm is employed.
@@ -70,19 +69,21 @@ def find_span(n: int, p: int, u: float, u_vec):
     :rtype: int
     """
 
-    if u < u_vec[0] or u > u_vec[-1]:
-        raise ValueError("Target parameter \'{}\' is not located within given knot vector.".format(u))
+    if u == u_vec[n + 1]:  # Corner case: u=U[m]，将其节点区间的下标设为n
+        return n
 
-    left = p
-    right = n + 1
+    low = p
+    high = n + 1
 
-    if math.isclose(u, u_vec[0]):
-        return left
-    elif math.isclose(u, u_vec[-1]):
-        return right
-    else:
-        t = bisect.bisect_right(u_vec, u, left, right)
-        return t if math.isclose(u, u_vec[t]) else t - 1
+    mid = int((high + low) / 2)
+    while u < u_vec[mid] or u >= u_vec[mid + 1]:
+        if u < u_vec[mid]:
+            high = mid
+        else:
+            low = mid
+        mid = int((high + low) / 2)
+
+    return mid
 
 
 def all_basis_val(u, p, u_vec):
@@ -159,7 +160,7 @@ def line_intersection(p1, u1, p2, u2, with_ratio=False):
     pans1 = cp1 + alpha1 * cu1
     pans2 = cp2 + alpha2 * cu2
 
-    if not np.array_equal(pans1, pans2):
+    if not math.isclose(np.linalg.norm(pans1 - pans2), 0, abs_tol=1e-12):
         raise AssertionError("No intersection.")
 
     return (alpha1, alpha2, pans1) if with_ratio else pans1
@@ -197,11 +198,11 @@ class BasicUtilityTester(unittest.TestCase):
                 [9, 3, 0.7, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
                 [9, 3, 0.8, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
                 [9, 3, 1.0, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)]]
-        ans = [2, 3, 3, 5, 5, 6, 8, 8, 9, 9, 10]
+        ans = [2, 2, 3, 5, 5, 6, 8, 8, 9, 9, 9]
 
-        for i in range(len(data)):
-            cur_ans = find_span(data[i][0], data[i][1], data[i][2], data[i][3])
-            self.assertEqual(cur_ans, ans[i])
+        for k, dt in enumerate(data):
+            cur_ans = find_span(dt[0], dt[1], dt[2], dt[3])
+            self.assertEqual(cur_ans, ans[k])
 
     def test_all_basis_val(self):
         # u, p, u_vec

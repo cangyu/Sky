@@ -1000,16 +1000,46 @@ class Arc(Crv):
         :param norm_vec: The norm vector of the plane on which the arc is located.
         """
 
-        if theta <= 0 or theta > 360:
-            raise ValueError('Invalid angle.')
-
         self.center = np.copy(center)
         self.radius = pnt_dist(center, start)
         self.theta = theta
         self.norm_vec = np.copy(norm_vec)
 
-        arc_num = int(math.ceil(self.theta / 90))
-        theta_rad = math.radians(self.theta)
+        '''Basic Arc'''
+        nu, npw = Arc.construct_planar(self.radius, self.theta)
+        ncp = np.copy(list(map(lambda u: to_cartesian(u), npw)))
+        n = len(ncp) - 1
+
+        '''Pan and Rotate'''
+        sp = np.copy(start)
+        nx = sp - self.center
+        base1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        base2 = np.array([nx, np.cross(self.norm_vec, nx), self.norm_vec])
+        rot_mtx = np.transpose(DCM(base1, base2).rot_matrix)
+        for i in range(n + 1):
+            ncp[i] = ncp[i] * rot_mtx + self.center
+            npw[i] = to_homogeneous(ncp[i], npw[i][-1])
+
+        super(Arc, self).__init__(nu, npw)
+
+    @classmethod
+    def construct_planar(cls, radius, theta):
+        """
+        Arc on XY plane, with center at (0, 0, 0)
+        :param radius: Radius of the arc.
+        :type radius: float
+        :param theta: Central angle of the arc.
+        :type theta: float
+        :return: Knot vector and weighted control points.
+        """
+
+        if radius <= 0:
+            raise ValueError('Invalid radius.')
+        if theta <= 0 or theta > 360:
+            raise ValueError('Invalid central angle.')
+
+        arc_num = int(math.ceil(theta / 90))
+        theta_rad = math.radians(theta)
         dlt_theta = theta_rad / arc_num
         w1 = math.cos(dlt_theta / 2)
         dlt_knot = 1.0 / arc_num
@@ -1028,7 +1058,7 @@ class Arc(Crv):
             nu[cur_index] = nu[cur_index + 1] = i * dlt_knot
 
         '''Control Points'''
-        ncp[0] = np.array([self.radius, 0, 0], float)
+        ncp[0] = np.array([radius, 0, 0], float)
         npw[0] = to_homogeneous(ncp[0], 1.0)
         t0 = np.array([0.0, 1.0, 0.0])
 
@@ -1036,7 +1066,7 @@ class Arc(Crv):
         angle = 0.0
         for i in range(1, arc_num + 1):
             angle += dlt_theta
-            ncp[idx + 2] = np.array([self.radius * math.cos(angle), self.radius * math.sin(angle), 0.0])
+            ncp[idx + 2] = np.array([radius * math.cos(angle), radius * math.sin(angle), 0.0])
             npw[idx + 2] = to_homogeneous(ncp[idx + 2], 1.0)
             t2 = np.array([-math.sin(angle), math.cos(angle), 0.0])
             ncp[idx + 1] = line_intersection(ncp[idx], t0, ncp[idx + 2], t2)
@@ -1045,18 +1075,7 @@ class Arc(Crv):
             if i < arc_num:
                 t0 = t2
 
-        super(Arc, self).__init__(nu, npw)
-
-        '''Pan and Rotate'''
-        sp = np.copy(start)
-        nx = sp - self.center
-        base1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-        base2 = np.array([nx, np.cross(self.norm_vec, nx), self.norm_vec])
-        rot_mtx = np.transpose(DCM(base1, base2).rot_matrix)
-        for i in range(n + 1):
-            ncp[i] = ncp[i] * rot_mtx + self.center
-            npw[i] = to_homogeneous(ncp[i], npw[i][-1])
-        self.reset(self.U, npw)
+        return nu, npw
 
     @classmethod
     def from_2pnt(cls, start, end, theta, norm_vec):
@@ -1067,7 +1086,21 @@ class Arc(Crv):
         w = radius * math.cos(theta_rad / 2)
         center_axis = normalize(np.cross(norm_vec, ep - sp))
         center = 0.5 * (sp + ep) + center_axis * w
-        return cls(center, start, theta, norm_vec)
+        return cls(center, sp, theta, norm_vec)
+
+    @classmethod
+    def closed_circle(cls, radius, center=(0, 0, 0), norm_vec=(0, 0, 1)):
+        ref = np.copy(center)
+        base1 = np.array([0, 0, 1])
+        base2 = np.copy(norm_vec)
+        rot_axis = np.cross(base1, base2)
+        rot_angle = math.degrees(math.acos(np.dot(base1, base2) / (norm(base1) * norm(base2))))
+        nu, npw = Arc.construct_planar(radius, 360)
+        if not math.isclose(rot_angle, 0):
+            q = Quaternion.from_u_theta(rot_axis, rot_angle)
+            npw = np.copy(list(map(lambda p: to_homogeneous(q.rotate(to_cartesian(p)), p[-1]), npw)))
+        npw = np.copy(list(map(lambda p: to_homogeneous(ref + to_cartesian(p), p[-1]), npw)))
+        return cls(ref, to_cartesian(npw[0]), 360, norm_vec)
 
     @property
     def length(self):
@@ -1617,8 +1650,44 @@ class NURBSCrvTester(unittest.TestCase):
 
         self.assertTrue(True)
 
+    def test_circle(self):
+        # r, center, norm_vec
+        data = [[0.3, (0, 0, 0), (0, 0, 1)],
+                [0.3, (0, 0, 0), (0, 1, 0)],
+                [0.3, (0, 0, 0), (1, 0, 0)],
+                [0.3, (0, 0, 0), (1, 1, 1)],
+                [1.5, (-1, -1, -1), (0, 0, 1)],
+                [1.5, (-2.7, 0, 0), (0, 1, 0)],
+                [1.5, (0, -3.14, 0), (1, 0, 0)],
+                [1.5, (0, 0, -0.618), (1, 1, 1)]]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            arc = Arc.closed_circle(dt[0], dt[1], dt[2])
+            iges_model.clear()
+            iges_model.add(arc.to_iges())
+            iges_model.save('test_circle-{}_{}.igs'.format(k, dt[0]))
+
+        self.assertTrue(True)
+
     def test_arc(self):
-        pass
+        # center, start, theta, norm_vec
+        data = [-20, 0, 3, 45, 65.2, 90, 120, 135, 150, 180, 195, 225, 240, 270, 315, 324, 360, 1024]
+
+    def test_arc_2pnt(self):
+        # start, end, theta, norm_vec
+        data = [[(0, 0, 500), (0, 0, 100), 180, (0, 1, 0)],
+                [(0, 0, 50), (0, 0, 10), 180, (0, 1, 0)],
+                [(0, 0, 5), (0, 0, 1), 180, (0, 1, 0)]]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            arc = Arc.from_2pnt(dt[0], dt[1], dt[2], dt[3])
+            iges_model.clear()
+            iges_model.add(arc.to_iges())
+            iges_model.save('test_arc_pnt-{}.igs'.format(k))
+
+        self.assertTrue(True)
 
     def test_conic(self):
         # a,b of an ellipse
