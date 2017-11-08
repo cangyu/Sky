@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 from numpy.linalg import norm
 from scipy.interpolate import BSpline
-from iges import Model, Entity110, Entity126, Entity128
+from iges import Model, Entity128
 from transform import Quaternion
 from misc import array_smart_copy, normalize
 from nurbs_basis import to_cartesian, to_homogeneous, point_to_line, line_intersection
@@ -21,7 +21,7 @@ All the NURBS notations are in the 'Clamped' format by default.
 class Surf(object):
     def __init__(self, u, v, pw):
         """
-        NURBS曲面
+        Base class for NURBS Surface.
         :param u: u方向节点矢量, n+1个元素
         :param v: v方向节点矢量，m+1个元素
         :param pw: 齐次坐标序列，(n+1)x(m+1)个元素
@@ -32,9 +32,8 @@ class Surf(object):
         self.Pw = np.copy(pw)
 
         self.spl = []
-        q = self.q
         for i in range(self.n + 1):
-            self.spl.append(BSpline(self.V, self.Pw[i], q))
+            self.spl.append(BSpline(self.V, self.Pw[i], self.q))
 
     @property
     def n(self):
@@ -55,7 +54,8 @@ class Surf(object):
     @property
     def p(self):
         """
-        U方向次数
+        :return: Degree in U direction.
+        :rtype: int
         """
 
         return len(self.U) - self.n - 2
@@ -63,7 +63,8 @@ class Surf(object):
     @property
     def q(self):
         """
-        V方向次数
+        :return: Degree in V direction.
+        :rtype: int
         """
 
         return len(self.V) - self.m - 2
@@ -79,7 +80,7 @@ class Surf(object):
     @property
     def cpt(self):
         """
-        不带权控制点
+        Control points.
         """
 
         ans = np.zeros((self.n + 1, self.m + 1, 3))
@@ -87,6 +88,14 @@ class Surf(object):
             for j in range(self.m + 1):
                 ans[i][j] = to_cartesian(self.Pw[i][j])
         return ans
+
+    def __repr__(self):
+        return '\nU Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
+
+    def __str__(self):
+        ret = '\nClamped NURBS Surface\nDegree:({},{})'.format(self.p, self.q)
+        ret += self.__repr__()
+        return ret
 
     def __call__(self, u, v, k=0, l=0):
         """
@@ -154,14 +163,6 @@ class Surf(object):
         self.Pw = np.transpose(self.Pw, (1, 0, 2))
         self.reset(self.U, self.V, self.Pw)
 
-    def __repr__(self):
-        return '\nU Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
-
-    def __str__(self):
-        ret = '\nClamped NURBS Surface\nDegree:({},{})'.format(self.p, self.q)
-        ret += self.__repr__()
-        return ret
-
     def pan(self, delta):
         """
         曲面整体平移
@@ -176,6 +177,8 @@ class Surf(object):
             for j in range(self.m + 1):
                 cv = to_cartesian(self.Pw[i][j]) + dv
                 self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
+
+        self.reset(self.U, self.V, self.Pw)
 
     def rotate(self, ref, ax, ang):
         """
@@ -192,6 +195,7 @@ class Surf(object):
                 cv = to_cartesian(self.Pw[i][j]) - ref
                 cv = ref + q.rotate(cv)
                 self.Pw[i][j] = to_homogeneous(cv, self.Pw[i][j][-1])
+        self.reset(self.U, self.V, self.Pw)
 
     def mirror(self, axis):
         """
@@ -1008,11 +1012,111 @@ def different_knot(lhs, rhs):
 
 
 class NURBSSurfTester(unittest.TestCase):
-    def test_construction(self):
-        pass
+    def test_bilinear(self):
+        l = 10.0
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
 
-    def test_call(self):
-        pass
+        n = len(p)
+        iges_model = Model()
+        for k in range(n):
+            s = BilinearSurf(p[k])
+            iges_model.add(s.to_iges())
+        iges_model.save('test_bilinear.igs')
+        self.assertTrue(True)
+
+    def test_pan(self):
+        l = 10.0
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+        d = [(0, 0, 10), (0, 0, 10)]
+
+        self.assertTrue(len(p) == len(d))
+        n = len(p)
+
+        iges_model = Model()
+        for k in range(n):
+            iges_model.clear()
+            s = BilinearSurf(p[k])
+            iges_model.add(s.to_iges())
+            s.pan(d[k])
+            iges_model.add(s.to_iges())
+            iges_model.save('test_pan-{}.igs'.format(k))
+
+    def test_rotate(self):
+        l = 10.0
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+        ref = [[l, l, l], [l, l, l]]
+        axis = [[0, 0, 5], [0, 0, 5]]
+        ang = [45, 45]
+
+        n = len(p)
+        iges_model = Model()
+        for k in range(n):
+            iges_model.clear()
+            s = BilinearSurf(p[k])
+            iges_model.add(s.to_iges())
+            s.rotate(ref[k], axis[k], ang[k])
+            iges_model.add(s.to_iges())
+            iges_model.save('test_rotate-{}.igs'.format(k))
+        self.assertTrue(True)
+
+    def test_reverse(self):
+        l = 12.34
+        p = np.array([[[[0, 0, 0], [0, l, l]],
+                       [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]],
+                       [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]],
+                       [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]],
+                       [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]],
+                       [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]],
+                       [[l, 0, l], [l, l, 0]]]])
+        axis = ['U', 'V', 'UV', 'U', 'V', 'UV']
+
+        iges_model = Model()
+        for k, bp in enumerate(p):
+            iges_model.clear()
+            s = BilinearSurf(bp)
+            iges_model.add(s.to_iges())
+            s.reverse(axis[k])
+            iges_model.add(s.to_iges())
+            iges_model.save('test_reverse-{}.igs'.format(k))
+
+        self.assertTrue(True)
+
+    def test_swap(self):
+        l = 11.11
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+
+        iges_model = Model()
+        for k, bpt in enumerate(p):
+            s = BilinearSurf(bpt)
+            ss = deepcopy(s)
+            s.elevate(1, 2)
+            ss.elevate(1, 2)
+            s.swap()
+            iges_model.clear()
+            iges_model.add(s.to_iges())
+            iges_model.add(ss.to_iges())
+            iges_model.save('test_swap-{}.igs'.format(k))
+
+            ni, nj = 50, 30
+            u_dist, v_dist = np.meshgrid(np.linspace(0, 1, ni), np.linspace(0, 1, nj), indexing='ij')
+            ps = np.zeros((ni, nj, 3))
+            pss = np.zeros((ni, nj, 3))
+
+            for i in range(ni):
+                for j in range(nj):
+                    ps[i][j] = s(v_dist[i][j], u_dist[i][j])
+                    pss[i][j] = ss(u_dist[i][j], v_dist[i][j])
+
+            self.assertTrue(np.allclose(ps, pss))
 
 
 if __name__ == '__main__':
