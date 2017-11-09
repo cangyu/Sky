@@ -21,7 +21,6 @@ def read_airfoil_pts(foil_name):
         x, y, z = line.split()
         pts.append((float(x), float(y), float(z)))
     fin.close()
-
     return np.copy(pts)
 
 

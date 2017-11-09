@@ -6,9 +6,10 @@ from numpy.linalg import norm
 from scipy.interpolate import BSpline
 from iges import Model, Entity128
 from transform import Quaternion
-from misc import array_smart_copy, normalize
+from misc import array_smart_copy, normalize, read_airfoil_pts
 from nurbs_basis import to_cartesian, to_homogeneous, point_to_line, line_intersection
-from nurbs_crv import Crv, calc_pnt_param, calc_knot_vector, calc_ctrl_pts
+from nurbs_crv import Crv, calc_pnt_param, calc_knot_vector, calc_ctrl_pts, Arc, Line, GlobalInterpolatedCrv
+from wing import WingProfile
 
 """
 Implementation of the NURBS surface.
@@ -222,22 +223,20 @@ class Surf(object):
         '''Update'''
         self.reset(self.U, self.V, self.Pw)
 
-    def to_iges(self, closed_u=0, closed_v=0, periodic_u=0, periodic_v=0, form=0):
+    def to_iges(self, *args, **kwargs):
         """
         将曲面以IGES标准中第128号实体呈现
-        :param closed_u: U方向是否封闭
-        :type closed_u: int
-        :param closed_v: V方向是否封闭
-        :type closed_v: int
-        :param periodic_u: U方向是否是周期性的
-        :param periodic_v: V方向是否是周期性的
-        :param form: IGES中特定形式
         :return: IGES_Entity128 Object
         """
 
         w = self.weight
         poly = 0 if (w != np.ones(w.shape)).any() else 1
         cpt = self.cpt
+        closed_u = 0
+        closed_v = 0
+        periodic_u = 0
+        periodic_v = 0
+        form = 0
 
         return Entity128(self.U, self.V, self.p, self.q, self.n, self.m, cpt, w, closed_u, closed_v, poly, periodic_u, periodic_v, self.U[0], self.U[-1], self.V[0], self.V[-1], form)
 
@@ -637,7 +636,7 @@ class GlobalInterpolatedSurf(Surf):
 
 
 class BilinearSurf(Surf):
-    def __init__(self, P):
+    def __init__(self, p):
         """
         双线性曲面
 
@@ -652,22 +651,22 @@ class BilinearSurf(Surf):
         |P[0][0]       |P[1][0]
         --------------------------> U direction
 
-        :param P:4个角点, 2x2
+        :param p:4个角点, 2x2
         """
 
-        U = np.array([0, 0, 1, 1], float)
-        V = np.array([0, 0, 1, 1], float)
+        u_vec = np.array([0, 0, 1, 1], float)
+        v_vec = np.array([0, 0, 1, 1], float)
 
-        ul, vl, dim = P.shape
+        ul, vl, dim = p.shape
         assert ul == 2 and vl == 2
 
-        Pw = np.ones((ul, vl, 4), float)
+        pw = np.ones((ul, vl, 4), float)
         for i in range(ul):
             for j in range(vl):
                 for d in range(dim):
-                    Pw[i][j][d] = P[i][j][d]
+                    pw[i][j][d] = p[i][j][d]
 
-        super(BilinearSurf, self).__init__(U, V, Pw)
+        super(BilinearSurf, self).__init__(u_vec, v_vec, pw)
 
 
 class ExtrudedSurf(Surf):
@@ -1259,16 +1258,77 @@ class NURBSSurfTester(unittest.TestCase):
             iges_model.save('test_extract-{}_{}={}.igs'.format(k, ext[k][0], ext[k][1]))
 
     def test_extrude(self):
-        pass
+        crv = [Arc.from_2pnt((30, 45, 69), (44, 66, 88), 75, (1, -1, 1)),
+               Arc.from_2pnt((0, 50, 0), (50, 0, 0), 315, (0, 0, 1))]
+        direction = [(30, 30, 30), (0, 0, 90)]
+        self.assertTrue(len(crv) == len(direction))
+
+        iges_model = Model()
+        for k in range(len(crv)):
+            sf = ExtrudedSurf(crv[k], direction[k])
+            iges_model.clear()
+            iges_model.add(sf.to_iges())
+            iges_model.save('test_extrude-{}.igs'.format(k))
 
     def test_revolved(self):
-        pass
+        generatrix = [Line((50, 0, 0), (50, 0, 20)),
+                      Arc.from_2pnt((100, 0, 0), (100, 0, 20), 180, (1, 0, 0))]
+        center = [(20, 0, 0), (50, 0, 0)]
+        axis = [(0, 0, 1), (0, 0, 1)]
+        theta = [60, 180]
+
+        iges_model = Model()
+        for k in range(len(generatrix)):
+            iges_model.clear()
+            iges_model.add(generatrix[k].to_iges())
+            sf = RevolvedSurf(center[k], axis[k], theta[k], generatrix[k])
+            iges_model.add(sf.to_iges())
+            iges_model.save('test_revolved-{}.igs'.format(k))
+        self.assertTrue(True)
 
     def test_ruled(self):
-        pass
+        foil1 = WingProfile('M6', [(0, 0, 0), (10, 0, 0)]).crv
+        foil2 = WingProfile('NACA0012', [(0, 0, 80), (15, 0, 80)]).crv
+        surf = RuledSurf(foil1, foil2)
+        model_file = Model()
+        model_file.add(surf.to_iges())
+        model_file.save('test_ruled.igs')
+        self.assertTrue(True)
 
     def test_global_interp(self):
-        pass
+        # foil, N: num of section, L: length per section, p, q
+        data = [('M6', 10, 0.7, 3, 3),
+                ('M6', 10, 0.7, 3, 5),
+                ('M6', 10, 0.7, 5, 3),
+                ('M6', 10, 0.7, 5, 5),
+                ('NACA0012', 10, 0.7, 3, 3),
+                ('NACA0012', 10, 0.7, 3, 5),
+                ('NACA0012', 10, 0.7, 5, 3),
+                ('NACA0012', 10, 0.7, 5, 5),
+                ('RAE2822', 10, 0.7, 3, 3),
+                ('RAE2822', 10, 0.7, 3, 5),
+                ('RAE2822', 10, 0.7, 5, 3),
+                ('RAE2822', 10, 0.7, 5, 5)]
+
+        iges_model = Model()
+        for k in range(len(data)):
+            foil = data[k][0]
+            n = data[k][1]
+            l = data[k][2]
+            p = data[k][3]
+            q = data[k][4]
+            pts = read_airfoil_pts(foil)
+            m, dim = pts.shape
+            all_pts = np.zeros((n + 1, m, dim))
+            for i in range(n + 1):
+                all_pts[i] = np.copy(pts)
+                for j in range(m):
+                    all_pts[i][j][-1] = l * i
+            wsf = GlobalInterpolatedSurf(all_pts, p, q)
+            iges_model.clear()
+            iges_model.add(wsf.to_iges())
+            iges_model.save("test_global_interp-{}_{}_{}_{}.igs".format(k, foil, p, q))
+        self.assertTrue(True)
 
     def test_local_interp(self):
         pass
@@ -1277,7 +1337,41 @@ class NURBSSurfTester(unittest.TestCase):
         pass
 
     def test_skinned(self):
-        pass
+        # foil, N: num of section, L: length per section, p, q
+        data = [('M6', 10, 0.7, 3, 3),
+                ('M6', 10, 0.7, 3, 5),
+                ('M6', 10, 0.7, 5, 3),
+                ('M6', 10, 0.7, 5, 5),
+                ('NACA0012', 10, 0.7, 3, 3),
+                ('NACA0012', 10, 0.7, 3, 5),
+                ('NACA0012', 10, 0.7, 5, 3),
+                ('NACA0012', 10, 0.7, 5, 5),
+                ('RAE2822', 10, 0.7, 3, 3),
+                ('RAE2822', 10, 0.7, 3, 5),
+                ('RAE2822', 10, 0.7, 5, 3),
+                ('RAE2822', 10, 0.7, 5, 5)]
+
+        iges_model = Model()
+        for k in range(len(data)):
+            foil = data[k][0]
+            n = data[k][1]
+            l = data[k][2]
+            p = data[k][3]
+            q = data[k][4]
+            pts = read_airfoil_pts(foil)
+            m, dim = pts.shape
+            all_pts = np.zeros((n + 1, m, dim))
+            for i in range(n + 1):
+                all_pts[i] = np.copy(pts)
+                for j in range(m):
+                    all_pts[i][j][-1] = l * i
+
+            crv_list = [GlobalInterpolatedCrv(all_pts[i], p) for i in range(n + 1)]
+            wsf = Skinned(crv_list, p, q)
+            iges_model.clear()
+            iges_model.add(wsf.to_iges())
+            iges_model.save("test_Skinned-{}_{}_{}_{}.igs".format(k, foil, p, q))
+        self.assertTrue(True)
 
 
 if __name__ == '__main__':
