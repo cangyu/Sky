@@ -90,10 +90,10 @@ class Surf(object):
         return ans
 
     def __repr__(self):
-        return '\nU Knot:\n{}\nV Knot:\n{}\nControl points:\n{}\n'.format(self.U, self.V, self.Pw)
+        return 'U Knot:\n{}\nV Knot:\n{}\nControl points:\n{}'.format(self.U, self.V, self.Pw)
 
     def __str__(self):
-        ret = '\nClamped NURBS Surface\nDegree:({},{})'.format(self.p, self.q)
+        ret = 'Clamped NURBS Surface\nDegree:({},{})\n'.format(self.p, self.q)
         ret += self.__repr__()
         return ret
 
@@ -469,13 +469,13 @@ class Surf(object):
         self.reparameterization(alpha, beta, gamma, delta, 'V')
 
     @classmethod
-    def split(cls, surf, ubrk, vbrk):
+    def split(cls, surf, u_brk, v_brk):
         """
         将曲面分割成若干子部分
         :param surf: Surface to be split
         :type surf: Surf
-        :param ubrk: breaking knot in u-direction
-        :param vbrk: breaking knot in v-direction
+        :param u_brk: breaking knot in u-direction
+        :param v_brk: breaking knot in v-direction
         :return: Collection of split surf
         """
 
@@ -483,16 +483,16 @@ class Surf(object):
         cq = surf.q
 
         '''Pre-check'''
-        if len(ubrk) != 0 and (min(ubrk) <= 0 or max(ubrk) >= 1):
+        if len(u_brk) != 0 and (min(u_brk) <= 0 or max(u_brk) >= 1):
             raise AssertionError("Invalid input.")
 
-        if len(vbrk) != 0 and (min(vbrk) <= 0 or max(vbrk) >= 1):
+        if len(v_brk) != 0 and (min(v_brk) <= 0 or max(v_brk) >= 1):
             raise AssertionError("Invalid input.")
 
         '''Copy back break knot info'''
-        uspk = sorted(ubrk)
+        uspk = sorted(u_brk)
         uspk.append(1.0)
-        vspk = sorted(vbrk)
+        vspk = sorted(v_brk)
         vspk.append(1.0)
 
         '''Statistic current surf knot info'''
@@ -1012,6 +1012,9 @@ def different_knot(lhs, rhs):
 
 
 class NURBSSurfTester(unittest.TestCase):
+    def test_call(self):
+        pass
+
     def test_bilinear(self):
         l = 10.0
         p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
@@ -1117,6 +1120,164 @@ class NURBSSurfTester(unittest.TestCase):
                     pss[i][j] = ss(u_dist[i][j], v_dist[i][j])
 
             self.assertTrue(np.allclose(ps, pss))
+
+    def test_insert(self):
+        l = 11.11
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+
+        iges_model = Model()
+        print('Test insert utility.')
+        for k, dt in enumerate(p):
+            print('Test-{}'.format(k))
+            iges_model.clear()
+            s = BilinearSurf(dt)
+            print('Before:{}'.format(s))
+            iges_model.add(s.to_iges())
+            s.insert_knot(0.5, 1, 'U')
+            s.insert_knot(0.5, 1, 'V')
+            print('After:{}'.format(s))
+            iges_model.add(s.to_iges())
+            iges_model.save('test_insert-{}.igs'.format(k))
+
+        self.assertTrue(True)
+
+    def test_refine(self):
+        l = 11.11
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+
+        iges_model = Model()
+        print('Test refine utility.')
+        for k, dt in enumerate(p):
+            print('Test-{}'.format(k))
+            iges_model.clear()
+            s = BilinearSurf(dt)
+            ss = deepcopy(s)
+            print('Before:{}'.format(s))
+            iges_model.add(s.to_iges())
+            s.refine('U', [0.2, 0.3, 0.6, 0.7])
+            s.refine('V', [0.1, 0.4, 0.8, 0.9])
+            print('After:{}'.format(s))
+            iges_model.add(s.to_iges())
+            iges_model.save('test_refine-{}.igs'.format(k))
+
+            ni, nj = 50, 30
+            u_dist = np.linspace(0, 1, ni)
+            v_dist = np.linspace(0, 1, nj)
+            ps = np.zeros((ni, nj, 3))
+            pss = np.zeros((ni, nj, 3))
+
+            for i in range(ni):
+                for j in range(nj):
+                    ps[i][j] = s(u_dist[i], v_dist[j])
+                    pss[i][j] = ss(u_dist[i], v_dist[j])
+
+            self.assertTrue(np.allclose(ps, pss))
+
+    def test_elevate(self):
+        l = 11.11
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+
+        iges_model = Model()
+        print('Test elevate utility.')
+        for k, dt in enumerate(p):
+            print('Test-{}'.format(k))
+            iges_model.clear()
+            s = BilinearSurf(dt)
+            ss = deepcopy(s)
+            print('Before:{}'.format(s))
+            iges_model.add(s.to_iges())
+            s.elevate(1, 2)
+            print('After:{}'.format(s))
+            iges_model.add(s.to_iges())
+            iges_model.save('test_elevate-{}.igs'.format(k))
+
+            ni, nj = 50, 30
+            u_dist = np.linspace(0, 1, ni)
+            v_dist = np.linspace(0, 1, nj)
+            ps = np.zeros((ni, nj, 3))
+            pss = np.zeros((ni, nj, 3))
+            for i in range(ni):
+                for j in range(nj):
+                    ps[i][j] = s(u_dist[i], v_dist[j])
+                    pss[i][j] = ss(u_dist[i], v_dist[j])
+
+            self.assertTrue(np.allclose(ps, pss))
+
+    def test_split(self):
+        print('Test split utility.')
+        iges_model = Model()
+        s = Surf(np.array([0, 0, 0, 0, 1., 1., 1., 1.]),
+                 np.array([0, 0, 0, 0.5, 1, 1, 1]),
+                 np.array([[[0, 0, 0, 1.], [0, 1, 1, 1], [0, 2, 3, 1], [0, 3, 2, 1]],
+                           [[1, 0, 0, 1.], [1, 1, 2, 1], [1, 3, 5, 1], [1, 4, 2, 1]],
+                           [[2, 0, 0, 1.], [2, 2, 2, 1], [2, 3, 6, 1], [2, 5, 7, 1]],
+                           [[3, 0, 0, 1.], [3, 1, 1, 1], [3, 2, 2, 1], [3, 3, 3, 1]]]))
+        iges_model.add(s.to_iges())
+        print('Original:{}'.format(s))
+        ss = Surf.split(s, (0.4, 0.5, 0.6), [0.2, 0.5, 0.7])
+        k = 0
+        for ue in ss:
+            for ve in ue:
+                iges_model.add(ve.to_iges())
+                print('Segment {}:{}'.format(k, ve))
+                k += 1
+        iges_model.save('test_split.igs')
+        self.assertTrue(True)
+
+    def test_extract(self):
+        l = 11.11
+        p = np.array([[[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, 0], [0, l, l]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]],
+                      [[[0, 0, l], [0, l, 0]], [[l, 0, l], [l, l, 0]]]])
+        ext = [('U', 0), ('U', 0.5), ('U', 1), ('V', 0), ('V', 0.5), ('V', 1),
+               ('U', 0), ('U', 0.5), ('U', 1), ('V', 0), ('V', 0.5), ('V', 1)]
+        self.assertTrue(len(p) == len(ext))
+
+        iges_model = Model()
+        print('Test extract utility.')
+        for k, dt in enumerate(p):
+            print('Case-{}'.format(k))
+            s = BilinearSurf(dt)
+            print('Surf:\n{}'.format(s))
+            mid = s.extract(ext[k][0], ext[k][1])
+            print('Curve at {}={}:\n{}'.format(ext[k][0], ext[k][1], mid))
+            iges_model.clear()
+            iges_model.add(s.to_iges())
+            iges_model.add(mid.to_iges())
+            iges_model.save('test_extract-{}_{}={}.igs'.format(k, ext[k][0], ext[k][1]))
+
+    def test_extrude(self):
+        pass
+
+    def test_revolved(self):
+        pass
+
+    def test_ruled(self):
+        pass
+
+    def test_global_interp(self):
+        pass
+
+    def test_local_interp(self):
+        pass
+
+    def test_coons(self):
+        pass
+
+    def test_skinned(self):
+        pass
 
 
 if __name__ == '__main__':
