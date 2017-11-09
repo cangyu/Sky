@@ -8,8 +8,7 @@ from iges import Model, Entity128
 from transform import Quaternion
 from misc import array_smart_copy, normalize, read_airfoil_pts
 from nurbs_basis import to_cartesian, to_homogeneous, point_to_line, line_intersection
-from nurbs_crv import Crv, calc_pnt_param, calc_knot_vector, calc_ctrl_pts, Arc, Line, GlobalInterpolatedCrv
-from wing import WingProfile
+from nurbs_crv import Crv, calc_pnt_param, calc_knot_vector, calc_ctrl_pts, Arc, Line, GlobalInterpolatedCrv, Spline
 
 """
 Implementation of the NURBS surface.
@@ -1287,13 +1286,24 @@ class NURBSSurfTester(unittest.TestCase):
         self.assertTrue(True)
 
     def test_ruled(self):
-        foil1 = WingProfile('M6', [(0, 0, 0), (10, 0, 0)]).crv
-        foil2 = WingProfile('NACA0012', [(0, 0, 80), (15, 0, 80)]).crv
-        surf = RuledSurf(foil1, foil2)
-        model_file = Model()
-        model_file.add(surf.to_iges())
-        model_file.save('test_ruled.igs')
-        self.assertTrue(True)
+        # foil, z
+        data = [('M6', 0), ('M6', 0.1), ('M6', 0.2), ('M6', 0.3),
+                ('NACA0012', 0.4), ('NACA0012', 0.5), ('NACA0012', 0.6), ('NACA0012', 0.7),
+                ('RAE2822', 0.8), ('RAE2822', 0.9), ('RAE2822', 1.0), ('RAE2822', 1.1)]
+        crv = []
+        for k in range(len(data)):
+            foil = data[k][0]
+            z = data[k][1]
+            pts = read_airfoil_pts(foil)
+            c = Spline(pts)
+            c.pan((0, 0, z))
+            crv.append(c)
+        self.assertTrue(len(crv) == len(data))
+        iges_model = Model()
+        for i in range(1, len(crv)):
+            sf = RuledSurf(crv[i - 1], crv[i])
+            iges_model.add(sf.to_iges())
+        iges_model.save('test_ruled.igs')
 
     def test_global_interp(self):
         # foil, N: num of section, L: length per section, p, q
@@ -1334,7 +1344,22 @@ class NURBSSurfTester(unittest.TestCase):
         pass
 
     def test_coons(self):
-        pass
+        l = 20
+        u0 = Spline(read_airfoil_pts('M6') * l)
+        u0.pan((0, 0, 5))
+        u1 = Arc.from_2pnt((25, 60, 5), (25, -60, 5), 180, (0, 0, 1))
+        v0 = Line(u0.start, u1.start)
+        v1 = Line(u0.end, u1.end)
+        s = Coons(u0, u1, v0, v1)
+
+        iges_model = Model()
+        iges_model.add(s.to_iges())
+        iges_model.add(u0.to_iges())
+        iges_model.add(u1.to_iges())
+        iges_model.add(v0.to_iges())
+        iges_model.add(v1.to_iges())
+        iges_model.save('test_coons.igs')
+        self.assertTrue(True)
 
     def test_skinned(self):
         # foil, N: num of section, L: length per section, p, q

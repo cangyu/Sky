@@ -9,22 +9,12 @@ from fluent import XF_MSH, BCType
 from tfi import LinearTFI2D, LinearTFI3D
 from misc import pnt_dist, read_airfoil_pts
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from settings import AIRFOIL_DIR
 from iges import Model
 from nurbs_crv import Crv, GlobalInterpolatedCrv, Arc, Line, Spline
 from nurbs_surf import Surf, Skinned, RuledSurf
 
 
 class Airfoil(object):
-    AIRFOIL_LIST = []
-
-    @classmethod
-    def update_airfoil_list(cls):
-        for f in os.listdir(AIRFOIL_DIR):
-            base, ext = os.path.splitext(f)
-            if ext == '.dat':
-                cls.AIRFOIL_LIST.append(base)
-
     def __init__(self, foil):
         """
         2D Airfoil, with chord length equals to 1.
