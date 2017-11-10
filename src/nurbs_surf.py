@@ -589,10 +589,10 @@ class GlobalInterpolatedSurf(Surf):
         n -= 1
         m -= 1
 
-        U = np.zeros(n + 1)
-        V = np.zeros(m + 1)
-        U[-1] = 1.0
-        V[-1] = 1.0
+        u_knot = np.zeros(n + 1)
+        v_knot = np.zeros(m + 1)
+        u_knot[-1] = 1.0
+        v_knot[-1] = 1.0
 
         '''Parameters of U direction'''
         dist = np.zeros((n + 1, m + 1))
@@ -601,7 +601,7 @@ class GlobalInterpolatedSurf(Surf):
             for i in range(0, n + 1):
                 dist[i][j] = td[i]
         for i in range(0, n):
-            U[i] = np.mean(dist[i])
+            u_knot[i] = np.mean(dist[i])
 
         '''Parameters of V Direction'''
         for i in range(0, n + 1):
@@ -609,22 +609,22 @@ class GlobalInterpolatedSurf(Surf):
             for j in range(0, m + 1):
                 dist[i][j] = td[j]
         for j in range(0, m):
-            V[j] = np.mean(dist[:, j])
+            v_knot[j] = np.mean(dist[:, j])
 
         '''Knot Vectors'''
-        u_knot = calc_knot_vector(U, p)
-        v_knot = calc_knot_vector(V, q)
+        u_knot = calc_knot_vector(u_knot, p)
+        v_knot = calc_knot_vector(v_knot, q)
 
         '''Control Points'''
         R = np.zeros((n + 1, m + 1, dim))
         for j in range(0, m + 1):
-            tp = calc_ctrl_pts(u_knot, p, pts[:, j], U)
+            tp = calc_ctrl_pts(u_knot, p, pts[:, j], u_knot)
             for i in range(0, n + 1):
                 R[i][j] = tp[i]
 
         P = np.zeros((n + 1, m + 1, dim))
         for i in range(0, n + 1):
-            P[i] = calc_ctrl_pts(v_knot, q, R[i], V)
+            P[i] = calc_ctrl_pts(v_knot, q, R[i], v_knot)
 
         Pw = np.zeros((n + 1, m + 1, dim + 1))
         for i in range(0, n + 1):
@@ -1009,6 +1009,87 @@ def different_knot(lhs, rhs):
     return ans
 
 
+class LocalBiCubicInterpSurf(Surf):
+    def __init__(self, pts):
+        """
+        Locally bi-cubic interpolated bezier surface.
+        :param pts: (n+1) x (m+1) points to be interpolated.
+        """
+
+        assert len(pts.shape) == 3
+        assert pts.shape[-1] == 3
+
+        '''Basic Variables'''
+        dim = pts.shape[-1]
+        n = pts.shape[0] - 1
+        m = pts.shape[1] - 1
+
+        '''Knot vector'''
+        u_knot = np.zeros(2 * n + 6)
+        v_knot = np.zeros(2 * m + 6)
+        for k in range(1, 5):
+            u_knot[-k] = v_knot[-k] = 1
+
+        '''Parameters of U direction'''
+        dist = np.zeros((n + 1, m + 1))
+        for j in range(m + 1):
+            td = calc_pnt_param(pts[:, j], 'chord')
+            for i in range(n + 1):
+                dist[i][j] = td[i]
+        for i in range(1, n):
+            u_knot[2 * i + 2] = u_knot[2 * i + 3] = np.mean(dist[i])
+
+        '''Parameters of V Direction'''
+        for i in range(n + 1):
+            td = calc_pnt_param(pts[i], 'chord')
+            for j in range(m + 1):
+                dist[i][j] = td[j]
+        for j in range(1, m):
+            v_knot[2 * j + 2] = v_knot[2 * j + 3] = np.mean(dist[:, j])
+
+        '''Control points'''
+        cpt = np.zeros((2 * n + 2, 2 * m + 2, dim))
+        for i in range(n+1):
+            for j in range(m+1):
+                cpt[][] = pts[i][j]
+
+        u_tan = np.empty((n + 1, m + 1, 3))
+        for j in range(m + 1):
+            q = np.empty((n + 4, 3))
+            for i in range(1, n + 1):
+                q[i + 1] = pts[i][j] - pts[i - 1][j]
+            q[1] = 2 * q[2] - q[3]
+            q[0] = 2 * q[1] - q[2]
+            q[n + 2] = 2 * q[n + 1] - q[n]
+            q[n + 3] = 2 * q[n + 2] - q[n + 1]
+            alpha = np.empty(n + 1)
+            for i in range(n + 1):
+                t1 = norm(np.cross(q[i], q[i + 1]))
+                t2 = t1 + norm(np.cross(q[i + 2], q[i + 3]))
+                alpha[i] = 1 if math.isclose(t2, 0) else t1 / t2
+            for i in range(n + 1):
+                u_tan[i][j] = normalize((1 - alpha[i]) * q[i + 1] + alpha[i] * q[i + 2])
+
+        v_tan = np.empty((n + 1, m + 1, 3))
+        for i in range(n + 1):
+            q = np.empty((m + 4, 3))
+            for j in range(1, m + 1):
+                q[j + 1] = pts[i][j] - pts[i][j - 1]
+            q[1] = 2 * q[2] - q[3]
+            q[0] = 2 * q[1] - q[2]
+            q[m + 2] = 2 * q[m + 1] - q[m]
+            q[m + 3] = 2 * q[m + 2] - q[m + 1]
+            alpha = np.empty(m+1)
+            for j in range(m+1)
+                t1 = norm(np.cross(q[j], q[j+1]))
+                t2 = t1 + norm(np.cross(q[j+2], q[j+3]))
+                alpha[i] = 1 if math.isclose(t2, 0) else t1 / t2
+            for j in range(m+1):
+                v_tan[i][j] = normalize((1 - alpha[j]) * q[i + 1] + alpha[j] * q[i + 2])
+
+
+
+
 class NURBSSurfTester(unittest.TestCase):
     def test_call(self):
         pass
@@ -1087,7 +1168,6 @@ class NURBSSurfTester(unittest.TestCase):
             s.reverse(axis[k])
             iges_model.add(s.to_iges())
             iges_model.save('test_reverse-{}.igs'.format(k))
-
         self.assertTrue(True)
 
     def test_swap(self):
@@ -1137,7 +1217,6 @@ class NURBSSurfTester(unittest.TestCase):
             print('After:{}'.format(s))
             iges_model.add(s.to_iges())
             iges_model.save('test_insert-{}.igs'.format(k))
-
         self.assertTrue(True)
 
     def test_refine(self):
