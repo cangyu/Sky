@@ -1,11 +1,3 @@
-"""
-Implementation of NURBS Basis, Crv, Surf.
-
-Note:
-All the NURBS notations are in the 'Clamped' format by default.
-All the units follow SI by default.
-"""
-
 import unittest
 import math
 import numpy as np
@@ -19,6 +11,14 @@ from scipy.misc import comb
 from iges import Model, Entity110, Entity126, Entity128
 from transform import Quaternion, DCM
 from misc import array_smart_copy, normalize, pnt_dist, read_airfoil_pts, sqrt2, sqrt3
+
+"""
+Implementation of NURBS Basis, Crv, Surf.
+
+Note:
+All the NURBS notations are in the 'Clamped' format by default.
+All the units follow SI by default.
+"""
 
 
 def to_homogeneous(pnt, w=1.0):
@@ -126,8 +126,44 @@ def point_to_line(target, center, axis):
 
 
 class Basis(object):
-    def __init__(self, u):
+    def __init__(self, u, p):
+        """
+        BSpline basis functions.
+        :param u: Knot vector.
+        :param p: Degree of the basis functions.
+        :type p: int
+        """
+
+        assert len(u) >= 2 * (p + 1)
+        for k in range(p + 1):
+            assert math.isclose(u[k], 0) and math.isclose(u[-k], 1)
+
         self.knot = np.copy(u)
+        self.deg = p
+
+    def __call__(self, *args, **kwargs):
+        """
+        Calculate value with given derivatives for all control pts or just a single pnt.
+        :param args: u, d
+        :param kwargs:
+        :return: Value at different ctrl pts.
+        """
+
+        if len(args) == 0:
+            raise ValueError('Too less arguments.')
+        if len(args) == 1:
+            u = args[0]
+            if type(u) not in (int, float) or u < 0 or u > 1:
+                raise TypeError('Wrong type for the first argument.')
+        elif len(args) == 2:
+            u = args[0]
+            if type(u) not in (int, float) or u < 0 or u > 1:
+                raise TypeError('Wrong input for \'u\'(1st).')
+            d = args[1]
+            if type(d) is not int or d < 0 or d > self.deg:
+                raise ValueError('Wrong input for \'d\'(2nd).')
+        else:
+            raise ValueError('Too many arguments.')
 
 
 def find_span(n, p, u, u_vec):
