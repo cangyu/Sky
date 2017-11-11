@@ -2054,46 +2054,46 @@ class GlobalInterpolatedSurf(Surf):
         n -= 1
         m -= 1
 
-        u_knot = np.zeros(n + 1)
-        v_knot = np.zeros(m + 1)
-        u_knot[-1] = 1.0
-        v_knot[-1] = 1.0
+        u = np.zeros(n + 1)
+        v = np.zeros(m + 1)
+        u[-1] = 1.0
+        v[-1] = 1.0
 
         '''Parameters of U direction'''
         dist = np.zeros((n + 1, m + 1))
-        for j in range(0, m + 1):
+        for j in range(m + 1):
             td = calc_pnt_param(pts[:, j], u_method)
-            for i in range(0, n + 1):
+            for i in range(n + 1):
                 dist[i][j] = td[i]
-        for i in range(0, n):
-            u_knot[i] = np.mean(dist[i])
+        for i in range(n):
+            u[i] = np.mean(dist[i])
 
         '''Parameters of V Direction'''
-        for i in range(0, n + 1):
+        for i in range(n + 1):
             td = calc_pnt_param(pts[i], v_method)
             for j in range(0, m + 1):
                 dist[i][j] = td[j]
-        for j in range(0, m):
-            v_knot[j] = np.mean(dist[:, j])
+        for j in range(m):
+            v[j] = np.mean(dist[:, j])
 
         '''Knot Vectors'''
-        u_knot = calc_knot_vector(u_knot, p)
-        v_knot = calc_knot_vector(v_knot, q)
+        u_knot = calc_knot_vector(u, p)
+        v_knot = calc_knot_vector(v, q)
 
         '''Control Points'''
         cr = np.zeros((n + 1, m + 1, dim))
-        for j in range(0, m + 1):
-            tp = calc_ctrl_pts(u_knot, p, pts[:, j], u_knot)
-            for i in range(0, n + 1):
+        for j in range(m + 1):
+            tp = calc_ctrl_pts(u_knot, p, pts[:, j], u)
+            for i in range(n + 1):
                 cr[i][j] = tp[i]
 
         cp = np.zeros((n + 1, m + 1, dim))
-        for i in range(0, n + 1):
-            cp[i] = calc_ctrl_pts(v_knot, q, cr[i], v_knot)
+        for i in range(n + 1):
+            cp[i] = calc_ctrl_pts(v_knot, q, cr[i], v)
 
         cpw = np.zeros((n + 1, m + 1, dim + 1))
-        for i in range(0, n + 1):
-            for j in range(0, m + 1):
+        for i in range(n + 1):
+            for j in range(m + 1):
                 cpw[i][j] = to_homogeneous(cp[i][j])
 
         super(GlobalInterpolatedSurf, self).__init__(u_knot, v_knot, cpw)
