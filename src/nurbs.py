@@ -1047,7 +1047,7 @@ def calc_pnt_param(pts, method, with_dist=False):
     for i in range(1, n):
         param[i] = param[i - 1] + dist[i] / d
 
-    return param, d if with_dist else param
+    return (param, d) if with_dist else param
 
 
 def calc_knot_vector(param, p):
@@ -1105,7 +1105,7 @@ def calc_ctrl_pts(u_vec, p, pts, param):
     bp = np.zeros((dim, n + 1))
 
     for i in range(dim):
-        for j in range(0, n + 1):
+        for j in range(n + 1):
             bq[i][j] = pts[j][i]
 
     for i in range(dim):
@@ -3023,8 +3023,6 @@ class NURBSCrvTester(unittest.TestCase):
         self.assertTrue(True)
 
     def test_arc(self):
-        self.assertTrue(True)
-
         # center, start, theta, norm_vec
         data = [[(0, 0, 0), (0.1, 0, 0), -20, (0, 0, 1)],
                 [(0, 0, 0), (0.1, 0, 0), 0, (0, 0, 1)],
@@ -3070,10 +3068,9 @@ class NURBSCrvTester(unittest.TestCase):
                 iges_model.add(arc.to_iges())
 
         iges_model.save('test_arc.igs')
-
-    def test_arc_2pnt(self):
         self.assertTrue(True)
 
+    def test_arc_2pnt(self):
         # start, end, theta, norm_vec
         data = [[(0, 0, 500), (0, 0, 100), 180, (0, 1, 0)],
                 [(0, 0, 50), (0, 0, 10), 180, (0, 1, 0)],
@@ -3085,10 +3082,9 @@ class NURBSCrvTester(unittest.TestCase):
             iges_model.clear()
             iges_model.add(arc.to_iges())
             iges_model.save('test_arc_pnt-{}.igs'.format(k))
-
-    def test_conic(self):
         self.assertTrue(True)
 
+    def test_conic(self):
         # a,b of an ellipse
         data = [(10, 6), (20, 8), (50, 12), (10, 25)]
 
@@ -3098,6 +3094,7 @@ class NURBSCrvTester(unittest.TestCase):
             arc = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Arc
             iges_model.add(arc.to_iges())
         iges_model.save('test_conic.igs')
+        self.assertTrue(True)
 
 
 class NURBSSurfTester(unittest.TestCase):
