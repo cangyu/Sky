@@ -124,7 +124,13 @@ class Airfoil(object):
         plt.title(self.name)
         plt.show()
 
-    def grid(self):
+    def gen_grid(self):
+        return self._gen_sharp() if self.is_blunt else self._gen_blunt()
+
+    def _gen_sharp(self):
+        pass
+
+    def _gen_blunt(self):
         pass
 
 
