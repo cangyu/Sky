@@ -1,23 +1,15 @@
 import unittest
 import math
-import os
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.linalg import norm
 from abc import ABCMeta, abstractmethod
 from math import sin, cos, tan, radians, fabs, atan2
 from scipy.integrate import romberg
 from scipy.interpolate import make_interp_spline
 from scipy.optimize import root
-from smooth import Laplace2D
-from fluent import XF_MSH, BCType
-from tfi import LinearTFI2D, LinearTFI3D
-from misc import pnt_dist
-from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from settings import AIRFOIL_DIR
 from nurbs import Crv, ConicArc, to_homogeneous, to_cartesian
-from nurbs import LocalCubicInterpolatedCrv, Line, point_inverse, GlobalInterpolatedCrv, Arc, Skinned, RuledSurf, Surf, Coons
+from nurbs import LocalCubicInterpolatedCrv, Line, point_inverse, Arc, Skinned, RuledSurf, Coons
 
 
 class Nose(object):
@@ -28,11 +20,11 @@ class Nose(object):
         :type nl: float
         :param nfr: Radius of the front hole.
         :type nfr: float
-        :param dh:  Delta height between the center of the front section and the back section.
+        :param dh:  Delta height between the center of the front profile and the back profile.
         :type dh: float
-        :param h2: Half of the height of the back section.
+        :param h2: Half of the height of the back profile.
         :type h2: float
-        :param w2: Half of the width of the back section.
+        :param w2: Half of the width of the back profile.
         :type w2: float
         """
 
@@ -89,9 +81,9 @@ class Fuselage(object):
     def __init__(self, l1, l2, fl):
         """
         Simplified fuselage of a 'Wing-Tube' configuration aircraft.
-        :param l1: Upper part of the front section curve.
+        :param l1: Upper part of the front profile curve.
         :type l1: Crv
-        :param l2: Lower part of the front section curve.
+        :param l2: Lower part of the front profile curve.
         :type l2: Crv
         :param fl: Length of the fuselage.
         :type fl: float
@@ -125,15 +117,15 @@ class Tail(object):
     def __init__(self, fu, fd, tl, dh, ttr):
         """
         Simplified tail of a 'Wing-Tube' configuration aircraft.
-        :param fu: Upper part of the front section.
+        :param fu: Upper part of the front profile.
         :type fu: Crv
-        :param fd: Lower part of the front section.
+        :param fd: Lower part of the front profile.
         :type fd: Crv
         :param tl: Length of the tail.
         :type tl: float
-        :param dh: Delta of the upper frame on back section.
+        :param dh: Delta of the upper frame on back profile.
         :type dh: float
-        :param ttr: Radius of the hole on back section.
+        :param ttr: Radius of the hole on back profile.
         :type ttr: float
         """
 
@@ -679,7 +671,7 @@ class HorizontalStablizer(object):
     @classmethod
     def from_section_param(cls, foil, zoff, cl, swp_bk, tws, dih, ptws, rfy, tkf, pan_dir):
         """
-        Construct the vertical stablizer from section geometrical parameters.
+        Construct the vertical stablizer from profile geometrical parameters.
         :param foil: Section airfoil list.
         :param zoff: Section 'z'-dim offset list when constructing from wing.
         :param cl: Section chord length list.
@@ -720,7 +712,7 @@ class VerticalStablizer(object):
     @classmethod
     def from_section_param(cls, foil, zoff, cl, swp_bk, tws, dih, ptws, rfy, tkf, pan_dir, rot):
         """
-        Construct the vertical stablizer from section geometrical parameters.
+        Construct the vertical stablizer from profile geometrical parameters.
         :param foil: Section airfoil list.
         :param zoff: Section 'z'-dim offset list when constructing from wing.
         :param cl: Section chord length list.

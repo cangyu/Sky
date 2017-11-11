@@ -1664,6 +1664,7 @@ class Surf(object):
         """
         Mirror the surface along specified axis.
         :param axis: Direction axis.
+        :type axis: str
         :return: None.
         """
 
@@ -3392,7 +3393,7 @@ class NURBSSurfTester(unittest.TestCase):
         iges_model.save('test_ruled.igs')
 
     def test_global_interp(self):
-        # foil, N: num of section, L: length per section, p, q
+        # foil, N: num of profile, L: length per profile, p, q
         data = [('M6', 10, 0.7, 3, 3),
                 ('M6', 10, 0.7, 3, 5),
                 ('M6', 10, 0.7, 5, 3),
@@ -3448,7 +3449,7 @@ class NURBSSurfTester(unittest.TestCase):
         self.assertTrue(True)
 
     def test_skinned(self):
-        # foil, N: num of section, L: length per section, p, q
+        # foil, N: num of profile, L: length per profile, p, q
         data = [('M6', 10, 0.7, 3, 3),
                 ('M6', 10, 0.7, 3, 5),
                 ('M6', 10, 0.7, 5, 3),

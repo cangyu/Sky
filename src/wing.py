@@ -10,8 +10,8 @@ from tfi import LinearTFI2D, LinearTFI3D
 from misc import pnt_dist, read_airfoil_pts
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model
-from nurbs_crv import Crv, GlobalInterpolatedCrv, Arc, Line, Spline
-from nurbs_surf import Surf, Skinned, RuledSurf
+from nurbs import Crv, Arc, Line, Spline, Surf, Skinned, RuledSurf
+from settings import AIRFOIL_LIST
 
 
 class Airfoil(object):
@@ -22,11 +22,14 @@ class Airfoil(object):
         :type foil: str
         """
 
+        if foil not in AIRFOIL_LIST:
+            raise FileNotFoundError('Airfoil \'{}\' not included at present.'.format(foil))
+
         self.name = foil
         self.pts = read_airfoil_pts(foil)
 
     def __repr__(self):
-        return '{} with {} point(s)'.format(self.name, self.pnt_num)
+        return '{} with {} points'.format(self.name, self.pnt_num)
 
     @property
     def pnt_num(self):
@@ -69,13 +72,29 @@ class Airfoil(object):
 
     @property
     def is_blunt(self):
-        return not math.isclose(norm(self.tail_up - self.tail_down, np.inf), 0)
+        return not math.isclose(norm(self.tail_up - self.tail_down), 0)
 
     def to_blunt(self):
-        r = self.pts[-2][0]
-        for k, p in enumerate(self.pts):
-            self.pts[k][0] = p[0] / r
+        pfx = self.front[0]
+        r0 = self.chord_len
         self.pts = self.pts[1:-1]
+        r1 = self.chord_len
+        ratio = r0 / r1
+        for k in range(len(self.pts)):
+            self.pts[k][0] = pfx + (self.pts[k][0] - pfx) * ratio
+
+    def save(self, fn):
+        """
+        Save all coordinates into file.
+        :param fn: File name.
+        :type fn: str
+        :return: None.
+        """
+
+        f_out = open(fn, 'w')
+        for p in self.pts:
+            f_out.write('{:10.6f}\t{:10.6f}\t{:10.6f}\n'.format(p[0], p[1], p[2]))
+        f_out.close()
 
     def show(self):
         (px, py, pz) = zip(*self.pts)
@@ -118,7 +137,7 @@ class WingProfile(Airfoil):
         3D profile at certain position.
         :param foil: Airfoil name.
         :type foil: str
-        :param ends: Starting and ending points of the section.
+        :param ends: Starting and ending points of the profile.
         :param thickness_factor: Vertical stretching factor.
         :type thickness_factor: float
         """
@@ -136,7 +155,7 @@ class WingProfile(Airfoil):
 
         rotation = complex((ends[1][0] - ends[0][0]) / cl, (ends[1][1] - ends[0][1]) / cl)
 
-        '''Build section'''
+        '''Build profile'''
         if not self.is_blunt:
             self.to_blunt()
         for i in range(self.pnt_num):
@@ -213,90 +232,100 @@ class WingProfile(Airfoil):
 
 
 class Wing(object):
-    def __init__(self, section_list):
+    def __init__(self, profiles):
         """
         从剖面序列构造机翼
-        :param section_list: 机翼剖面序列
+        :param profiles: 机翼剖面序列
         """
 
-        self.section = deepcopy(section_list)
+        self.profile = deepcopy(profiles)
 
     def __repr__(self):
-        return "Wing with {} sections".format(self.section_num)
+        return "Wing with {} sections".format(self.size)
 
     @property
-    def section_num(self):
-        return len(self.section)
+    def size(self):
+        """
+        Number of profiles within this wing.
+        :return: Num of profiles.
+        :rtype: int
+        """
+
+        return len(self.profile)
 
     @property
     def root(self):
-        return self.section[0].nurbs_rep()
+        """
+        Profile at root.
+        :return: The root profile in WingProfile representation.
+        :rtype: WingProfile
+        """
+
+        return self.profile[0]
 
     @property
     def tip(self):
-        return self.section[-1].nurbs_rep()
+        """
+        Profile at tip.
+        :return: The tip profile in WingProfile representation.
+        :rtype: WingProfile
+        """
 
-    def front(self, q=3, method='chord'):
-        n = self.section_num
-        front_pts = np.zeros((n, 3))
-        for i in range(n):
-            front_pts[i] = self.section[i].front
+        return self.profile[-1]
 
-        return GlobalInterpolatedCrv(front_pts, q, method)
-
+    @property
     def surf(self):
         """
         构建机翼轮廓曲线、曲面
-        :param p: U方向次数
-        :type p: int
-        :param q: V方向次数
-        :type q: int
         :return: 机翼蒙皮曲面
         :rtype: Skinned
         """
 
-        profile_list = []
-        for elem in self.section:
-            profile_list.append(elem.crv)
-        return Skinned(profile_list)
+        profile_list = [self.profile[i].crv for i in range(self.size)]
+        return Skinned(profile_list, 3, 3)
 
     @property
-    def tail_up(self):
-        sk = self.surf()
-        return sk.extract('U', 0)
+    def leading(self):
+        """
+        Leading edge of the wing.
+        :return: Leading edge in NURBS representation.
+        :rtype: Crv
+        """
+
+        pts = [self.profile[i].front for i in range(self.size)]
+        return Spline(pts, method='chord')
 
     @property
-    def tail_down(self):
-        sk = self.surf()
-        return sk.extract('U', 1)
+    def tailing_up(self):
+        return self.surf.extract('U', 0)
 
-    def iges_model(self, p=3, q=3, mirror=True):
+    @property
+    def tailing_down(self):
+        return self.surf.extract('U', 1)
+
+    def iges_model(self, mirror=True):
         """
         生成机翼相应的IGES模型
-        :param p: U方向次数
-        :type p: int
-        :param q: V方向次数
-        :type q: int
         :param mirror: 是否生成对称部分
         :type mirror: bool
         :return: 可用于后续生成IGS文件的IGES_Model对象
-        :rtype: IGES_Model
+        :rtype: Model
         """
 
         wing_model = Model()
 
-        '''前缘曲线'''
-        wing_model.add(self.front(q).to_iges())
+        '''Leading edge'''
+        wing_model.add(self.leading.to_iges())
 
-        '''剖面'''
-        for elem in self.section:
+        '''Profiles'''
+        for elem in self.profile:
             wing_model.add(elem.crv.to_iges())
 
-        '''蒙皮'''
-        sk = self.surf(p, q)
+        '''Skin'''
+        sk = self.surf
         wing_model.add(sk.to_iges())
 
-        '''镜像'''
+        '''Surf mirror'''
         if mirror:
             msk = deepcopy(sk)
             for i in range(msk.n + 1):
@@ -356,16 +385,16 @@ class Wing(object):
         """
 
         '''Grid parameters'''
-        la = self.section[0].chord_len
+        la = self.profile[0].chord_len
         lt = 30 * la
         r = 10 * la
-        inner_spn = self.section[-1].z_offset
+        inner_spn = self.profile[-1].z_offset
         outer_spn = 20 * inner_spn
 
         wsf = self.surf()
         crv_root = wsf.extract('V', 0)
         crv_tip = wsf.extract('V', 1)
-        far = WingProfile.from_geom_param(self.section[-1].name, inner_spn + outer_spn, la, 0, 0, 0, thickness_factor=3)
+        far = WingProfile.from_geom_param(self.profile[-1].name, inner_spn + outer_spn, la, 0, 0, 0, thickness_factor=3)
         crv_far = far.crv
         fsf = RuledSurf(crv_tip, crv_far)
 
