@@ -1,20 +1,13 @@
+import math
+import numpy as np
+from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from nurbs import to_homogeneous, to_cartesian, Crv, ConicArc, Arc, Line, Coons, RuledSurf
+from iges import Model
+from wing import WingProfile
+from misc import sqrt2
 
-from nurbs import *
-from nurbs import ClampedNURBSCrv
-from src.aircraft.wing import WingProfile
-from src.iges import IGES_Model
-
-try:
-    from src.misc.catia import view
-except ImportError:
-    auto_view = False
-    print('Win32 required for CATIA usage!')
-else:
-    auto_view = True
-
-sqrt2 = math.sqrt(2)
 
 '''Wing Calculation'''
 '''Area and ratio'''
@@ -238,7 +231,7 @@ plt.show()
 '''Horizontal-Tail calculation'''
 '''Digital-Model'''
 fn = 'GEC-50.igs'
-model = IGES_Model(fn)
+model = Model()
 
 fuselage_width = 2.93
 fuselage_height = 3.09
@@ -290,41 +283,41 @@ arc5.reset(arc5.U, arc5.Pw)
 arc4 = Arc.from_2pnt(p2, p5, 180, (1, 0, 0))
 arc4.reset(arc4.U, np.copy(list(map(lambda u: to_homogeneous(to_cartesian(u) * (1, 1, b / a), u[-1]), arc4.Pw))))
 
-arc3_1, arc3_2 = ClampedNURBSCrv.split(arc3, [0.5])
-arc4_1, arc4_2 = ClampedNURBSCrv.split(arc4, [0.5])
+arc3_1, arc3_2 = Crv.split(arc3, [0.5])
+arc4_1, arc4_2 = Crv.split(arc4, [0.5])
 
-model.add_entity(arc1.to_iges())
-model.add_entity(arc2.to_iges())
-model.add_entity(arc3_1.to_iges())
-model.add_entity(arc3_2.to_iges())
-model.add_entity(arc4_1.to_iges())
-model.add_entity(arc4_2.to_iges())
-model.add_entity(arc5.to_iges())
+model.add(arc1.to_iges())
+model.add(arc2.to_iges())
+model.add(arc3_1.to_iges())
+model.add(arc3_2.to_iges())
+model.add(arc4_1.to_iges())
+model.add(arc4_2.to_iges())
+model.add(arc5.to_iges())
 
 arc6_1 = deepcopy(arc4_1)
 arc6_2 = deepcopy(arc4_2)
 arc6_1.pan((fuselage_len, 0, 0))
 arc6_2.pan((fuselage_len, 0, 0))
-model.add_entity(arc6_1.to_iges())
-model.add_entity(arc6_2.to_iges())
+model.add(arc6_1.to_iges())
+model.add(arc6_2.to_iges())
 
 line1 = Line(arc4_1(0), arc6_1(0))
 line2 = Line(arc4_2(0), arc6_2(0))
 line3 = Line(arc4_2(1), arc6_2(1))
 
-model.add_entity(line1.to_iges())
-model.add_entity(line2.to_iges())
-model.add_entity(line3.to_iges())
+model.add(line1.to_iges())
+model.add(line2.to_iges())
+model.add(line3.to_iges())
 
 fuselage_surf_up = Coons(arc4_1, arc6_1, line1, line2)
-model.add_entity(fuselage_surf_up.to_iges())
+model.add(fuselage_surf_up.to_iges())
 fuselage_surf_up.mirror('z')
-model.add_entity(fuselage_surf_up.to_iges())
+model.add(fuselage_surf_up.to_iges())
 
 fuselage_surf_down = Coons(arc4_2, arc6_2, line2, line3)
-model.add_entity(fuselage_surf_down.to_iges())
+model.add(fuselage_surf_down.to_iges())
 fuselage_surf_down.mirror('z')
-model.add_entity(fuselage_surf_down.to_iges())
+model.add(fuselage_surf_down.to_iges())
 
 p10 = arc6_1(0)
 t10 = (1, 0, 0)
@@ -333,7 +326,7 @@ p12 = p11c + np.array([tail_len, 0, 0])
 t12 = (0, -1, 0)
 p11 = p11c + np.array([tail_len / sqrt2, tail_up_frame_delta / sqrt2, 0])
 arc6 = ConicArc(p10, t10, p12, t12, p11)
-model.add_entity(arc6.to_iges())
+model.add(arc6.to_iges())
 
 p13 = arc6_2(1)
 t13 = (1, 0, 0)
@@ -342,12 +335,12 @@ t15 = (0, 1, 0)
 p14c = np.array([p13[0], p15[1], 0])
 p14 = p14c + np.array([tail_len / sqrt2, -(p15[1] - p13[1]) / sqrt2, 0])
 arc7 = ConicArc(p13, t13, p15, t15, p14)
-model.add_entity(arc7.to_iges())
+model.add(arc7.to_iges())
 
 arc8 = Arc.from_2pnt(p12, p15, 180, (1, 0, 0))
-arc8_1, arc8_2 = ClampedNURBSCrv.split(arc8, [0.5])
-model.add_entity(arc8_1.to_iges())
-model.add_entity(arc8_2.to_iges())
+arc8_1, arc8_2 = Crv.split(arc8, [0.5])
+model.add(arc8_1.to_iges())
+model.add(arc8_2.to_iges())
 
 p16 = arc6_2.start
 t16 = (1, 0, 0)
@@ -366,7 +359,7 @@ for k, pw in enumerate(arc9.Pw):
     b += k / (n - 1) * tmp
     arc9.Pw[k] = to_homogeneous((a, b, c), w)
 arc9.reset(arc9.U, arc9.Pw)
-model.add_entity(arc9.to_iges())
+model.add(arc9.to_iges())
 
 '''Wing'''
 inner_wing_pan = (7.2, -0.2, 0.8)
@@ -383,19 +376,19 @@ thickness_factor = np.array([1., 1.])
 crv_list = []
 for k in range(2):
     wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
-    crv = wp.nurbs_rep()
+    crv = wp.crv
     crv.pan(inner_wing_pan)
     crv_list.append(crv)
 
 inner_surf = RuledSurf(crv_list[0], crv_list[1])
-model.add_entity(inner_surf.to_iges())
+model.add(inner_surf.to_iges())
 inner_surf.mirror('z')
-model.add_entity(inner_surf.to_iges())
+model.add(inner_surf.to_iges())
 
 inner_tail_surf = Coons(inner_surf.extract('U', 0), inner_surf.extract('U', 1), Line(inner_surf(0, 0), inner_surf(1, 0)), Line(inner_surf(0, 1), inner_surf(1, 1)))
-model.add_entity(inner_tail_surf.to_iges())
+model.add(inner_tail_surf.to_iges())
 inner_tail_surf.mirror('z')
-model.add_entity(inner_tail_surf.to_iges())
+model.add(inner_tail_surf.to_iges())
 
 outer_wing_pan = (7.8, -0.1, inner_wing_pan[2] + 4.56)
 foil = ['M6', 'M6']
@@ -411,19 +404,19 @@ thickness_factor = np.array([1., 1.])
 crv_list = []
 for k in range(2):
     wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
-    crv = wp.nurbs_rep()
+    crv = wp.crv
     crv.pan(outer_wing_pan)
     crv_list.append(crv)
 
 outer_surf = RuledSurf(crv_list[0], crv_list[1])
-model.add_entity(outer_surf.to_iges())
+model.add(outer_surf.to_iges())
 outer_surf.mirror('z')
-model.add_entity(outer_surf.to_iges())
+model.add(outer_surf.to_iges())
 
 outer_tail_surf = Coons(outer_surf.extract('U', 0), outer_surf.extract('U', 1), Line(outer_surf(0, 0), outer_surf(1, 0)), Line(outer_surf(0, 1), outer_surf(1, 1)))
-model.add_entity(outer_tail_surf.to_iges())
+model.add(outer_tail_surf.to_iges())
 outer_tail_surf.mirror('z')
-model.add_entity(outer_tail_surf.to_iges())
+model.add(outer_tail_surf.to_iges())
 
 '''Vertical tail'''
 v_tail_pan = (7.8 + 11.9, 0, 0)
@@ -440,16 +433,16 @@ thickness_factor = np.array([1., 1.])
 crv_list = []
 for k in range(2):
     wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
-    crv = wp.nurbs_rep()
+    crv = wp.crv
     crv.pan(v_tail_pan)
     crv_list.append(crv)
 
 vtail_surf = RuledSurf(crv_list[0], crv_list[1])
 vtail_surf.rotate((0, 0, 0), (-1, 0, 0), 90)
 vtail_surf.pan((0, 1.8, 0))
-model.add_entity(vtail_surf.to_iges())
+model.add(vtail_surf.to_iges())
 vtail_tail_surf = Coons(vtail_surf.extract('U', 0), vtail_surf.extract('U', 1), Line(vtail_surf(0, 0), vtail_surf(1, 0)), Line(vtail_surf(0, 1), vtail_surf(1, 1)))
-model.add_entity(vtail_tail_surf.to_iges())
+model.add(vtail_tail_surf.to_iges())
 
 '''Horizontal tail'''
 h_tail_pan = (7.8 + 13.3, 4.8, 0)
@@ -466,20 +459,18 @@ thickness_factor = np.array([1., 1.])
 crv_list = []
 for k in range(2):
     wp = WingProfile.from_geom_param(foil[k], z_offset[k], length[k], sweep_back[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness_factor[k])
-    crv = wp.nurbs_rep()
+    crv = wp.crv
     crv.pan(h_tail_pan)
     crv_list.append(crv)
 
 htail_surf = RuledSurf(crv_list[0], crv_list[1])
-model.add_entity(htail_surf.to_iges())
+model.add(htail_surf.to_iges())
 htail_surf.mirror('z')
-model.add_entity(htail_surf.to_iges())
+model.add(htail_surf.to_iges())
 
 htail_tail_surf = Coons(htail_surf.extract('U', 0), htail_surf.extract('U', 1), Line(htail_surf(0, 0), htail_surf(1, 0)), Line(htail_surf(0, 1), htail_surf(1, 1)))
-model.add_entity(htail_tail_surf.to_iges())
+model.add(htail_tail_surf.to_iges())
 htail_tail_surf.mirror('z')
-model.add_entity(htail_tail_surf.to_iges())
+model.add(htail_tail_surf.to_iges())
 
-model.write()
-if auto_view:
-    view(fn)
+model.save(fn)

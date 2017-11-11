@@ -1,21 +1,11 @@
 import math
 import multiprocessing
 import os
-
 import numpy as np
-
 from spacing import chebshev_dist_multi
-from src.aircraft.frame import BWBFrame
-from src.aircraft.wing import Wing
-from src.opt.latin import LatinHyperCube
-
-try:
-    from src.misc.catia import view
-except ImportError:
-    auto_view = False
-    print('Win32 required for CATIA usage!')
-else:
-    auto_view = True
+from aircraft import BWBFrame
+from wing import Wing
+from opt import LHS
 
 
 def report(msg):
@@ -89,7 +79,7 @@ if __name__ == '__main__':
                             np.linspace(- 0.80, 2.50, n),
                             np.linspace(- 1.20, 4.50, n)])
 
-    lhc = LatinHyperCube(twist_range)
+    lhc = LHS(twist_range)
     sp = lhc.sample()
 
     '''Record sampling results'''
