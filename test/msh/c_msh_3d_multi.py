@@ -6,7 +6,7 @@ from src.msh.plot3d import PLOT3D, PLOT3D_Block
 from src.msh.tfi import LinearTFI3D
 
 from nurbs import BilinearSurf, Coons
-from nurbs import Line, Arc
+from nurbs import Line, Circle
 from src.aircraft.frame import BWBFrame, chebshev_dist_multi
 from src.aircraft.wing import Wing
 
@@ -84,10 +84,10 @@ P[14][1] = P[6][1]
 P[15] = np.copy(P[13])
 P[15][1] = P[7][1]
 
-C32 = Arc.from_2pnt(P[3], P[2], 180, [0, 0, -1])
-C1110 = Arc.from_2pnt(P[11], P[10], 180, [0, 0, -1])
-C23 = Arc.from_2pnt(P[2], P[3], 180, [0, 0, 1])
-C1011 = Arc.from_2pnt(P[10], P[11], 180, [0, 0, 1])
+C32 = Circle.from_2pnt(P[3], P[2], 180, [0, 0, -1])
+C1110 = Circle.from_2pnt(P[11], P[10], 180, [0, 0, -1])
+C23 = Circle.from_2pnt(P[2], P[3], 180, [0, 0, 1])
+C1011 = Circle.from_2pnt(P[10], P[11], 180, [0, 0, 1])
 
 S1 = Coons(C32, C1110, Line(P[3], P[11]), Line(P[2], P[10]))
 S3 = Coons(Line(P[3], P[11]), C19, Line(P[3], P[1]), Line(P[11], P[9]))

@@ -9,7 +9,7 @@ from scipy.sparse.linalg import dsolve
 from misc import vector_square
 
 """
-Implementation of the grid smoothing tools using elliptic PDE operator.
+Implementation of the grid smoothing tools using elliptic operator.
 
 Note:
 1. (i,j,k) is corresponding to (x,y,z),(u,v.w),(xi, eta, zeta),(x1,x2,x3),(I,J,K)...

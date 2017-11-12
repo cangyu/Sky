@@ -5,14 +5,14 @@ from src.msh.elliptic import ThomasMiddlecoff2D
 from src.msh.tfi import LinearTFI2D
 
 from fluent import XF_MSH, BCType
-from nurbs import Line, Arc
+from nurbs import Line, Circle
 from spacing import single_exponential, double_exponential, hyperbolic_tangent
 from src.aircraft.wing import WingProfile
 
 
 def build_airfoil_msh(foil, ending, tk, La, Lt, R, foil_order, N):
     c0 = WingProfile(foil, ending, tk).nurbs_rep(foil_order)
-    c1 = Arc.from_2pnt((La, R, 0), (La, -R, 0), 180, (0, 0, 1))
+    c1 = Circle.from_2pnt((La, R, 0), (La, -R, 0), 180, (0, 0, 1))
 
     yhu = c0.start[1]
     ydu = c0.end[1]

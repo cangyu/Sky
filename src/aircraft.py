@@ -9,7 +9,7 @@ from scipy.integrate import romberg
 from scipy.interpolate import make_interp_spline
 from scipy.optimize import root
 from nurbs import Crv, ConicArc, to_homogeneous, to_cartesian
-from nurbs import LocalCubicInterpolatedCrv, Line, point_inverse, Arc, Skinned, RuledSurf, Coons
+from nurbs import LocalCubicInterpolatedCrv, Line, point_inverse, Circle, Skinned, RuledSurf, Coons
 
 
 class Nose(object):
@@ -55,14 +55,14 @@ class Nose(object):
         t8 = (1, 0, 0)
         p7 = np.array([nl, 0, nfr]) + np.array([-nl / sqrt2, 0, (b - nfr) / sqrt2])
 
-        arc3 = Arc.from_2pnt(p0, p3, 180, (1, 0, 0))
+        arc3 = Circle.from_2pnt(p0, p3, 180, (1, 0, 0))
         arc5 = ConicArc(p6, t6, p8, t8, p7)
         for i in range(3):
             arc5.Pw[i][1] = i / 2 * p9[1] * arc5.Pw[i][-1]
         arc5.reset(arc5.U, arc5.Pw)
 
         '''Construct the ellipse by stretching the circle'''
-        arc4 = Arc.from_2pnt(p2, p5, 180, (1, 0, 0))
+        arc4 = Circle.from_2pnt(p2, p5, 180, (1, 0, 0))
         arc4.reset(arc4.U, np.copy(list(map(lambda u: to_homogeneous(to_cartesian(u) * (1, 1, b / a), u[-1]), arc4.Pw))))
 
         arc3_1, arc3_2 = ClampedNURBSCrv.split(arc3, [0.5])
@@ -150,7 +150,7 @@ class Tail(object):
         arc7 = ConicArc(p13, t13, p15, t15, p14)
         self.frame_down = deepcopy(arc7)
 
-        arc8 = Arc.from_2pnt(p12, p15, 180, (1, 0, 0))
+        arc8 = Circle.from_2pnt(p12, p15, 180, (1, 0, 0))
         arc8_1, arc8_2 = ClampedNURBSCrv.split(arc8, [0.5])
         self.frame_back_up = deepcopy(arc8_1)
         self.frame_back_down = deepcopy(arc8_2)

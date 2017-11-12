@@ -1,9 +1,9 @@
 import unittest
-import matplotlib.pyplot as plt
-import numpy as np
 import math
 import scipy
 from scipy.optimize import newton
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def linear_expand(seq, begin, end):
@@ -26,10 +26,10 @@ def linear_expand(seq, begin, end):
 
 def uniform(n):
     """
-    均匀分布
-    :param n: 节点数量
+    Uniform distribution on [0,1].
+    :param n: Number of knots.
     :type n: int
-    :return: [0,1]之间均匀分布序列
+    :return: Uniform distribution on [0,1] in numpy array form.
     """
 
     return np.linspace(0, 1, n)
@@ -74,27 +74,20 @@ def chebshev_dist_multi(seg, num):
     return ret
 
 
-def single_exponential(n, pa):
+def single_exponential(n, a):
     """
     单指数分布
     :param n: 节点数量
     :type n: int
-    :param pa: >0 节点向起始位置聚集, <0 节点向终止位置聚集
-    :type pa: float
+    :param a: >0 节点向起始位置聚集, <0 节点向终止位置聚集
+    :type a: float
     :return: [0,1]之间新的单指数分布
     """
 
-    if math.isclose(pa, 0):
-        raise AssertionError("\'pa\' shouldn't be zero!")
+    assert not math.isclose(a, 0)
 
-    rho = np.linspace(0, 1.0, n)
-    r = np.empty(n, float)
-
-    ea1 = np.exp(pa) - 1
-    for i in range(n):
-        r[i] = (np.exp(rho[i] * pa) - 1) / ea1
-
-    return r
+    t = (math.exp(a) - 1)
+    return np.array([(math.exp(a * rho) - 1) / t for rho in uniform(n)])
 
 
 def double_exponential(n, pa1, pa2, pa3):
@@ -115,9 +108,6 @@ def double_exponential(n, pa1, pa2, pa3):
     if p <= 0:
         raise AssertionError("Invalid parameters!")
 
-    rho = np.linspace(0, 1.0, n)
-    r = np.empty(n, float)
-
     p1z = np.log(p)  # 1阶导数零点
     pa4 = newton(func=lambda x: np.exp(x) - 1.0 - p * x,
                  x0=5 * p1z,
@@ -129,55 +119,45 @@ def double_exponential(n, pa1, pa2, pa3):
     ea41 = np.exp(pa4) - 1
 
     def f(x):
-        if x <= pa3:
-            return pa1 * (np.exp(pa2 / pa3 * x) - 1) / ea21
-        else:
-            return pa1 + (1 - pa1) * (np.exp(pa4 / (1 - pa3) * (x - pa3)) - 1) / ea41
+        return pa1 * (np.exp(pa2 / pa3 * x) - 1) / ea21 if x <= pa3 else pa1 + (1 - pa1) * (np.exp(pa4 / (1 - pa3) * (x - pa3)) - 1) / ea41
 
-    for i in range(n):
-        r[i] = f(rho[i])
-
-    return r
+    return np.array([f(rho) for rho in uniform(n)])
 
 
-def hyperbolic_tangent(n, pb):
+def hyperbolic_tangent(n, b):
     """
     双曲正切分布
     :param n: 节点数量
     :type n: int
-    :param pb: 控制参数
-    :type pb: float
+    :param b: 控制参数
+    :type b: float
     :return: [0,1]之间的双曲正切分布
     """
 
-    rho = np.linspace(0.0, 1.0, n)
-    r = np.empty(n, float)
+    tb = math.tanh(b)
 
-    tb = np.tanh(pb)
-    for i in range(n):
-        r[i] = 1 + np.tanh(pb * (rho[i] - 1)) / tb
+    def f(x):
+        return 1 + math.tanh(b * (x - 1)) / tb
 
-    return r
+    return np.array([f(rho) for rho in uniform(n)])
 
 
-def hyperbolic_sine(n, pc):
+def hyperbolic_sine(n, c):
     """
     双曲正弦分布
     :param n: 节点数量
     :type n: int
-    :param pc: 控制参数
-    :type pc: float
+    :param c: 控制参数
+    :type c: float
     :return: [0,1]之间的双曲正弦分布
     """
 
-    rho = np.linspace(0.0, 1.0, n)
-    r = np.empty(n, float)
+    sc = math.sinh(c)
 
-    sc = np.sinh(pc)
-    for i in range(n):
-        r[i] = 1 + np.sinh(pc * (rho[i] - 1)) / sc
+    def f(x):
+        return 1 + math.sinh(c * (x - 1)) / sc
 
-    return r
+    return np.array([f(rho) for rho in uniform(n)])
 
 
 class SpacingTester(unittest.TestCase):

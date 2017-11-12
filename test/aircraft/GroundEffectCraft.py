@@ -3,7 +3,7 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from nurbs import to_homogeneous, to_cartesian, Crv, ConicArc, Arc, Line, Coons, RuledSurf
+from nurbs import to_homogeneous, to_cartesian, Crv, ConicArc, Circle, Line, Coons, RuledSurf
 from iges import Model
 from wing import WingProfile
 from misc import sqrt2
@@ -273,14 +273,14 @@ p8 = np.array([p9[0], 0, p9[2]])
 t8 = (1, 0, 0)
 p7 = np.array([nose_len, 0, nose_front_radius]) + np.array([-nose_len / sqrt2, 0, (b - nose_front_radius) / sqrt2])
 
-arc3 = Arc.from_2pnt(p0, p3, 180, (1, 0, 0))
+arc3 = Circle.from_2pnt(p0, p3, 180, (1, 0, 0))
 arc5 = ConicArc(p6, t6, p8, t8, p7)
 for i in range(3):
     arc5.Pw[i][1] = i / 2 * p9[1] * arc5.Pw[i][-1]
 arc5.reset(arc5.U, arc5.Pw)
 
 '''通过拉伸圆来构造椭圆'''
-arc4 = Arc.from_2pnt(p2, p5, 180, (1, 0, 0))
+arc4 = Circle.from_2pnt(p2, p5, 180, (1, 0, 0))
 arc4.reset(arc4.U, np.copy(list(map(lambda u: to_homogeneous(to_cartesian(u) * (1, 1, b / a), u[-1]), arc4.Pw))))
 
 arc3_1, arc3_2 = Crv.split(arc3, [0.5])
@@ -337,7 +337,7 @@ p14 = p14c + np.array([tail_len / sqrt2, -(p15[1] - p13[1]) / sqrt2, 0])
 arc7 = ConicArc(p13, t13, p15, t15, p14)
 model.add(arc7.to_iges())
 
-arc8 = Arc.from_2pnt(p12, p15, 180, (1, 0, 0))
+arc8 = Circle.from_2pnt(p12, p15, 180, (1, 0, 0))
 arc8_1, arc8_2 = Crv.split(arc8, [0.5])
 model.add(arc8_1.to_iges())
 model.add(arc8_2.to_iges())

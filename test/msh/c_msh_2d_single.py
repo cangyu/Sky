@@ -1,13 +1,11 @@
 import math
-
 import numpy as np
-from src.msh.elliptic import Laplace2D, ThomasMiddlecoff2D
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
-from src.msh.tfi import LinearTFI2D
-
-from nurbs import GlobalInterpolatedCrv, Line
+from smooth import Laplace2D, ThomasMiddlecoff2D
+from plot3d import Plot3DBlock, Plot3D
+from tfi import LinearTFI2D
 from spacing import linear_expand, single_exponential, double_exponential
-from src.aircraft.wing import WingProfile
+from nurbs import GlobalInterpolatedCrv, Line
+from wing import WingProfile
 
 
 def l0(_u):
@@ -54,7 +52,7 @@ ending = np.array([[0, 0, 0], [La, 0, 0]])
 af = WingProfile(airfoil, ending, Thickness)
 yhu = af.pts[0][1]
 ydu = af.pts[-1][1]
-T1 = 2 * Lt + af.nurbs_rep().length()
+T1 = 2 * Lt + af.crv.length()
 T3 = 2 * Lt + ellipse_arc_len(La + Lf, R) / 2
 u1 = 1 / 3
 u2 = 2 / 3
@@ -80,7 +78,7 @@ def c4(_u):
 '''C1'''
 hu = Line([La + Lt, yhu, 0], [La, yhu, 0])
 du = Line([La, ydu, 0], [La + Lt, ydu, 0])
-afc = af.nurbs_rep()
+afc = af.crv
 
 
 def c1(u: float):

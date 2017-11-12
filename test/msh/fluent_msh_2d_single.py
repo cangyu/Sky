@@ -4,7 +4,7 @@ import numpy as np
 from src.msh.tfi import LinearTFI2D
 
 from fluent import XF_MSH, BCType
-from nurbs import Arc, Line
+from nurbs import Circle, Line
 from src.aircraft.wing import WingProfile
 
 
@@ -83,7 +83,7 @@ def airfoil(U, V, foil, ends, thk, order, arc_start, arc_end, theta, nv):
     """
 
     u0 = WingProfile(foil, ends, thk).nurbs_rep(order)
-    u1 = Arc.from_2pnt(arc_start, arc_end, theta, nv)
+    u1 = Circle.from_2pnt(arc_start, arc_end, theta, nv)
     v0 = Line(u0.start, u1.start)
     v1 = Line(u0.end, u1.end)
 

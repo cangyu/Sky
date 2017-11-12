@@ -4,7 +4,7 @@ from src.msh.plot3d import PLOT3D_Block, PLOT3D
 from src.msh.tfi import LinearTFI3D, LinearTFI2D
 
 from fluent import XF_MSH, BCType
-from nurbs import ClampedNURBSCrv, Line, Arc
+from nurbs import ClampedNURBSCrv, Line, Circle
 from nurbs import Surf, RuledSurf
 from spacing import *
 from src.aircraft.frame import BWBFrame
@@ -155,9 +155,9 @@ p[27] = crv_tip(brk_tip[1])
 p[28] = crv_far(brk_far[0])
 p[29] = crv_far(brk_far[1])
 
-outer_root = Arc.from_2pnt(p[0], p[6], 180, (0, 0, 1))
-outer_tip = Arc.from_2pnt(p[8], p[14], 180, (0, 0, 1))
-outer_far = Arc.from_2pnt(p[16], p[22], 180, (0, 0, 1))
+outer_root = Circle.from_2pnt(p[0], p[6], 180, (0, 0, 1))
+outer_tip = Circle.from_2pnt(p[8], p[14], 180, (0, 0, 1))
+outer_far = Circle.from_2pnt(p[16], p[22], 180, (0, 0, 1))
 
 p[30] = outer_root(obrk_root[0])
 p[31] = outer_root(obrk_root[1])

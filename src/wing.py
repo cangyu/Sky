@@ -9,8 +9,8 @@ from fluent import XF_MSH, BCType
 from tfi import LinearTFI2D, LinearTFI3D
 from misc import pnt_dist, read_airfoil_pts
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from iges import Model
-from nurbs import Crv, Arc, Line, Spline, Surf, Skinned, RuledSurf
+from iges import Model, Entity116
+from nurbs import Crv, Circle, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
 from settings import AIRFOIL_LIST
 
 
@@ -30,6 +30,10 @@ class Airfoil(object):
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.pnt_num)
+
+    @property
+    def z(self):
+        return self.pts[0][2]
 
     @property
     def pnt_num(self):
@@ -124,14 +128,57 @@ class Airfoil(object):
         plt.title(self.name)
         plt.show()
 
-    def gen_grid(self):
-        return self._gen_sharp() if self.is_blunt else self._gen_blunt()
+    def gen_grid(self, a, b, c, n0, n1, n2, n3, with_frame=False):
+        """
+        Generate grid for 2D airfoil or wing profile.
+        :param a:
+        :param b:
+        :param c:
+        :param n0:
+        :type n0: int
+        :param n1:
+        :type n1: int
+        :param n2:
+        :type n2: int
+        :param n3:
+        :type n3: int
+        :param with_frame: Indicate if the wire-frame of the grid block is returned as well.
+        :type with_frame: bool
+        :return:
+        """
 
-    def _gen_sharp(self):
-        pass
+        blunt_flag = self.is_blunt
+        z_off = self.z
 
-    def _gen_blunt(self):
-        pass
+        pts = np.empty((8, 3), float)
+        pts[0] = self.tail_up
+        pts[1] = self.tail_down
+        pts[2] = np.array([0, b, z_off])
+        pts[3] = np.array([0, -b, z_off])
+        pts[4] = np.array([c, pts[0][1], z_off])
+        pts[5] = np.array([c, pts[1][1], z_off])
+        pts[6] = np.array([c, b, z_off])
+        pts[7] = np.array([c, -b, z_off])
+
+        crv = [self.crv,  # c0
+               ConicArc(pts[2], (-1, 0, 0), pts[3], (1, 0, 0), (-a, 0, 0)),  # c1
+               Line(pts[0], pts[2]),  # c2
+               Line(pts[1], pts[3]),  # c3
+               Line(pts[4], pts[6]),  # c4
+               Line(pts[5], pts[7]),  # c5
+               Line(pts[0], pts[4]),  # c6
+               Line(pts[1], pts[5]),  # c7
+               Line(pts[2], pts[6]),  # c8
+               Line(pts[3], pts[7]),  # c9
+               Line(pts[0], pts[1]),  # c10
+               Line(pts[4], pts[5])]  # c11
+
+        if with_frame:
+            wire_frame = Model()
+            for p in pts:
+                wire_frame.add(Entity116(p[0], p[1], p[2]))
+            for c in crv:
+                wire_frame.add(c.to_iges())
 
 
 class WingProfile(Airfoil):
@@ -179,10 +226,6 @@ class WingProfile(Airfoil):
             '''Move to ends[0]'''
             self.pts[i][0] += ends[0][0]
             self.pts[i][1] += ends[0][1]
-
-    @property
-    def z(self):
-        return self.ending[0][-1]
 
     @property
     def front(self):
@@ -457,9 +500,9 @@ class Wing(object):
         p[27] = crv_tip(brk_tip[1])
         p[28] = crv_far(brk_far[0])
         p[29] = crv_far(brk_far[1])
-        outer_root = Arc.from_2pnt(p[0], p[6], 180, (0, 0, 1))
-        outer_tip = Arc.from_2pnt(p[8], p[14], 180, (0, 0, 1))
-        outer_far = Arc.from_2pnt(p[16], p[22], 180, (0, 0, 1))
+        outer_root = Circle.from_2pnt(p[0], p[6], 180, (0, 0, 1))
+        outer_tip = Circle.from_2pnt(p[8], p[14], 180, (0, 0, 1))
+        outer_far = Circle.from_2pnt(p[16], p[22], 180, (0, 0, 1))
         p[30] = outer_root(obrk_root[0])
         p[31] = outer_root(obrk_root[1])
         p[32] = outer_tip(obrk_tip[0])
@@ -862,6 +905,13 @@ class Wing(object):
         '''构建MSH文件'''
         msh = XF_MSH.from_str3d_multi(blk, bc, adj)
         msh.save(fn)
+
+
+class AirfoilTester(unittest.TestCase):
+    def test_grid(self):
+        foil = Airfoil('SC(2)-0406')
+        foil.gen_grid(30, 20, 40, 0, 0, 0, 0)
+        self.assertTrue(True)
 
 
 if __name__ == '__main__':

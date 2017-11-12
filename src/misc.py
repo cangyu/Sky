@@ -8,6 +8,12 @@ sqrt2 = math.sqrt(2)
 sqrt3 = math.sqrt(3)
 
 
+def angle_from_3pnt(p0, p1, p2):
+    a = np.copy(p0) - np.copy(p1)
+    b = np.copy(p2) - np.copy(p1)
+    return math.degrees(math.acos(np.dot(a, b) / (norm(a) * norm(b))))
+
+
 def read_airfoil_pts(foil_name):
     """
     Get the coordinates from local database.
@@ -56,6 +62,10 @@ def normalize(vec):
     v = np.copy(vec)
     tmp = norm(v, 2)
     return v if math.isclose(tmp, 0) else v / tmp
+
+
+def pnt_pan(origin, direction):
+    return np.copy(origin) + np.copy(direction)
 
 
 def pnt_dist(lhs, rhs):
