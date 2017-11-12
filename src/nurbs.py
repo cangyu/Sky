@@ -10,7 +10,7 @@ from scipy.linalg import solve
 from scipy.misc import comb
 from iges import Model, Entity110, Entity126, Entity128
 from transform import Quaternion, DCM
-from misc import array_smart_copy, normalize, pnt_dist, read_airfoil_pts, sqrt2, sqrt3
+from misc import angle_from_3pnt, array_smart_copy, normalize, pnt_dist, read_airfoil_pts, sqrt2, sqrt3
 
 """
 Implementation of NURBS Basis, Crv, Surf.
@@ -1203,10 +1203,10 @@ class Line(Crv):
         return Entity110(to_cartesian(self.Pw[0]), to_cartesian(self.Pw[-1]))
 
 
-class Arc(Crv):
+class Circle(Crv):
     def __init__(self, center, start, theta, norm_vec):
         """
-        Spatial Arc.
+        Spatial Circle.
         The direction of the arc is defined by the right-hand rule.
         :param center: Coordinate of the center.
         :param start: Coordinate of the starting point.
@@ -1220,8 +1220,8 @@ class Arc(Crv):
         self.theta = theta
         self.norm_vec = np.copy(norm_vec)
 
-        '''Basic Arc'''
-        nu, npw = Arc.construct_planar(self.radius, self.theta)
+        '''Basic Circle'''
+        nu, npw = Circle.construct_planar(self.radius, self.theta)
         ncp = np.copy(list(map(lambda u: to_cartesian(u), npw)))
         n = len(ncp) - 1
 
@@ -1235,12 +1235,12 @@ class Arc(Crv):
             ncp[i] = ncp[i] * rot_mtx + self.center
             npw[i] = to_homogeneous(ncp[i], npw[i][-1])
 
-        super(Arc, self).__init__(nu, npw)
+        super(Circle, self).__init__(nu, npw)
 
     @classmethod
     def construct_planar(cls, radius, theta):
         """
-        Arc on XY plane, with center at (0, 0, 0)
+        Circle on XY plane, with center at (0, 0, 0)
         :param radius: Radius of the arc.
         :type radius: float
         :param theta: Central angle of the arc.
@@ -1310,7 +1310,7 @@ class Arc(Crv):
         base2 = np.copy(norm_vec)
         rot_axis = np.cross(base1, base2)
         rot_angle = math.degrees(math.acos(np.dot(base1, base2) / (norm(base1) * norm(base2))))
-        nu, npw = Arc.construct_planar(radius, 360)
+        nu, npw = Circle.construct_planar(radius, 360)
         if not math.isclose(rot_angle, 0):
             q = Quaternion.from_u_theta(rot_axis, rot_angle)
             npw = np.copy(list(map(lambda p: to_homogeneous(q.rotate(to_cartesian(p)), p[-1]), npw)))
@@ -1326,52 +1326,138 @@ class Arc(Crv):
 
 
 class ConicArc(Crv):
-    def __init__(self, _p0, _t0, _p2, _t2, _p):
+    def __init__(self, p0, t0, p2, t2, p):
         """
-        单段有理Bezier圆锥截线弧
-        :param _p0: 起始点
-        :param _t0: 起始点处切矢量
-        :param _p2: 终止点
-        :param _t2: 终止点处切矢量
-        :param _p: 曲线上一点坐标
+        Construct an open conic arc.
+        :param p0: Starting point.
+        :param t0: Tangent vector at start(Just used to indicate direction).
+        :param p2: Ending point.
+        :param t2: Tangent vector at end(Just used to indicate direction).
+        :param p: A point on the arc.
         """
 
-        p0 = np.copy(_p0)
-        t0 = np.copy(_t0)
-        p2 = np.copy(_p2)
-        t2 = np.copy(_t2)
-        p = np.copy(_p)
+        p1, w1 = make_one_arc(p0, t0, p2, t2, p)
 
-        '''Knots'''
-        nu = np.array([0, 0, 0, 1, 1, 1], float)
-
-        '''Calculate mid-pnt weight and coordinate'''
-        v02 = p2 - p0
-        if not np.cross(t0, t2).any():
-            w1 = 0.0
-            alf0, alf2, p1 = line_intersection(p, t0, p0, v02, True)
-            a = math.sqrt(alf2 / (1 - alf2))
-            u = a / (1 + a)
-            b = 2 * u * (1 - u)
-            b = -alf0 * (1 - b) / b
-            p1 = b * t0
+        if w1 <= -1.0:
+            raise ValueError('Invalid arc.')
+        ang = angle_from_3pnt(p0, p1, p2)
+        if w1 >= 1.0:
+            seg_num = 1
         else:
-            p1 = line_intersection(p0, t0, p2, t2)
-            v1p = p - p1
-            alf0, alf2, tmp = line_intersection(p1, v1p, p0, v02, True)
-            a = math.sqrt(alf2 / (1 - alf2))
-            u = a / (1 + a)
-            num = math.pow(1 - u, 2) * np.dot(p - p0, p1 - p) + math.pow(u, 2) * np.dot(p - p2, p1 - p)
-            den = 2 * u * (1 - u) * np.dot(p1 - p, p1 - p)
-            w1 = num / den
+            if w1 > 0.0 and ang > 60:
+                seg_num = 1
+            elif w1 < 0.0 and ang > 90:
+                seg_num = 4
+            else:
+                seg_num = 2
 
-        npw = np.empty((3, 4), float)
-        npw[0] = to_homogeneous(p0, 1)
-        npw[1] = to_homogeneous(p1, w1)
-        npw[2] = to_homogeneous(p2, 1)
+        n = 2 * seg_num
+        j = n + 1
+        u = np.empty(n + 4, float)
+        for i in range(3):
+            u[i] = 0.0
+            u[j + i] = 1.0
 
-        '''Setup'''
-        super(ConicArc, self).__init__(nu, npw)
+        pw = np.empty((n + 1, 4), float)
+        pw[0] = to_homogeneous(p0)
+        pw[n] = to_homogeneous(p2)
+
+        if seg_num == 1:
+            pw[1] = to_homogeneous(p1, w1)
+        else:
+            q1, s, r1, wqr = split_arc(p0, p1, w1, p2)
+            if seg_num == 2:
+                pw[2] = to_homogeneous(s)
+                pw[1] = to_homogeneous(q1, wqr)
+                pw[3] = to_homogeneous(r1, wqr)
+                u[3] = u[4] = 0.5
+            else:
+                pw[4] = to_homogeneous(s)
+                w1 = wqr
+                hq1, hs, hr1, wqr = split_arc(p0, q1, w1, s)
+                pw[2] = to_homogeneous(hs)
+                pw[1] = to_homogeneous(hq1, wqr)
+                pw[3] = to_homogeneous(hr1, wqr)
+                hq1, hs, hr1, wqr = split_arc(s, r1, w1, p2)
+                pw[6] = to_homogeneous(hs)
+                pw[5] = to_homogeneous(hq1, wqr)
+                pw[7] = to_homogeneous(hr1, wqr)
+                for i in range(2):
+                    u[i + 3] = 0.25
+                    u[i + 5] = 0.5
+                    u[i + 7] = 0.75
+
+        super(ConicArc, self).__init__(u, pw)
+
+
+def make_one_arc(_p0, _t0, _p2, _t2, _p):
+    """
+    Construct a conic arc in one segment.
+    Mainly, the job focus on calculating the middle point and corresponding weight.
+    :param _p0: Starting point.
+    :param _t0: Tangent vector at start(Just used to indicate direction).
+    :param _p2: Ending point.
+    :param _t2: Tangent vector at end(Just used to indicate direction).
+    :param _p: A point on the arc.
+    :return: The middle point and its weight.
+    """
+
+    p0 = np.copy(_p0)
+    t0 = np.copy(_t0)
+    p2 = np.copy(_p2)
+    t2 = np.copy(_t2)
+    p = np.copy(_p)
+    v02 = p2 - p0
+    if not np.cross(t0, t2).any():
+        w1 = 0.0
+        alf0, alf2, p1 = line_intersection(p, t0, p0, v02, True)
+        a = math.sqrt(alf2 / (1 - alf2))
+        u = a / (1 + a)
+        b = 2 * u * (1 - u)
+        b = -alf0 * (1 - b) / b
+        p1 = b * t0
+    else:
+        p1 = line_intersection(p0, t0, p2, t2)
+        v1p = p - p1
+        alf0, alf2, tmp = line_intersection(p1, v1p, p0, v02, True)
+        a = math.sqrt(alf2 / (1 - alf2))
+        u = a / (1 + a)
+        num = math.pow(1 - u, 2) * np.dot(p - p0, p1 - p) + math.pow(u, 2) * np.dot(p - p2, p1 - p)
+        den = 2 * u * (1 - u) * np.dot(p1 - p, p1 - p)
+        w1 = num / den
+
+    return p1, w1
+
+
+def split_arc(_p0, _p1, w1, _p2):
+    """
+    Split a 1-segment open conic arc into 2 parts.
+    Ellipse with central angle equals 180 is treated especially, where w1==0.
+    :param _p0: The 1st control point, its weight is 1 by default.
+    :param _p1: The 2nd control point.
+    :param w1: Weight of the 2nd control point.
+    :type w1: float
+    :param _p2: The 3rd control point, its weight is 1 by default.
+    :return: new middle points on each part, the joint ending, and weight for the middle points.
+    """
+
+    p0 = np.copy(_p0)
+    p1 = np.copy(_p1)
+    p2 = np.copy(_p2)
+    if math.isclose(w1, 0):
+        s = p1
+        tmp = (p0 - p2) / 2
+        q1 = s + tmp
+        r1 = s - tmp
+        wqr = 1.0 / sqrt2
+        return q1, s, r1, wqr
+    else:
+        t = 1 + w1
+        q1 = (p0 + w1 * p1) / t
+        r1 = (w1 * p1 + p2) / t
+        wqr = math.sqrt(t / 2)
+        s = (q1 + r1) / 2
+        return q1, s, r1, wqr
 
 
 class LocalCubicInterpolatedCrv(Crv):
@@ -3052,7 +3138,7 @@ class NURBSCrvTester(unittest.TestCase):
 
         iges_model = Model()
         for k, dt in enumerate(data):
-            arc = Arc.closed_circle(dt[0], dt[1], dt[2])
+            arc = Circle.closed_circle(dt[0], dt[1], dt[2])
             iges_model.clear()
             iges_model.add(arc.to_iges())
             iges_model.save('test_circle-{}_{}.igs'.format(k, dt[0]))
@@ -3098,7 +3184,7 @@ class NURBSCrvTester(unittest.TestCase):
         iges_model = Model()
         for k, dt in enumerate(data):
             try:
-                arc = Arc(dt[0], dt[1], dt[2], dt[3])
+                arc = Circle(dt[0], dt[1], dt[2], dt[3])
             except ValueError as e:
                 print('Exception caught with msg: {}'.format(e))
             else:
@@ -3115,7 +3201,7 @@ class NURBSCrvTester(unittest.TestCase):
 
         iges_model = Model()
         for k, dt in enumerate(data):
-            arc = Arc.from_2pnt(dt[0], dt[1], dt[2], dt[3])
+            arc = Circle.from_2pnt(dt[0], dt[1], dt[2], dt[3])
             iges_model.clear()
             iges_model.add(arc.to_iges())
             iges_model.save('test_arc_pnt-{}.igs'.format(k))
@@ -3125,12 +3211,15 @@ class NURBSCrvTester(unittest.TestCase):
         # a,b of an ellipse
         data = [(10, 6), (20, 8), (50, 12), (10, 25)]
 
-        iges_model = Model()
         for k, dt in enumerate(data):
             a, b = dt
-            arc = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Arc
-            iges_model.add(arc.to_iges())
-        iges_model.save('test_conic.igs')
+            arc1 = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Circle
+            arc2 = ConicArc((0, b, 0), (-1, 0, 0), (0, -b, 0), (1, 0, 0), (-a, 0, 0))  # 1/2 Ellipse Circle
+            iges_model = Model()
+            iges_model.add(arc1.to_iges())
+            iges_model.add(arc2.to_iges())
+            print(arc2)
+            iges_model.save('test_conic-{}.igs'.format(k))
         self.assertTrue(True)
 
 
@@ -3380,8 +3469,8 @@ class NURBSSurfTester(unittest.TestCase):
             iges_model.save('test_extract-{}_{}={}.igs'.format(k, ext[k][0], ext[k][1]))
 
     def test_extrude(self):
-        crv = [Arc.from_2pnt((30, 45, 69), (44, 66, 88), 75, (1, -1, 1)),
-               Arc.from_2pnt((0, 50, 0), (50, 0, 0), 315, (0, 0, 1))]
+        crv = [Circle.from_2pnt((30, 45, 69), (44, 66, 88), 75, (1, -1, 1)),
+               Circle.from_2pnt((0, 50, 0), (50, 0, 0), 315, (0, 0, 1))]
         direction = [(30, 30, 30), (0, 0, 90)]
         self.assertTrue(len(crv) == len(direction))
 
@@ -3394,7 +3483,7 @@ class NURBSSurfTester(unittest.TestCase):
 
     def test_revolved(self):
         generatrix = [Line((50, 0, 0), (50, 0, 20)),
-                      Arc.from_2pnt((100, 0, 0), (100, 0, 20), 180, (1, 0, 0))]
+                      Circle.from_2pnt((100, 0, 0), (100, 0, 20), 180, (1, 0, 0))]
         center = [(20, 0, 0), (50, 0, 0)]
         axis = [(0, 0, 1), (0, 0, 1)]
         theta = [60, 180]
@@ -3470,7 +3559,7 @@ class NURBSSurfTester(unittest.TestCase):
         l = 20
         u0 = Spline(read_airfoil_pts('M6') * l)
         u0.pan((0, 0, 5))
-        u1 = Arc.from_2pnt((25, 60, 5), (25, -60, 5), 180, (0, 0, 1))
+        u1 = Circle.from_2pnt((25, 60, 5), (25, -60, 5), 180, (0, 0, 1))
         v0 = Line(u0.start, u1.start)
         v1 = Line(u0.end, u1.end)
         s = Coons(u0, u1, v0, v1)
