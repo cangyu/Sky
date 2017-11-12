@@ -182,78 +182,72 @@ def hyperbolic_sine(n, pc):
 
 class SpacingTester(unittest.TestCase):
     def test_single_exponential(self):
-        # n, pa
-        data = [(101, 6),
-                (101, 5),
-                (101, 4)]
-        ans = []
+        # n, A
+        data = [(101, 5),
+                (101, 3),
+                (101, 1),
+                (101, 0.05),
+                (101, -0.05),
+                (101, -1),
+                (101, -3),
+                (101, -5)]
 
+        plt.figure()
         for i in range(len(data)):
             r = single_exponential(data[i][0], data[i][1])
-            plt.figure()
-            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r)
-            plt.xlabel('u')
-            plt.ylabel('f(u)')
-            plt.title('Single Exponential\nA={}'.format(data[i][1]))
-            plt.show()
-            ans.append(plt)
-
-        self.assertTrue(len(data) == len(ans))
+            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r, label='A={}'.format(data[i][1]))
+        plt.xlabel('u')
+        plt.ylabel('f(u)')
+        plt.title('Single Exponential')
+        plt.legend()
+        plt.show()
+        self.assertTrue(True)
 
     def test_double_exponential(self):
-        # n, pa1, pa2, pa3
-        data = [(401, 0.5, -1.5, 0.5),  # A2取负值使得中间较密
-                (401, 0.5, 1.5, 0.5)]  # A2取正值使得中间稀疏，两边密集
-        ans = []
+        # n, A1, A2, A3, A2取负值使得中间较密, 取正值使得中间稀疏，两边密集
+        data = [(401, 0.5, -1.5, 0.5),
+                (401, 0.5, 1.5, 0.5)]
 
+        plt.figure()
         for i in range(len(data)):
             r = double_exponential(data[i][0], data[i][1], data[i][2], data[i][3])
-            plt.figure()
-            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r)
-            plt.xlabel('u')
-            plt.ylabel('f(u)')
-            plt.title('Double Exponential\nA1={}, A2={}, A3={}'.format(data[i][1], data[i][2], data[i][3]))
-            plt.show()
-            ans.append(plt)
-
-        self.assertTrue(len(data) == len(ans))
+            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r, label='A1={}, A2={}, A3={}'.format(data[i][1], data[i][2], data[i][3]))
+        plt.xlabel('u')
+        plt.ylabel('f(u)')
+        plt.title('Double Exponential')
+        plt.legend()
+        plt.show()
+        self.assertTrue(True)
 
     def test_hyperbolic_tangent(self):
-        # n, pb
-        data = [(201, 3),
-                (201, 2.5)]
-        ans = []
+        # n, B
+        data = [(201, 3), (201, 2), (201, 1)]
 
+        plt.figure()
         for k, dt in enumerate(data):
             r = hyperbolic_tangent(dt[0], dt[1])
-            plt.figure()
-            plt.plot(np.linspace(0.0, 1.0, dt[0]), r)
-            plt.xlabel('u')
-            plt.ylabel('f(u)')
-            plt.title('Hyperbolic Tangent\nB={}'.format(dt[1]))
-            plt.show()
-            ans.append(plt)
-
-        self.assertTrue(len(data) == len(ans))
+            plt.plot(np.linspace(0.0, 1.0, dt[0]), r, label='B={}'.format(dt[1]))
+        plt.xlabel('u')
+        plt.ylabel('f(u)')
+        plt.title('Hyperbolic Tangent')
+        plt.legend()
+        plt.show()
+        self.assertTrue(True)
 
     def test_hyperbolic_sine(self):
-        # n, pc
-        data = [(201, 2),
-                (201, 2.5),
-                (201, 3)]
-        ans = []
+        # n, C
+        data = [(201, 3), (201, 2), (201, 1)]
 
+        plt.figure()
         for k, dt in enumerate(data):
             r = hyperbolic_sine(dt[0], dt[1])
-            plt.figure()
-            plt.plot(np.linspace(0.0, 1.0, dt[0]), r)
-            plt.xlabel('u')
-            plt.ylabel('f(u)')
-            plt.title('Hyperbolic Sine\nC={}'.format(dt[1]))
-            plt.show()
-            ans.append(plt)
-
-        self.assertTrue(len(data) == len(ans))
+            plt.plot(np.linspace(0.0, 1.0, dt[0]), r, label='C={}'.format(dt[1]))
+        plt.xlabel('u')
+        plt.ylabel('f(u)')
+        plt.title('Hyperbolic Sine')
+        plt.legend()
+        plt.show()
+        self.assertTrue(True)
 
     def test_newton_raphson(self):
         # pa1, pa2, pa3
