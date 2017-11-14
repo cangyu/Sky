@@ -5,8 +5,10 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import norm
-from fluent import XF_MSH, BCType
 from tfi import LinearTFI2D, LinearTFI3D
+from plot3d import Plot3D, Plot3DBlock
+from smooth import Laplace2D, ThomasMiddlecoff2D
+from fluent import XF_MSH, BCType
 from misc import pnt_dist, read_airfoil_pts
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model, Entity116
@@ -128,37 +130,39 @@ class Airfoil(object):
         plt.title(self.name)
         plt.show()
 
-    def gen_grid(self, a, b, c, n0, n1, n2, n3, with_frame=False):
+    def gen_grid(self, *args, **kwargs):
         """
         Generate grid for 2D airfoil or wing profile.
-        :param a:
-        :param b:
-        :param c:
-        :param n0:
-        :type n0: int
-        :param n1:
-        :type n1: int
-        :param n2:
-        :type n2: int
-        :param n3:
-        :type n3: int
-        :param with_frame: Indicate if the wire-frame of the grid block is returned as well.
-        :type with_frame: bool
-        :return:
+        :param args: Containing the geometric description and node distribution of the grid.
+        :param kwargs: Extra options on smooth and spacing.
+        :return: The wire-frame, plot3d-grid and fluent-grid(with predefined BC) of the flow field.
         """
 
-        blunt_flag = self.is_blunt
-        z_off = self.z
+        '''
+        a: Width of the front part of the flow field.
+        b: Semi-height of the flow field.
+        c: Width of the rear part of the flow field.
+        n0: Num of points along airfoil.
+        n1: Num of points along vertical direction.
+        n2: Num of points along horizontal direction in rear field.
+        n3: Num of Points on the trailing edge.
+        '''
+        assert len(args) == 7
+        a, b, c, n0, n1, n2, n3 = args
 
+        wire_frame = Model()
+        p3d_grid = Plot3D()
+
+        '''Flow-field geometries'''
         pts = np.empty((8, 3), float)
         pts[0] = self.tail_up
         pts[1] = self.tail_down
-        pts[2] = np.array([0, b, z_off])
-        pts[3] = np.array([0, -b, z_off])
-        pts[4] = np.array([c, pts[0][1], z_off])
-        pts[5] = np.array([c, pts[1][1], z_off])
-        pts[6] = np.array([c, b, z_off])
-        pts[7] = np.array([c, -b, z_off])
+        pts[2] = np.array([0, b, self.z])
+        pts[3] = np.array([0, -b, self.z])
+        pts[4] = np.array([c, pts[0][1], self.z])
+        pts[5] = np.array([c, pts[1][1], self.z])
+        pts[6] = np.array([c, b, self.z])
+        pts[7] = np.array([c, -b, self.z])
 
         crv = [self.crv,  # c0
                ConicArc(pts[2], (-1, 0, 0), pts[3], (1, 0, 0), (-a, 0, 0)),  # c1
@@ -173,12 +177,57 @@ class Airfoil(object):
                Line(pts[0], pts[1]),  # c10
                Line(pts[4], pts[5])]  # c11
 
-        if with_frame:
-            wire_frame = Model()
-            for p in pts:
-                wire_frame.add(Entity116(p[0], p[1], p[2]))
-            for c in crv:
-                wire_frame.add(c.to_iges())
+        '''Construct wire-frame'''
+        for p in pts:
+            wire_frame.add(Entity116(p[0], p[1], p[2]))
+        for c in crv:
+            wire_frame.add(c.to_iges())
+
+        '''Knot distribution'''
+        u = [double_exponential(n0, 0.5, -1.5, 0.5),  # c0, c1
+             hyperbolic_tangent(n1, 2),  # c2, c3, c4, c5
+             single_exponential(n2, 3),  # c6, c7, c8, c9
+             uniform(n3)]  # c10, c11
+
+        '''Structured grid blocks'''
+        leading_blk = LinearTFI2D(crv[2], crv[0], crv[3], crv[1])
+        tailing_up_blk = LinearTFI2D(crv[6], crv[2], crv[8], crv[4])
+        tailing_down_blk = LinearTFI2D(crv[3], crv[7], crv[5], crv[9])
+        rear_blk = LinearTFI2D(crv[10], crv[6], crv[11], crv[7])
+
+        '''Construct Plot3D grid for basic checking'''
+        leading_blk.calc_grid(u[1], u[0])
+        leading_grid = leading_blk.grid
+        leading_smooth_ok = False
+        if 'leading_smooth' in kwargs:
+            smooth = kwargs['leading_smooth']
+            if smooth in ('Laplace', 'laplace'):
+                leading_grid_laplace = Laplace2D(leading_grid)
+                leading_grid_laplace.smooth()
+                p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_laplace.grid))
+                leading_smooth_ok = True
+            if smooth in ('TM', 'tm', 'Thomas-Middlecoff', 'thomas-middlecoff'):
+                leading_grid_tm = ThomasMiddlecoff2D(leading_grid)
+                leading_grid_tm.smooth()
+                p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_tm.grid))
+                leading_smooth_ok = True
+        if not leading_smooth_ok:
+            p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid.grid))
+
+        tailing_up_blk.calc_grid(u[2], u[1])
+        tailing_up_grid = tailing_up_blk.grid
+        p3d_grid.add(Plot3DBlock.construct_from_array(tailing_up_grid))
+
+        tailing_down_blk.calc_grid(u[1], u[2])
+        tailing_down_grid = tailing_down_blk.grid
+        p3d_grid.add(Plot3DBlock.construct_from_array(tailing_down_grid))
+
+        if self.is_blunt:
+            rear_blk.calc_grid(u[3], u[2])
+            rear_grid = rear_blk.grid
+            p3d_grid.add(Plot3DBlock.construct_from_array(rear_grid))
+
+        return wire_frame, p3d_grid
 
 
 class WingProfile(Airfoil):
@@ -908,9 +957,18 @@ class Wing(object):
 
 
 class AirfoilTester(unittest.TestCase):
-    def test_grid(self):
-        foil = Airfoil('SC(2)-0406')
-        foil.gen_grid(30, 20, 40, 0, 0, 0, 0)
+    def test_grid_generation(self):
+        # airfoil, A, B, C, N0, N1, N2, N3
+        data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
+                # ('NACA0012', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff'),
+                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace')]
+
+        for k in range(len(data)):
+            fn, la, lb, lc, n0, n1, n2, n3, smt = data[k]
+            foil = Airfoil(fn)
+            wire, p3d = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
+            wire.save(fn + '_flowfield_wire-frame.igs')
+            p3d.save(fn + '_flowfield_grid.xyz')
         self.assertTrue(True)
 
 

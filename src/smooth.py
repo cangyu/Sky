@@ -1,4 +1,3 @@
-import unittest
 import sys
 import math
 import numpy as np
@@ -9,7 +8,7 @@ from scipy.sparse.linalg import dsolve
 from misc import vector_square
 
 """
-Implementation of the grid smoothing tools using elliptic operator.
+Implementation of the grid smoothing tools using elliptic PDE.
 
 Note:
 1. (i,j,k) is corresponding to (x,y,z),(u,v.w),(xi, eta, zeta),(x1,x2,x3),(I,J,K)...
@@ -26,50 +25,48 @@ class EllipticGrid2D(object):
     def __init__(self, grid):
         """
         2D curvilinear grid based on the elliptic PDE.
-        :param grid: Initial grid. The subscript iterate through (Dim1, Dim2), each element contains (X, Y).
+        :param grid: Initial grid. The subscript iterate through (Dim1, Dim2, Dim3), each element contains (X, Y, Z).
         """
 
         '''Pre-check'''
-        if len(grid.shape) != 3:
-            raise AssertionError("Invalid input grid.")
-        if grid.shape[-1] != 2:
-            raise AssertionError('Invalid dimension.')
+        assert len(grid.shape) == 3
+        assert grid.shape[-1] in (2, 3)
 
         '''Shape constants'''
         ii, jj, dim = grid.shape
 
         '''Grid'''
-        self.r = np.copy(grid)
+        self.r = np.copy(grid[:, :, :2])
 
         '''Partial derivatives'''
-        self.r1 = np.zeros_like(grid)
-        self.r2 = np.zeros_like(grid)
-        self.r11 = np.zeros_like(grid)
-        self.r22 = np.zeros_like(grid)
-        self.r12 = np.zeros_like(grid)
+        self.r1 = np.zeros((ii, jj, 2))
+        self.r2 = np.zeros((ii, jj, 2))
+        self.r11 = np.zeros((ii, jj, 2))
+        self.r22 = np.zeros((ii, jj, 2))
+        self.r12 = np.zeros((ii, jj, 2))
 
         '''Source term'''
-        self.pq = np.zeros_like(grid)
+        self.pq = np.zeros((ii, jj, 2))
 
         '''Coefficients'''
         self.a = np.zeros((ii, jj))  # alpha
         self.b = np.zeros((ii, jj))  # beta
         self.g = np.zeros((ii, jj))  # gamma
-        self.j = np.zeros((ii, jj))  # jacobi
+        self.j2 = np.zeros((ii, jj))  # square of det(jacobi)
 
     @property
-    def i_dim(self):
+    def i_num(self):
         return self.r.shape[0]
 
     @property
-    def j_dim(self):
+    def j_num(self):
         return self.r.shape[1]
 
     def is_special(self, i, j):
-        return i == 0 or i == self.i_dim - 1 or j == 0 or j == self.j_dim - 1
+        return i == 0 or i == self.i_num - 1 or j == 0 or j == self.j_num - 1
 
     def internal_pnt_idx(self, i, j):
-        return (i - 1) + (j - 1) * (self.i_dim - 2)
+        return (i - 1) + (j - 1) * (self.i_num - 2)
 
     @property
     def grid(self):
@@ -91,16 +88,16 @@ class EllipticGrid2D(object):
         return 0.25 * (self.r[i + 1][j + 1] + self.r[i - 1][j - 1] - self.r[i + 1][j - 1] - self.r[i - 1][j + 1])
 
     def alpha(self, i, j):
-        return vector_square(self.r2[i][j])
+        return vector_square(self.r_eta(i, j))
 
     def beta(self, i, j):
-        return np.dot(self.r2[i][j], self.r1[i][j])
+        return np.dot(self.r_eta(i, j), self.r_xi(i, j))
 
     def gamma(self, i, j):
-        return vector_square(self.r1[i][j])
+        return vector_square(self.r_xi(i, j))
 
     def jacobi(self, i, j):
-        return np.linalg.det(np.matrix([self.r1[i][j], self.r2[i][j]]))
+        return np.linalg.det(np.matrix([self.r_xi(i, j), self.r_eta(i, j)])) ** 2
 
     @abstractmethod
     def smooth(self):
@@ -110,31 +107,28 @@ class EllipticGrid2D(object):
 class Laplace2D(EllipticGrid2D):
     def __init__(self, grid):
         """
-        Smooth the grid with Laplace operator.
+        Smooth the grid with Laplace PDE.
         :param grid: The initial grid.
         """
 
         super(Laplace2D, self).__init__(grid)
 
     def calc_all_param(self):
-        for i in range(1, self.i_dim - 1):
-            for j in range(1, self.j_dim - 1):
+        for i in range(1, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
                 self.r1[i][j] = self.r_xi(i, j)
                 self.r2[i][j] = self.r_eta(i, j)
-                self.r11[i][j] = self.r_xi2(i, j)
-                self.r22[i][j] = self.r_eta2(i, j)
-                self.r12[i][j] = self.r_xi_eta(i, j)
-                self.a[i][j] = self.alpha(i, j)
-                self.b[i][j] = self.beta(i, j)
-                self.g[i][j] = self.gamma(i, j)
+                self.a[i][j] = vector_square(self.r2[i][j])
+                self.b[i][j] = np.dot(self.r1[i][j], self.r2[i][j])
+                self.g[i][j] = vector_square(self.r1[i][j])
 
     def calc_eqn_param(self, i, j):
-        ans = np.empty(9)
+        ans = np.empty(9, float)
         ans[0] = -2 * (self.a[i][j] + self.g[i][j])
         ans[1] = ans[3] = self.a[i][j]
         ans[2] = ans[4] = self.g[i][j]
-        ans[5] = ans[7] = -self.b[i][j] / 2
-        ans[6] = ans[8] = -ans[5]
+        ans[6] = ans[8] = self.b[i][j] / 2
+        ans[5] = ans[7] = -ans[6]
         return ans
 
     def smooth(self):
@@ -144,7 +138,9 @@ class Laplace2D(EllipticGrid2D):
         """
 
         '''Temp vars used to construct the sparse coefficient matrix'''
-        var_num = (self.i_dim - 1) * (self.j_dim - 1)
+        var_num = (self.i_num - 2) * (self.j_num - 2)
+        assert var_num != 0
+
         rhs = np.empty((var_num, 2))
 
         '''Solve the grid iteratively'''
@@ -154,38 +150,41 @@ class Laplace2D(EllipticGrid2D):
             '''Calculate all coefficients and derivatives'''
             self.calc_all_param()
 
-            '''Build Ar = b'''
+            '''Build Ax = b'''
             rhs.fill(0.0)
             eqn_idx = 0
             row = []
             col = []
             val = []
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
+            for j in range(1, self.j_num - 1):
+                for i in range(1, self.i_num - 1):
                     ca = self.calc_eqn_param(i, j)  # surrounding coefficients
-
-                    '''Construct the equation'''
                     for t in range(9):
                         ii = i + EllipticGrid2D.di[t]
                         jj = j + EllipticGrid2D.dj[t]
-                        if self.is_special(i, j):
+                        if self.is_special(ii, jj):
                             rhs[eqn_idx] -= ca[t] * self.r[ii][jj]
                         else:
                             row.append(eqn_idx)
                             col.append(self.internal_pnt_idx(ii, jj))
                             val.append(ca[t])
-
                     eqn_idx += 1
 
             '''Construct the sparse coefficient matrix'''
             scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
 
             '''Solve the grid'''
-            u = dsolve.spsolve(scm, rhs)
+            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
+
+            '''Update and calculate residual'''
             eqn_idx = 0
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
-                    residual = max(residual, norm(u[eqn_idx] - self.r[i][j], np.inf))
+            residual = sys.float_info.min
+            for j in range(1, self.j_num - 1):
+                for i in range(1, self.i_num - 1):
+                    cur_residual = norm(u[eqn_idx] - self.r[i][j], np.inf)
+                    if cur_residual > residual:
+                        residual = cur_residual
+                    self.r[i][j] = u[eqn_idx]
                     eqn_idx += 1
 
             iteration_cnt += 1
@@ -200,35 +199,36 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
 
         super(ThomasMiddlecoff2D, self).__init__(grid)
 
-        self.phi = np.zeros((self.i_dim, self.j_dim))
-        self.psi = np.zeros((self.i_dim, self.j_dim))
+        self.phi = np.zeros((self.i_num, self.j_num))
+        self.psi = np.zeros((self.i_num, self.j_num))
 
     def calc_all_param(self):
-        for i in range(1, self.i_dim - 1):
-            for j in range(1, self.j_dim - 1):
+        for i in range(1, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
                 self.r1[i][j] = self.r_xi(i, j)
                 self.r2[i][j] = self.r_eta(i, j)
                 self.r11[i][j] = self.r_xi2(i, j)
                 self.r22[i][j] = self.r_eta2(i, j)
                 self.r12[i][j] = self.r_xi_eta(i, j)
-                self.a[i][j] = self.alpha(i, j)
-                self.b[i][j] = self.beta(i, j)
-                self.g[i][j] = self.gamma(i, j)
+                self.a[i][j] = vector_square(self.r2[i][j])
+                self.b[i][j] = np.dot(self.r1[i][j], self.r2[i][j])
+                self.g[i][j] = vector_square(self.r1[i][j])
 
         '''phi, psi: Boundary first, then interpolate internal space linearly'''
-        for j in (0, self.j_dim - 1):
-            for i in range(1, self.i_dim - 1):
+        for j in (0, self.j_num - 1):
+            for i in range(1, self.i_num - 1):
                 self.phi[i][j] = - np.dot(self.r1[i][j], self.r11[i][j]) / vector_square(self.r1[i][j])
-        for i in (0, self.i_dim - 1):
-            for j in range(1, self.j_dim - 1):
+        for i in (0, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
                 self.psi[i][j] = -np.dot(self.r2[i][j], self.r22[i][j]) / vector_square(self.r2[i][j])
-        for i in range(1, self.i_dim - 1):
-            dist = np.linspace(self.phi[i][0], self.phi[i][self.j_dim - 1], self.j_dim)
-            for j in range(1, self.j_dim - 1):
+
+        for i in range(1, self.i_num - 1):
+            dist = np.linspace(self.phi[i][0], self.phi[i][self.j_num - 1], self.j_num)
+            for j in range(1, self.j_num - 1):
                 self.phi[i][j] = dist[j]
-        for j in range(1, self.j_dim - 1):
-            dist = np.linspace(self.psi[0][j], self.psi[self.i_dim - 1][j], self.i_dim)
-            for i in range(1, self.i_dim - 1):
+        for j in range(1, self.j_num - 1):
+            dist = np.linspace(self.psi[0][j], self.psi[self.i_num - 1][j], self.i_num)
+            for i in range(1, self.i_num - 1):
                 self.psi[i][j] = dist[i]
 
     def calc_eqn_param(self, i, j):
@@ -238,13 +238,19 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
         ans[2] = self.g[i][j] * (1 + self.psi[i][j] / 2)
         ans[3] = self.a[i][j] * (1 - self.phi[i][j] / 2)
         ans[4] = self.g[i][j] * (1 - self.psi[i][j] / 2)
-        ans[5] = ans[7] = -self.b[i][j] / 2
-        ans[6] = ans[8] = -ans[5]
+        ans[6] = ans[8] = self.b[i][j] / 2
+        ans[5] = ans[7] = -ans[6]
         return ans
 
     def smooth(self):
-        var_num = (self.i_dim - 1) * (self.j_dim - 1)
+        """
+        Smooth the grid with Picard iteration.
+        :return: None.
+        """
+
+        var_num = (self.i_num - 2) * (self.j_num - 2)
         rhs = np.empty((var_num, 2))
+
         iteration_cnt = 0
         residual = sys.float_info.max
         while not math.isclose(residual, 0, abs_tol=1e-5):
@@ -253,12 +259,12 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
 
             '''Build Ar = b'''
             eqn_idx = 0
+            rhs.fill(0.0)
             row = []
             col = []
             val = []
-            rhs.fill(0.0)
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
+            for j in range(1, self.j_num - 1):
+                for i in range(1, self.i_num - 1):
                     ca = self.calc_eqn_param(i, j)
                     for t in range(9):
                         ii = i + EllipticGrid2D.di[t]
@@ -275,11 +281,17 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
             scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
 
             '''Solve the grid'''
-            u = dsolve.spsolve(scm, rhs)
+            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
+
+            '''Update and calculate residual'''
             eqn_idx = 0
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
-                    residual = max(residual, norm(u[eqn_idx] - self.r[i][j], np.inf))
+            residual = sys.float_info.min
+            for j in range(1, self.j_num - 1):
+                for i in range(1, self.i_num - 1):
+                    cur_residual = norm(u[eqn_idx] - self.r[i][j], np.inf)
+                    if cur_residual > residual:
+                        residual = cur_residual
+                    self.r[i][j] = u[eqn_idx]
                     eqn_idx += 1
 
             iteration_cnt += 1
@@ -297,8 +309,8 @@ class EllipticGrid3D(object):
         """
 
         '''Pre-check'''
-        if len(grid.shape) != 4 or grid.shape[-1] > 3:
-            raise AssertionError("Invalid input grid!")
+        assert len(grid.shape) == 4
+        assert grid.shape[-1] == 3
 
         '''Shape constants'''
         ii, jj, kk, dim = grid.shape
@@ -505,21 +517,3 @@ class ThomasMiddlecoff3D(EllipticGrid3D):
 
     def smooth(self):
         pass
-
-
-class EllipticGridTester(unittest.TestCase):
-    def test_2d_laplace(self):
-        pass
-
-    def test_2d_tm(self):
-        pass
-
-    def test_3d_laplace(self):
-        pass
-
-    def test_3d_tm(self):
-        pass
-
-
-if __name__ == '__main__':
-    unittest.main()
