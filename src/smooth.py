@@ -34,6 +34,7 @@ class EllipticGrid2D(object):
 
         '''Shape constants'''
         ii, jj, dim = grid.shape
+        assert (ii - 2) * (jj - 2) != 0
 
         '''Grid'''
         self.r = np.copy(grid[:, :, :2])
@@ -137,10 +138,7 @@ class Laplace2D(EllipticGrid2D):
         :return: None.
         """
 
-        '''Temp vars used to construct the sparse coefficient matrix'''
         var_num = (self.i_num - 2) * (self.j_num - 2)
-        assert var_num != 0
-
         rhs = np.empty((var_num, 2))
 
         '''Solve the grid iteratively'''
@@ -315,20 +313,21 @@ class EllipticGrid3D(object):
 
         '''Shape constants'''
         ii, jj, kk, dim = grid.shape
+        assert (ii - 2) * (jj - 2) * (kk - 2) != 0
 
         '''Grid'''
         self.r = np.copy(grid)
 
         '''Derivatives'''
-        self.r1 = np.zeros((ii, jj, kk, 3))
-        self.r2 = np.zeros((ii, jj, kk, 3))
-        self.r3 = np.zeros((ii, jj, kk, 3))
-        self.r11 = np.zeros((ii, jj, kk, 3))
-        self.r22 = np.zeros((ii, jj, kk, 3))
-        self.r33 = np.zeros((ii, jj, kk, 3))
-        self.r12 = np.zeros((ii, jj, kk, 3))
-        self.r23 = np.zeros((ii, jj, kk, 3))
-        self.r31 = np.zeros((ii, jj, kk, 3))
+        self.r1 = np.zeros_like(self.r)
+        self.r2 = np.zeros_like(self.r)
+        self.r3 = np.zeros_like(self.r)
+        self.r11 = np.zeros_like(self.r)
+        self.r22 = np.zeros_like(self.r)
+        self.r33 = np.zeros_like(self.r)
+        self.r12 = np.zeros_like(self.r)
+        self.r23 = np.zeros_like(self.r)
+        self.r31 = np.zeros_like(self.r)
 
         '''Source term'''
         self.pqr = np.zeros((ii, jj, kk, 3))
@@ -340,22 +339,25 @@ class EllipticGrid3D(object):
         self.b12 = np.zeros((ii, jj, kk))  # beta12
         self.b23 = np.zeros((ii, jj, kk))  # beta23
         self.b31 = np.zeros((ii, jj, kk))  # beta23
-        self.j = np.zeros((ii, jj, kk))  # Jacobi
+        self.j2 = np.zeros((ii, jj, kk))  # Jacobi
 
     @property
-    def i_dim(self):
+    def i_num(self):
         return self.r.shape[0]
 
     @property
-    def j_dim(self):
+    def j_num(self):
         return self.r.shape[1]
 
     @property
-    def k_dim(self):
+    def k_num(self):
         return self.r.shape[2]
 
     def is_special(self, i, j, k):
-        return i == 0 or i == self.i_dim - 1 or j == 0 or j == self.j_dim - 1 or k == 0 or k == self.k_dim - 1
+        return i == 0 or i == self.i_num - 1 or j == 0 or j == self.j_num - 1 or k == 0 or k == self.k_num - 1
+
+    def internal_pnt_idx(self, i, j, k):
+        return (k - 1) * (self.j_num - 2) * (self.i_num - 2) + (j - 1) * (self.i_num - 2) + (i - 1)
 
     @property
     def grid(self):
@@ -389,25 +391,40 @@ class EllipticGrid3D(object):
         return 0.25 * (self.r[i + 1][j][k + 1] - self.r[i - 1][j][k + 1] - self.r[i + 1][j][k - 1] + self.r[i - 1][j][k - 1])
 
     def alpha1(self, i, j, k):
-        return vector_square(self.r2[i][j][k]) * vector_square(self.r3[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) ** 2
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return vector_square(r2) * vector_square(r3) - np.dot(r2, r3) ** 2
 
     def alpha2(self, i, j, k):
-        return vector_square(self.r3[i][j][k]) * vector_square(self.r1[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) ** 2
+        r3 = self.r_zeta(i, j, k)
+        r1 = self.r_xi(i, j, k)
+        return vector_square(r3) * vector_square(r1) - np.dot(r3, r1) ** 2
 
     def alpha3(self, i, j, k):
-        return vector_square(self.r1[i][j][k]) * vector_square(self.r2[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) ** 2
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        return vector_square(r1) * vector_square(r2) - np.dot(r1, r2) ** 2
 
     def beta12(self, i, j, k):
-        return np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * norm(self.r3[i][j][k])
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r1, r3) * np.dot(r2, r3) - np.dot(r1, r2) * norm(r3)
 
     def beta23(self, i, j, k):
-        return np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * norm(self.r1[i][j][k])
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r2, r1) * np.dot(r3, r1) - np.dot(r2, r3) * norm(r1)
 
     def beta31(self, i, j, k):
-        return np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * norm(self.r2[i][j][k])
+        r1 = self.r_xi(i, j, k)
+        r2 = self.r_eta(i, j, k)
+        r3 = self.r_zeta(i, j, k)
+        return np.dot(r3, r2) * np.dot(r1, r2) - np.dot(r3, r1) * norm(r2)
 
     def jacobi(self, i, j, k):
-        return np.linalg.det(np.matrix([self.r1[i][j][k], self.r2[i][j][k], self.r3[i][j][k]]))
+        return np.linalg.det(np.matrix([self.r_xi(i, j, k), self.r_eta(i, j, k), self.r_zeta(i, j, k)])) ** 2
 
     @abstractmethod
     def smooth(self):
@@ -419,9 +436,9 @@ class Laplace3D(EllipticGrid3D):
         super(Laplace3D, self).__init__(grid)
 
     def calc_all_param(self):
-        for i in range(1, self.i_dim - 1):
-            for j in range(1, self.j_dim - 1):
-                for k in range(1, self.k_dim - 1):
+        for i in range(1, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
+                for k in range(1, self.k_num - 1):
                     self.r1[i][j][k] = self.r_xi(i, j, k)
                     self.r2[i][j][k] = self.r_eta(i, j, k)
                     self.r3[i][j][k] = self.r_zeta(i, j, k)
@@ -431,12 +448,12 @@ class Laplace3D(EllipticGrid3D):
                     self.r12[i][j][k] = self.r_xi_eta(i, j, k)
                     self.r23[i][j][k] = self.r_eta_zeta(i, j, k)
                     self.r31[i][j][k] = self.r_zeta_xi(i, j, k)
-                    self.a1[i][j][k] = self.alpha1(i, j, k)
-                    self.a2[i][j][k] = self.alpha2(i, j, k)
-                    self.a3[i][j][k] = self.alpha3(i, j, k)
-                    self.b12[i][j][k] = self.beta12(i, j, k)
-                    self.b23[i][j][k] = self.beta23(i, j, k)
-                    self.b31[i][j][k] = self.beta31(i, j, k)
+                    self.a1[i][j][k] = vector_square(self.r2[i][j][k]) * vector_square(self.r3[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) ** 2
+                    self.a2[i][j][k] = vector_square(self.r3[i][j][k]) * vector_square(self.r1[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) ** 2
+                    self.a3[i][j][k] = vector_square(self.r1[i][j][k]) * vector_square(self.r2[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) ** 2
+                    self.b12[i][j][k] = np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * norm(self.r3[i][j][k])
+                    self.b23[i][j][k] = np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * norm(self.r1[i][j][k])
+                    self.b31[i][j][k] = np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * norm(self.r2[i][j][k])
 
     def calc_eqn_param(self, i, j, k):
         ans = np.empty(19, float)
@@ -458,9 +475,7 @@ class Laplace3D(EllipticGrid3D):
         :return: None.
         """
 
-        '''Temp vars'''
-        var_num = (self.i_dim - 1) * (self.j_dim - 1) * (self.k_dim - 1)
-        coefficient_matrix = np.zeros((var_num, 19))
+        var_num = (self.i_num - 2) * (self.j_num - 2) * (self.k_num - 2)
         rhs = np.zeros((var_num, 3))
 
         '''Solve the grid iteratively'''
@@ -470,13 +485,15 @@ class Laplace3D(EllipticGrid3D):
             '''Calculate all coefficients'''
             self.calc_all_param()
 
-            '''Build Ar=b'''
-            coefficient_matrix.fill(0.0)
-            rhs.fill(0.0)
+            '''Build Ax=b'''
             eqn_idx = 0
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
-                    for k in range(1, self.k_dim - 1):
+            rhs.fill(0.0)
+            row = []
+            col = []
+            val = []
+            for k in range(1, self.k_num - 1):
+                for j in range(1, self.j_num - 1):
+                    for i in range(1, self.i_num - 1):
                         '''Calculate stencil coefficients'''
                         ca = self.calc_eqn_param(i, j, k)
 
@@ -488,20 +505,27 @@ class Laplace3D(EllipticGrid3D):
                             if self.is_special(ii, jj, kk):
                                 rhs[eqn_idx] -= ca[t] * self.r[ii][jj][kk]
                             else:
-                                coefficient_matrix[eqn_idx][t] = ca[t]
+                                row.append(eqn_idx)
+                                col.append(self.internal_pnt_idx(ii, jj, kk))
+                                val.append(ca[t])
 
-                        '''Update Equation counter'''
                         eqn_idx += 1
 
-            '''Solve r'''
-            u = dsolve.spsolve(coefficient_matrix, rhs)
+            '''Construct the sparse coefficient matrix'''
+            scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
 
-            '''Update grid and calculate residual'''
+            '''Solve the grid'''
+            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
+
+            '''Update and calculate residual'''
             eqn_idx = 0
-            for i in range(1, self.i_dim - 1):
-                for j in range(1, self.j_dim - 1):
-                    for k in range(1, self.k_dim - 1):
-                        residual = max(residual, np.linalg.norm(u[eqn_idx] - self.r[i][j][k], np.inf))
+            residual = sys.float_info.min
+            for k in range(1, self.k_num - 1):
+                for j in range(1, self.j_num - 1):
+                    for i in range(1, self.i_num - 1):
+                        cur_residual = norm(u[eqn_idx] - self.r[i][j][k], np.inf)
+                        if cur_residual > residual:
+                            residual = cur_residual
                         self.r[i][j][k] = u[eqn_idx]
                         eqn_idx += 1
 
@@ -512,9 +536,70 @@ class ThomasMiddlecoff3D(EllipticGrid3D):
     def __init__(self, grid):
         super(ThomasMiddlecoff3D, self).__init__(grid)
 
-        self.phi = np.zeros((self.i_dim, self.j_dim, self.k_dim))
-        self.psi = np.zeros((self.i_dim, self.j_dim, self.k_dim))
-        self.omega = np.zeros((self.i_dim, self.j_dim, self.k_dim))
+        self.phi = np.zeros((self.i_num, self.j_num, self.k_num))
+        self.psi = np.zeros((self.i_num, self.j_num, self.k_num))
+        self.omega = np.zeros((self.i_num, self.j_num, self.k_num))
+
+    def calc_all_param(self):
+        pass
+
+    def calc_eqn_param(self, i, j, k):
+        ret = np.empty(19, float)
+        return ret
 
     def smooth(self):
-        pass
+        var_num = (self.i_num - 2) * (self.j_num - 2) * (self.k_num - 2)
+        rhs = np.zeros((var_num, 3))
+
+        '''Solve the grid iteratively'''
+        iteration_cnt = 0
+        residual = sys.float_info.max
+        while not math.isclose(residual, 0, abs_tol=1e-5):
+            '''Calculate all coefficients'''
+            self.calc_all_param()
+
+            '''Build Ax=b'''
+            eqn_idx = 0
+            rhs.fill(0.0)
+            row = []
+            col = []
+            val = []
+            for k in range(1, self.k_num - 1):
+                for j in range(1, self.j_num - 1):
+                    for i in range(1, self.i_num - 1):
+                        '''Calculate stencil coefficients'''
+                        ca = self.calc_eqn_param(i, j, k)
+
+                        '''Construct the equation'''
+                        for t in range(19):
+                            ii = i + EllipticGrid3D.di[t]
+                            jj = j + EllipticGrid3D.dj[t]
+                            kk = k + EllipticGrid3D.dk[t]
+                            if self.is_special(ii, jj, kk):
+                                rhs[eqn_idx] -= ca[t] * self.r[ii][jj][kk]
+                            else:
+                                row.append(eqn_idx)
+                                col.append(self.internal_pnt_idx(ii, jj, kk))
+                                val.append(ca[t])
+
+                        eqn_idx += 1
+
+            '''Construct the sparse coefficient matrix'''
+            scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
+
+            '''Solve the grid'''
+            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
+
+            '''Update and calculate residual'''
+            eqn_idx = 0
+            residual = sys.float_info.min
+            for k in range(1, self.k_num - 1):
+                for j in range(1, self.j_num - 1):
+                    for i in range(1, self.i_num - 1):
+                        cur_residual = norm(u[eqn_idx] - self.r[i][j][k], np.inf)
+                        if cur_residual > residual:
+                            residual = cur_residual
+                        self.r[i][j][k] = u[eqn_idx]
+                        eqn_idx += 1
+
+            iteration_cnt += 1

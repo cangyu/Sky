@@ -134,7 +134,7 @@ class Airfoil(object):
         """
         Generate grid for 2D airfoil or wing profile.
         :param args: Containing the geometric description and node distribution of the grid.
-        :param kwargs: Extra options on smooth and spacing.
+        :param kwargs: Extra options on smoothing and spacing.
         :return: The wire-frame, plot3d-grid and fluent-grid(with predefined BC) of the flow field.
         """
 
@@ -476,11 +476,19 @@ class Wing(object):
         yt = list(map(frm.y_tail, u))
         return cls.from_intrinsic_desc(airfoil, thickness, z, xf, yf, xt, yt)
 
-    def gen_grid(self, fn, enn=50, inner_brk=(0.44, 0.56), outer_brk=(0.3, 0.72)):
+    def gen_grid(self, *args, **kwargs):
         """
         Generate the multi-block grid for a simplified wing.
-        :return: None
+        :param args: Containing the geometric description and node distribution of the grid.
+        :param kwargs: Extra options on smoothing and spacing.
+        :return: The wire-frame, plot3d-grid and fluent-grid(with predefined BC) of the flow field.
         """
+
+        a, b, c, d, n = args
+
+        enn = 50
+        inner_brk = (0.44, 0.56)
+        outer_brk = (0.3, 0.72)
 
         '''Grid parameters'''
         la = self.profile[0].chord_len
@@ -953,11 +961,10 @@ class Wing(object):
 
         '''构建MSH文件'''
         msh = XF_MSH.from_str3d_multi(blk, bc, adj)
-        msh.save(fn)
 
 
 class AirfoilTester(unittest.TestCase):
-    def test_grid_gen(self):
+    def test_2d_grid(self):
         # airfoil, A, B, C, N0, N1, N2, N3
         data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'none'),
                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'none'),
@@ -973,6 +980,9 @@ class AirfoilTester(unittest.TestCase):
             p3d = bunch[1]
             p3d.save(fn + '_flowfield_grid-smooth={}.xyz'.format(smt))
         self.assertTrue(True)
+
+    def test_3d_grid(self):
+        pass
 
 
 if __name__ == '__main__':
