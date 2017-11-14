@@ -213,15 +213,16 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
                 self.a[i][j] = vector_square(self.r2[i][j])
                 self.b[i][j] = np.dot(self.r1[i][j], self.r2[i][j])
                 self.g[i][j] = vector_square(self.r1[i][j])
-
-        '''phi, psi: Boundary first, then interpolate internal space linearly'''
         for j in (0, self.j_num - 1):
             for i in range(1, self.i_num - 1):
+                self.r1[i][j] = self.r_xi(i, j)
+                self.r11[i][j] = self.r_xi2(i, j)
                 self.phi[i][j] = - np.dot(self.r1[i][j], self.r11[i][j]) / vector_square(self.r1[i][j])
         for i in (0, self.i_num - 1):
             for j in range(1, self.j_num - 1):
+                self.r2[i][j] = self.r_eta(i, j)
+                self.r22[i][j] = self.r_eta2(i, j)
                 self.psi[i][j] = -np.dot(self.r2[i][j], self.r22[i][j]) / vector_square(self.r2[i][j])
-
         for i in range(1, self.i_num - 1):
             dist = np.linspace(self.phi[i][0], self.phi[i][self.j_num - 1], self.j_num)
             for j in range(1, self.j_num - 1):

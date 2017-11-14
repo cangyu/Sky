@@ -1,10 +1,10 @@
 import unittest
-import math
 import os
-from copy import deepcopy
-import matplotlib.pyplot as plt
+import math
 import numpy as np
 from numpy.linalg import norm
+from copy import deepcopy
+import matplotlib.pyplot as plt
 from tfi import LinearTFI2D, LinearTFI3D
 from plot3d import Plot3D, Plot3DBlock
 from smooth import Laplace2D, ThomasMiddlecoff2D
@@ -197,22 +197,22 @@ class Airfoil(object):
 
         '''Construct Plot3D grid for basic checking'''
         leading_blk.calc_grid(u[1], u[0])
-        leading_grid = leading_blk.grid
+        leading_tfi_grid = leading_blk.grid
         leading_smooth_ok = False
         if 'leading_smooth' in kwargs:
             smooth = kwargs['leading_smooth']
             if smooth in ('Laplace', 'laplace'):
-                leading_grid_laplace = Laplace2D(leading_grid)
+                leading_grid_laplace = Laplace2D(leading_tfi_grid)
                 leading_grid_laplace.smooth()
                 p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_laplace.grid))
                 leading_smooth_ok = True
             if smooth in ('TM', 'tm', 'Thomas-Middlecoff', 'thomas-middlecoff'):
-                leading_grid_tm = ThomasMiddlecoff2D(leading_grid)
+                leading_grid_tm = ThomasMiddlecoff2D(leading_tfi_grid)
                 leading_grid_tm.smooth()
                 p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_tm.grid))
                 leading_smooth_ok = True
         if not leading_smooth_ok:
-            p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid.grid))
+            p3d_grid.add(Plot3DBlock.construct_from_array(leading_tfi_grid))
 
         tailing_up_blk.calc_grid(u[2], u[1])
         tailing_up_grid = tailing_up_blk.grid
@@ -957,18 +957,21 @@ class Wing(object):
 
 
 class AirfoilTester(unittest.TestCase):
-    def test_grid_generation(self):
+    def test_grid_gen(self):
         # airfoil, A, B, C, N0, N1, N2, N3
-        data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
-                # ('NACA0012', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff'),
-                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace')]
+        data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'none'),
+                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'none'),
+                ('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
+                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
+                ('NLF(1)-0414F', 30, 20, 50, 91, 61, 80, 3, 'thomas-middlecoff'),
+                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff')]
 
         for k in range(len(data)):
             fn, la, lb, lc, n0, n1, n2, n3, smt = data[k]
             foil = Airfoil(fn)
-            wire, p3d = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
-            wire.save(fn + '_flowfield_wire-frame.igs')
-            p3d.save(fn + '_flowfield_grid.xyz')
+            bunch = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
+            p3d = bunch[1]
+            p3d.save(fn + '_flowfield_grid-smooth={}.xyz'.format(smt))
         self.assertTrue(True)
 
 
