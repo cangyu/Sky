@@ -7,12 +7,12 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 from tfi import LinearTFI2D, LinearTFI3D
 from plot3d import Plot3D, Plot3DBlock
-from smooth import Laplace2D, ThomasMiddlecoff2D
+from smooth import Laplace2D, ThomasMiddlecoff2D, Laplace3D
 from fluent import XF_MSH, BCType
 from misc import pnt_dist, read_airfoil_pts, pnt_pan
 from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model, Entity116, Entity110
-from nurbs import Crv, ConicArc, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
+from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
 from settings import AIRFOIL_LIST
 
 
@@ -489,15 +489,8 @@ class Wing(object):
         a, b, c, d, n = args
         assert len(n) == 8
 
-        '''Node distribution'''
-        u = [hyperbolic_tangent(n[0], 8),  # u0
-             double_exponential(n[1], 0.5, 1.5, 0.5),  # u1
-             uniform(n[2]),  # u2
-             single_exponential(n[3], 5),  # u3
-             hyperbolic_tangent(n[4], 5),  # u4
-             double_exponential(n[5], 0.5, 1.2, 0.5),  # u5
-             double_exponential(n[6], 0.5, 1.5, 0.5),  # u6
-             uniform(n[7])]  # u7
+        iges_model = Model()
+        p3d_grid = Plot3D()
 
         '''
         wsf: Wing surface.
@@ -647,7 +640,6 @@ class Wing(object):
         s = [ts1[0][0], ts1[1][0], ts1[2][0], ts2[0][0], ts2[1][0], ts2[2][0]]
 
         '''IGES Model'''
-        iges_model = Model()
         for pnt in p:
             iges_model.add(Entity116(pnt[0], pnt[1], pnt[2]))
         for line in l:
@@ -657,45 +649,175 @@ class Wing(object):
         for surf in s:
             iges_model.add(surf.to_iges())
 
-        return iges_model
+        '''Construct blocks'''
+        blk = [LinearTFI3D.from_edges(l[1], l[26], l[0], l[35], l[5], l[29], l[4], l[37], c[0], l[13], l[12], l[20]),  # BLK0
+               LinearTFI3D.from_edges(l[2], l[27], l[1], l[39], l[6], l[30], l[5], l[40], c[1], l[14], l[13], c[0]),  # BLK1
+               LinearTFI3D.from_edges(l[36], l[3], l[28], l[2], l[38], l[7], l[31], l[6], c[1], l[21], l[15], l[14]),  # BLK2
+               LinearTFI3D.from_edges(l[5], l[29], l[4], l[37], l[9], l[32], l[8], l[41], l[23], l[17], l[16], l[22]),  # BLK3
+               LinearTFI3D.from_edges(l[6], l[30], l[5], l[40], l[10], l[33], l[9], l[42], l[24], l[18], l[17], l[23]),  # BLK4
+               LinearTFI3D.from_edges(l[38], l[7], l[31], l[6], l[43], l[11], l[34], l[10], l[24], l[25], l[19], l[18])]  # BLK5
+
+        b6_s1 = deepcopy(s[0])
+        b6_s2 = LinearTFI2D(c[2], l[20], c[5], l[52])
+        b6_s3 = LinearTFI2D(c[0], l[35], l[20], l[37])
+        b6_s4 = LinearTFI2D(c[20], l[44], l[52], l[46])
+        b6_s5 = LinearTFI2D(l[35], c[11], l[44], c[2])
+        b6_s6 = LinearTFI2D(l[37], c[14], l[46], c[5])
+        b6_tfi_grid = LinearTFI3D(lambda v, w: b6_s1(v, w), lambda v, w: b6_s2(v, w),
+                                  lambda w, u: b6_s3(w, u), lambda w, u: b6_s4(w, u),
+                                  lambda u, v: b6_s5(u, v), lambda u, v: b6_s6(u, v))
+        blk.append(b6_tfi_grid)
+
+        b7_s1 = LinearTFI2D(l[45], c[21], l[47], l[53])
+        b7_s2 = LinearTFI2D(l[44], c[20], l[46], l[52])
+        b7_s3 = deepcopy(s[1])
+        b7_s3.reverse('U')
+        b7_s3.swap()
+        b7_s4 = LinearTFI2D(l[53], c[3], l[52], c[6])
+        b7_s5 = LinearTFI2D(c[12], l[45], c[3], l[44])
+        b7_s6 = LinearTFI2D(c[15], l[47], c[6], l[46])
+        b7_tfi_grid = LinearTFI3D(lambda v, w: b7_s1(v, w), lambda v, w: b7_s2(v, w),
+                                  lambda w, u: b7_s3(w, u), lambda w, u: b7_s4(w, u),
+                                  lambda u, v: b7_s5(u, v), lambda u, v: b7_s6(u, v))
+        blk.append(b7_tfi_grid)
+
+        b8_s1 = LinearTFI2D(l[36], c[1], l[38], l[21])
+        b8_s2 = LinearTFI2D(l[45], c[21], l[47], l[53])
+        b8_s3 = deepcopy(s[2])
+        b8_s3.reverse('U')
+        b8_s3.swap()
+        b8_s4 = LinearTFI2D(l[21], c[4], l[53], c[7])
+        b8_s5 = LinearTFI2D(c[13], l[36], c[4], l[45])
+        b8_s6 = LinearTFI2D(c[16], l[38], c[7], l[47])
+        b8_tfi_grid = LinearTFI3D(lambda v, w: b8_s1(v, w), lambda v, w: b8_s2(v, w),
+                                  lambda w, u: b8_s3(w, u), lambda w, u: b8_s4(w, u),
+                                  lambda u, v: b8_s5(u, v), lambda u, v: b8_s6(u, v))
+        blk.append(b8_tfi_grid)
+
+        b9_s1 = deepcopy(s[3])
+        b9_s2 = LinearTFI2D(c[5], l[22], c[8], l[54])
+        b9_s3 = LinearTFI2D(l[23], l[37], l[22], l[41])
+        b9_s4 = LinearTFI2D(c[22], l[46], l[54], l[48])
+        b9_s5 = LinearTFI2D(l[37], c[14], l[46], c[5])
+        b9_s6 = LinearTFI2D(l[41], c[17], l[48], c[8])
+        b9_tfi_grid = LinearTFI3D(lambda v, w: b9_s1(v, w), lambda v, w: b9_s2(v, w),
+                                  lambda w, u: b9_s3(w, u), lambda w, u: b9_s4(w, u),
+                                  lambda u, v: b9_s5(u, v), lambda u, v: b9_s6(u, v))
+        blk.append(b9_tfi_grid)
+
+        b10_s1 = LinearTFI2D(l[47], c[23], l[49], l[55])
+        b10_s2 = LinearTFI2D(l[46], c[22], l[48], l[54])
+        b10_s3 = deepcopy(s[4])
+        b10_s3.reverse('U')
+        b10_s3.swap()
+        b10_s4 = LinearTFI2D(l[55], c[6], l[54], c[9])
+        b10_s5 = LinearTFI2D(c[15], l[47], c[6], l[46])
+        b10_s6 = LinearTFI2D(c[18], l[49], c[9], l[48])
+        b10_tfi_grid = LinearTFI3D(lambda v, w: b10_s1(v, w), lambda v, w: b10_s2(v, w),
+                                   lambda w, u: b10_s3(w, u), lambda w, u: b10_s4(w, u),
+                                   lambda u, v: b10_s5(u, v), lambda u, v: b10_s6(u, v))
+        blk.append(b10_tfi_grid)
+
+        b11_s1 = LinearTFI2D(l[38], l[24], l[43], l[25])
+        b11_s2 = LinearTFI2D(l[47], c[23], l[49], l[55])
+        b11_s3 = deepcopy(s[5])
+        b11_s3.reverse('U')
+        b11_s3.swap()
+        b11_s4 = LinearTFI2D(l[25], c[7], l[55], c[10])
+        b11_s5 = LinearTFI2D(c[16], l[38], c[7], l[47])
+        b11_s6 = LinearTFI2D(c[19], l[43], c[10], l[49])
+        b11_tfi_grid = LinearTFI3D(lambda v, w: b11_s1(v, w), lambda v, w: b11_s2(v, w),
+                                   lambda w, u: b11_s3(w, u), lambda w, u: b11_s4(w, u),
+                                   lambda u, v: b11_s5(u, v), lambda u, v: b11_s6(u, v))
+        blk.append(b11_tfi_grid)
+
+        b12_s1 = deepcopy(s[5])
+        b12_s1.reverse('U')
+        b12_s2 = deepcopy(s[3])
+        b12_s3 = LinearTFI2D(l[24], l[40], l[23], l[42])
+        b12_s4 = deepcopy(s[4])
+        b12_s4.reverse('U')
+        b12_s4.swap()
+        b12_s5 = LinearTFI2D(l[40], c[16], c[15], c[14])
+        b12_s6 = LinearTFI2D(l[42], c[19], c[18], c[17])
+        b12_tfi_grid = LinearTFI3D(lambda v, w: b12_s1(v, w), lambda v, w: b12_s2(v, w),
+                                   lambda w, u: b12_s3(w, u), lambda w, u: b12_s4(w, u),
+                                   lambda u, v: b12_s5(u, v), lambda u, v: b12_s6(u, v))
+        blk.append(b12_tfi_grid)
+
+        '''Node distribution'''
+        node = [hyperbolic_tangent(n[0], 8),  # u0
+                double_exponential(n[1], 0.5, 1.5, 0.5),  # u1
+                uniform(n[2]),  # u2
+                single_exponential(n[3], 5),  # u3
+                hyperbolic_tangent(n[4], 5),  # u4
+                double_exponential(n[5], 0.5, 1.2, 0.5),  # u5
+                double_exponential(n[6], 0.5, 1.5, 0.5),  # u6
+                uniform(n[7])]  # u7
+
+        blk_node_param = [(3, 0, 2), (3, 7, 2), (0, 3, 2), (3, 0, 4), (3, 7, 4), (0, 3, 4), (0, 1, 2), (5, 0, 2), (6, 0, 2), (0, 1, 4), (5, 0, 4), (6, 0, 4), (7, 6, 4)]
+        assert len(blk_node_param) == len(blk)
+
+        '''Calculate grid'''
+        print('Calculating grid...')
+        for i in range(len(blk)):
+            print('Calculate blk{}...'.format(i))
+            nu, nv, nw = blk_node_param[i]
+            blk[i].calc_grid(node[nu], node[nv], node[nw])
+        tfi_grid = [blk[i].grid for i in range(len(blk))]
+
+        '''Smoothing'''
+        print('Smoothing...')
+        for i in (6, 7, 8):
+            print('Smoothing blk{}...'.format(i))
+            l3d = Laplace3D(tfi_grid[i])
+            l3d.smooth()
+            tfi_grid[i] = np.copy(l3d.grid)
+
+        '''Build Plot3D Output'''
+        for i in range(len(tfi_grid)):
+            p3d_grid.add(Plot3DBlock.construct_from_array(tfi_grid[i]))
+
+        return iges_model, p3d_grid
 
 
-class AirfoilTestCase(unittest.TestCase):
-    def test_2d_grid(self):
-        # airfoil, A, B, C, N0, N1, N2, N3
-        data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'none'),
-                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'none'),
-                ('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
-                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
-                ('NLF(1)-0414F', 30, 20, 50, 91, 61, 80, 3, 'thomas-middlecoff'),
-                ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff')]
-
-        for k in range(len(data)):
-            fn, la, lb, lc, n0, n1, n2, n3, smt = data[k]
-            foil = Airfoil(fn)
-            bunch = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
-            p3d = bunch[1]
-            p3d.save(fn + '_flowfield_grid-smooth={}.xyz'.format(smt))
-        self.assertTrue(True)
-
-    def test_3d_grid(self):
-        foil = ['SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-1010', 'SC(2)-1010', 'SC(2)-1006', 'SC(2)-0706', 'SC(2)-0706', 'SC(2)-0606', 'SC(2)-0406']
-        length = 1.0 + uniform(len(foil))[::-1] * 3
-        thickness_factor = np.ones(len(foil))
-        z_offset = uniform(len(foil)) * 20
-        sweep_back = np.full(len(foil), 25.0)
-        twist = np.zeros(len(foil))
-        dihedral = np.zeros(len(foil))
-        twist_pos = np.full(len(foil), 1)
-        y_ref = np.zeros(len(foil))
-        wing = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
-        iges_model = wing.gen_grid(80, 20, 120, 300, (60, 40, 200, 100, 90, 80, 40, 10))
-        iges_model.save('test.igs')
-        self.assertTrue(True)
-
+# class AirfoilTestCase(unittest.TestCase):
+#     def test_2d_grid(self):
+#         # airfoil, A, B, C, N0, N1, N2, N3
+#         data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'none'),
+#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'none'),
+#                 ('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
+#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
+#                 ('NLF(1)-0414F', 30, 20, 50, 91, 61, 80, 3, 'thomas-middlecoff'),
+#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff')]
+#
+#         for k in range(len(data)):
+#             fn, la, lb, lc, n0, n1, n2, n3, smt = data[k]
+#             foil = Airfoil(fn)
+#             bunch = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
+#             p3d = bunch[1]
+#             p3d.save(fn + '_flowfield_grid-smooth={}.xyz'.format(smt))
+#         self.assertTrue(True)
+#
+#     def test_3d_grid(self):
+#         self.assertTrue(True)
+#
 
 if __name__ == '__main__':
-    suite = unittest.TestSuite()
-    suite.addTest(AirfoilTestCase('test_3d_grid'))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    # suite = unittest.TestSuite()
+    # suite.addTest(AirfoilTestCase('test_3d_grid'))
+    # runner = unittest.TextTestRunner()
+    # runner.run(suite)
+    foil = ['SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-1010', 'SC(2)-1010', 'SC(2)-1006', 'SC(2)-0706', 'SC(2)-0706', 'SC(2)-0606', 'SC(2)-0406']
+    length = np.linspace(4.0, 1.0, len(foil))
+    thickness_factor = np.ones(len(foil))
+    z_offset = np.linspace(0, 20, len(foil))
+    sweep_back = np.full(len(foil), 25.0)
+    twist = np.zeros(len(foil))
+    dihedral = np.zeros(len(foil))
+    twist_pos = np.full(len(foil), 1.0)
+    y_ref = np.zeros(len(foil))
+    wing = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
+    bunch = wing.gen_grid(60, 20, 100, 200, (60, 40, 200, 100, 90, 80, 40, 10))
+    bunch[0].save('test.igs')
+    bunch[1].save('test.xyz')
