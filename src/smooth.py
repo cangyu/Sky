@@ -1,3 +1,4 @@
+import unittest
 import sys
 import math
 import numpy as np
@@ -6,6 +7,9 @@ from scipy.linalg import norm
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
 from misc import vector_square
+from tfi import LinearTFI2D
+from spacing import uniform
+from plot3d import Plot3D, Plot3DBlock
 
 """
 Implementation of the grid smoothing tools using elliptic PDE.
@@ -101,36 +105,12 @@ class EllipticGrid2D(object):
         return np.linalg.det(np.matrix([self.r_xi(i, j), self.r_eta(i, j)])) ** 2
 
     @abstractmethod
-    def smooth(self):
+    def calc_all_param(self):
         pass
 
-
-class Laplace2D(EllipticGrid2D):
-    def __init__(self, grid):
-        """
-        Smooth the grid with Laplace PDE.
-        :param grid: The initial grid.
-        """
-
-        super(Laplace2D, self).__init__(grid)
-
-    def calc_all_param(self):
-        for i in range(1, self.i_num - 1):
-            for j in range(1, self.j_num - 1):
-                self.r1[i][j] = self.r_xi(i, j)
-                self.r2[i][j] = self.r_eta(i, j)
-                self.a[i][j] = vector_square(self.r2[i][j])
-                self.b[i][j] = np.dot(self.r1[i][j], self.r2[i][j])
-                self.g[i][j] = vector_square(self.r1[i][j])
-
+    @abstractmethod
     def calc_eqn_param(self, i, j):
-        ans = np.empty(9, float)
-        ans[0] = -2 * (self.a[i][j] + self.g[i][j])
-        ans[1] = ans[3] = self.a[i][j]
-        ans[2] = ans[4] = self.g[i][j]
-        ans[6] = ans[8] = self.b[i][j] / 2
-        ans[5] = ans[7] = -ans[6]
-        return ans
+        pass
 
     def smooth(self):
         """
@@ -188,6 +168,34 @@ class Laplace2D(EllipticGrid2D):
             iteration_cnt += 1
 
 
+class Laplace2D(EllipticGrid2D):
+    def __init__(self, grid):
+        """
+        Smooth the grid with Laplace PDE.
+        :param grid: The initial grid.
+        """
+
+        super(Laplace2D, self).__init__(grid)
+
+    def calc_all_param(self):
+        for i in range(1, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
+                self.r1[i][j] = self.r_xi(i, j)
+                self.r2[i][j] = self.r_eta(i, j)
+                self.a[i][j] = vector_square(self.r2[i][j])
+                self.b[i][j] = np.dot(self.r1[i][j], self.r2[i][j])
+                self.g[i][j] = vector_square(self.r1[i][j])
+
+    def calc_eqn_param(self, i, j):
+        ans = np.empty(9, float)
+        ans[0] = -2 * (self.a[i][j] + self.g[i][j])
+        ans[1] = ans[3] = self.a[i][j]
+        ans[2] = ans[4] = self.g[i][j]
+        ans[6] = ans[8] = self.b[i][j] / 2
+        ans[5] = ans[7] = -ans[6]
+        return ans
+
+
 class ThomasMiddlecoff2D(EllipticGrid2D):
     def __init__(self, grid):
         """
@@ -241,65 +249,11 @@ class ThomasMiddlecoff2D(EllipticGrid2D):
         ans[5] = ans[7] = -ans[6]
         return ans
 
-    def smooth(self):
-        """
-        Smooth the grid with Picard iteration.
-        :return: None.
-        """
-
-        var_num = (self.i_num - 2) * (self.j_num - 2)
-        rhs = np.empty((var_num, 2))
-
-        iteration_cnt = 0
-        residual = sys.float_info.max
-        while not math.isclose(residual, 0, abs_tol=1e-5):
-            '''Calculate all coefficients and derivatives'''
-            self.calc_all_param()
-
-            '''Build Ar = b'''
-            eqn_idx = 0
-            rhs.fill(0.0)
-            row = []
-            col = []
-            val = []
-            for j in range(1, self.j_num - 1):
-                for i in range(1, self.i_num - 1):
-                    ca = self.calc_eqn_param(i, j)
-                    for t in range(9):
-                        ii = i + EllipticGrid2D.di[t]
-                        jj = j + EllipticGrid2D.dj[t]
-                        if self.is_special(ii, jj):
-                            rhs[eqn_idx] -= ca[t] * self.r[ii][jj]
-                        else:
-                            row.append(eqn_idx)
-                            col.append(self.internal_pnt_idx(ii, jj))
-                            val.append(ca[t])
-                    eqn_idx += 1
-
-            '''Construct the sparse coefficient matrix'''
-            scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
-
-            '''Solve the grid'''
-            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
-
-            '''Update and calculate residual'''
-            eqn_idx = 0
-            residual = sys.float_info.min
-            for j in range(1, self.j_num - 1):
-                for i in range(1, self.i_num - 1):
-                    cur_residual = norm(u[eqn_idx] - self.r[i][j], np.inf)
-                    if cur_residual > residual:
-                        residual = cur_residual
-                    self.r[i][j] = u[eqn_idx]
-                    eqn_idx += 1
-
-            iteration_cnt += 1
-
 
 class EllipticGrid3D(object):
-    di = [0, -1, 1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1]
-    dj = [0, 0, 0, -1, 1, 0, 0, 1, -1, -1, 1, 1, -1, -1, 1, 0, 0, 0, 0]
-    dk = [0, 0, 0, 0, 0, -1, 1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, -1, 1]
+    di = [0, 1, -1, 0, 0, 0, 0, 1, -1, -1, 1, 0, 0, 0, 0, 1, -1, 1, -1]
+    dj = [0, 0, 0, 1, -1, 0, 0, 1, -1, 1, -1, 1, -1, -1, 1, 0, 0, 0, 0]
+    dk = [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, -1, 1]
 
     def __init__(self, grid):
         """
@@ -427,47 +381,12 @@ class EllipticGrid3D(object):
         return np.linalg.det(np.matrix([self.r_xi(i, j, k), self.r_eta(i, j, k), self.r_zeta(i, j, k)])) ** 2
 
     @abstractmethod
-    def smooth(self):
+    def calc_all_param(self):
         pass
 
-
-class Laplace3D(EllipticGrid3D):
-    def __init__(self, grid):
-        super(Laplace3D, self).__init__(grid)
-
-    def calc_all_param(self):
-        for i in range(1, self.i_num - 1):
-            for j in range(1, self.j_num - 1):
-                for k in range(1, self.k_num - 1):
-                    self.r1[i][j][k] = self.r_xi(i, j, k)
-                    self.r2[i][j][k] = self.r_eta(i, j, k)
-                    self.r3[i][j][k] = self.r_zeta(i, j, k)
-                    self.r11[i][j][k] = self.r_xi2(i, j, k)
-                    self.r22[i][j][k] = self.r_eta2(i, j, k)
-                    self.r33[i][j][k] = self.r_zeta2(i, j, k)
-                    self.r12[i][j][k] = self.r_xi_eta(i, j, k)
-                    self.r23[i][j][k] = self.r_eta_zeta(i, j, k)
-                    self.r31[i][j][k] = self.r_zeta_xi(i, j, k)
-                    self.a1[i][j][k] = vector_square(self.r2[i][j][k]) * vector_square(self.r3[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) ** 2
-                    self.a2[i][j][k] = vector_square(self.r3[i][j][k]) * vector_square(self.r1[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) ** 2
-                    self.a3[i][j][k] = vector_square(self.r1[i][j][k]) * vector_square(self.r2[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) ** 2
-                    self.b12[i][j][k] = np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * norm(self.r3[i][j][k])
-                    self.b23[i][j][k] = np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * norm(self.r1[i][j][k])
-                    self.b31[i][j][k] = np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * norm(self.r2[i][j][k])
-
+    @abstractmethod
     def calc_eqn_param(self, i, j, k):
-        ans = np.empty(19, float)
-        ans[0] = -2 * (self.a1[i][j][k] + self.a2[i][j][k] + self.a3[i][j][k])
-        ans[1] = ans[2] = self.a1[i][j][k]
-        ans[3] = ans[4] = self.a2[i][j][k]
-        ans[5] = ans[6] = self.a3[i][j][k]
-        ans[7] = ans[8] = 0.5 * self.b12[i][j][k]
-        ans[9] = ans[10] = -ans[8]
-        ans[11] = ans[12] = 0.5 * self.b23[i][j][k]
-        ans[13] = ans[14] = -ans[12]
-        ans[15] = ans[16] = 0.5 * self.b31[i][j][k]
-        ans[17] = ans[18] = -ans[16]
-        return ans
+        pass
 
     def smooth(self):
         """
@@ -530,6 +449,46 @@ class Laplace3D(EllipticGrid3D):
                         eqn_idx += 1
 
             iteration_cnt += 1
+            print(residual)
+
+
+class Laplace3D(EllipticGrid3D):
+    def __init__(self, grid):
+        super(Laplace3D, self).__init__(grid)
+
+    def calc_all_param(self):
+        for i in range(1, self.i_num - 1):
+            for j in range(1, self.j_num - 1):
+                for k in range(1, self.k_num - 1):
+                    self.r1[i][j][k] = self.r_xi(i, j, k)
+                    self.r2[i][j][k] = self.r_eta(i, j, k)
+                    self.r3[i][j][k] = self.r_zeta(i, j, k)
+                    self.r11[i][j][k] = self.r_xi2(i, j, k)
+                    self.r22[i][j][k] = self.r_eta2(i, j, k)
+                    self.r33[i][j][k] = self.r_zeta2(i, j, k)
+                    self.r12[i][j][k] = self.r_xi_eta(i, j, k)
+                    self.r23[i][j][k] = self.r_eta_zeta(i, j, k)
+                    self.r31[i][j][k] = self.r_zeta_xi(i, j, k)
+                    self.a1[i][j][k] = vector_square(self.r2[i][j][k]) * vector_square(self.r3[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) ** 2
+                    self.a2[i][j][k] = vector_square(self.r3[i][j][k]) * vector_square(self.r1[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) ** 2
+                    self.a3[i][j][k] = vector_square(self.r1[i][j][k]) * vector_square(self.r2[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) ** 2
+                    self.b12[i][j][k] = np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * norm(self.r3[i][j][k])
+                    self.b23[i][j][k] = np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * norm(self.r1[i][j][k])
+                    self.b31[i][j][k] = np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * norm(self.r2[i][j][k])
+
+    def calc_eqn_param(self, i, j, k):
+        ans = np.empty(19, float)
+        ans[0] = -2 * (self.a1[i][j][k] + self.a2[i][j][k] + self.a3[i][j][k])
+        ans[1] = ans[2] = self.a1[i][j][k]
+        ans[3] = ans[4] = self.a2[i][j][k]
+        ans[5] = ans[6] = self.a3[i][j][k]
+        ans[7] = ans[8] = 0.5 * self.b12[i][j][k]
+        ans[9] = ans[10] = -ans[8]
+        ans[11] = ans[12] = 0.5 * self.b23[i][j][k]
+        ans[13] = ans[14] = -ans[12]
+        ans[15] = ans[16] = 0.5 * self.b31[i][j][k]
+        ans[17] = ans[18] = -ans[16]
+        return ans
 
 
 class ThomasMiddlecoff3D(EllipticGrid3D):
@@ -544,62 +503,43 @@ class ThomasMiddlecoff3D(EllipticGrid3D):
         pass
 
     def calc_eqn_param(self, i, j, k):
-        ret = np.empty(19, float)
-        return ret
+        pass
 
-    def smooth(self):
-        var_num = (self.i_num - 2) * (self.j_num - 2) * (self.k_num - 2)
-        rhs = np.zeros((var_num, 3))
 
-        '''Solve the grid iteratively'''
-        iteration_cnt = 0
-        residual = sys.float_info.max
-        while not math.isclose(residual, 0, abs_tol=1e-5):
-            '''Calculate all coefficients'''
-            self.calc_all_param()
+class EllipticTestCase(unittest.TestCase):
+    def test_3d_laplace(self):
+        # Delta, R1, R2, U, V, W
+        data = [(-10, 4, 25, 16, 41, 21),
+                (-1, 2, 5, 16, 33, 16)]
 
-            '''Build Ax=b'''
-            eqn_idx = 0
-            rhs.fill(0.0)
-            row = []
-            col = []
-            val = []
-            for k in range(1, self.k_num - 1):
-                for j in range(1, self.j_num - 1):
-                    for i in range(1, self.i_num - 1):
-                        '''Calculate stencil coefficients'''
-                        ca = self.calc_eqn_param(i, j, k)
+        tfi_grid = []
+        laplace_grid = []
+        for dt in data:
+            tfi = LinearTFI2D(lambda u: np.array([(dt[0] + dt[1]) * (1 - u) + dt[2] * u, 0, 0]),
+                              lambda v: np.array([dt[1] * math.cos(math.pi * v) + dt[0], dt[1] * math.sin(math.pi * v), 0]),
+                              lambda u: np.array([(dt[0] - dt[1]) * (1 - u) - dt[2] * u, 0, 0]),
+                              lambda v: np.array([dt[2] * math.cos(math.pi * v), dt[2] * math.sin(math.pi * v), 0]))
+            tfi.calc_grid(uniform(dt[3]), uniform(dt[4]))
+            extruded_grid = np.empty((dt[3], dt[4], dt[5], 3))
+            for i in range(dt[3]):
+                for j in range(dt[4]):
+                    for k in range(dt[5]):
+                        extruded_grid[i][j][k] = tfi.grid[i][j]
+                        extruded_grid[i][j][k][2] = k
+            laplace_blk = Laplace3D(extruded_grid)
+            laplace_blk.smooth()
+            tfi_grid.append(extruded_grid)
+            laplace_grid.append(laplace_blk.grid)
 
-                        '''Construct the equation'''
-                        for t in range(19):
-                            ii = i + EllipticGrid3D.di[t]
-                            jj = j + EllipticGrid3D.dj[t]
-                            kk = k + EllipticGrid3D.dk[t]
-                            if self.is_special(ii, jj, kk):
-                                rhs[eqn_idx] -= ca[t] * self.r[ii][jj][kk]
-                            else:
-                                row.append(eqn_idx)
-                                col.append(self.internal_pnt_idx(ii, jj, kk))
-                                val.append(ca[t])
+        for i in range(len(data)):
+            msh = Plot3D()
+            msh.add(Plot3DBlock.construct_from_array(tfi_grid[i]))
+            msh.save('test_3d_eccentric-{}_tfi.xyz'.format(i))
+            msh.clear()
+            msh.add(Plot3DBlock.construct_from_array(laplace_grid[i]))
+            msh.save('test_3d_eccentric-{}_laplace.xyz'.format(i))
+        self.assertTrue(True)
 
-                        eqn_idx += 1
 
-            '''Construct the sparse coefficient matrix'''
-            scm = sparse.coo_matrix((val, (row, col)), shape=(var_num, var_num), dtype=float).tocsr()
-
-            '''Solve the grid'''
-            u = np.copy([dsolve.spsolve(scm, b) for b in rhs.transpose()]).transpose()
-
-            '''Update and calculate residual'''
-            eqn_idx = 0
-            residual = sys.float_info.min
-            for k in range(1, self.k_num - 1):
-                for j in range(1, self.j_num - 1):
-                    for i in range(1, self.i_num - 1):
-                        cur_residual = norm(u[eqn_idx] - self.r[i][j][k], np.inf)
-                        if cur_residual > residual:
-                            residual = cur_residual
-                        self.r[i][j][k] = u[eqn_idx]
-                        eqn_idx += 1
-
-            iteration_cnt += 1
+if __name__ == '__main__':
+    unittest.main()
