@@ -1410,12 +1410,12 @@ def make_one_arc(_p0, _t0, _p2, _t2, _p):
     v02 = p2 - p0
     if not np.cross(t0, t2).any():
         w1 = 0.0
-        alf0, alf2, p1 = line_intersection(p, t0, p0, v02, True)
+        alf0, alf2, q = line_intersection(p, t0, p0, v02, True)
         a = math.sqrt(alf2 / (1 - alf2))
         u = a / (1 + a)
         b = 2 * u * (1 - u)
         b = -alf0 * (1 - b) / b
-        p1 = b * t0
+        p1 = q + b * t0
     else:
         p1 = line_intersection(p0, t0, p2, t2)
         v1p = p - p1
@@ -3210,14 +3210,17 @@ class NURBSCrvTester(unittest.TestCase):
     def test_conic(self):
         # a,b of an ellipse
         data = [(10, 6), (20, 8), (50, 12), (10, 25)]
+        z = 10
 
         for k, dt in enumerate(data):
             a, b = dt
             arc1 = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Circle
             arc2 = ConicArc((0, b, 0), (-1, 0, 0), (0, -b, 0), (1, 0, 0), (-a, 0, 0))  # 1/2 Ellipse Circle
+            arc3 = ConicArc((0, b, z), (-1, 0, 0), (0, -b, z), (1, 0, 0), (-a, 0, z))  # 1/2 Ellipse Circle pan on Z
             iges_model = Model()
             iges_model.add(arc1.to_iges())
             iges_model.add(arc2.to_iges())
+            iges_model.add(arc3.to_iges())
             print(arc2)
             iges_model.save('test_conic-{}.igs'.format(k))
         self.assertTrue(True)
