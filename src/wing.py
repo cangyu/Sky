@@ -5,14 +5,14 @@ import numpy as np
 from numpy.linalg import norm
 from copy import deepcopy
 import matplotlib.pyplot as plt
-from tfi import LinearTFI2D, LinearTFI3D
-from plot3d import Plot3D, Plot3DBlock
-from smooth import Laplace2D, ThomasMiddlecoff2D, Laplace3D
-from fluent import XF_MSH, BCType
-from misc import pnt_dist, read_airfoil_pts, pnt_pan
-from spacing import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model, Entity116, Entity110
 from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
+from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential
+from grid import LinearTFI2D, LinearTFI3D
+from grid import Plot3D, Plot3DBlock
+from grid import Laplace2D, ThomasMiddlecoff2D, Laplace3D
+from fluent import XF_MSH, BCType
+from misc import pnt_dist, read_airfoil_pts, pnt_pan
 from settings import AIRFOIL_LIST
 
 
@@ -767,12 +767,12 @@ class Wing(object):
         tfi_grid = [blk[i].grid for i in range(len(blk))]
 
         '''Smoothing'''
-        print('Smoothing...')
-        for i in (6, 7, 8):
-            print('Smoothing blk{}...'.format(i))
-            l3d = Laplace3D(tfi_grid[i])
-            l3d.smooth()
-            tfi_grid[i] = np.copy(l3d.grid)
+        # print('Smoothing...')
+        # for i in (6, 7, 8):
+        #     print('Smoothing blk{}...'.format(i))
+        #     l3d = Laplace3D(tfi_grid[i])
+        #     l3d.smooth()
+        #     tfi_grid[i] = np.copy(l3d.grid)
 
         '''Build Plot3D Output'''
         for i in range(len(tfi_grid)):

@@ -1,15 +1,10 @@
 from copy import deepcopy
-
-from src.msh.plot3d import PLOT3D_Block, PLOT3D
-from src.msh.tfi import LinearTFI3D, LinearTFI2D
-
+from grid import Plot3DBlock, Plot3D, LinearTFI3D, LinearTFI2D
 from fluent import XF_MSH, BCType
-from nurbs import ClampedNURBSCrv, Line, Circle
-from nurbs import Surf, RuledSurf
-from spacing import *
-from src.aircraft.frame import BWBFrame
-from src.aircraft.wing import Wing, WingProfile
-from src.iges import IGES_Model
+from nurbs import Crv, Line, Circle, Surf, RuledSurf
+from aircraft import BWBFrame
+from wing import Wing, WingProfile
+from iges import Model
 
 try:
     from src.misc.catia import view
@@ -25,7 +20,7 @@ def report_process(idx):
 
 
 '''Plot3D Representation'''
-p3d_grid = PLOT3D()
+p3d_grid = Plot3D()
 
 '''Shape parameters'''
 c_root = 14

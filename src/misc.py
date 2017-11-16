@@ -8,6 +8,25 @@ sqrt2 = math.sqrt(2)
 sqrt3 = math.sqrt(3)
 
 
+def equal_check(*args):
+    if len(args) < 2:
+        return True
+
+    prev = np.copy(args[0])
+    for k in range(1, len(args)):
+        crd = np.copy(args[k])
+        if math.isclose(norm(prev - crd), 0.0, abs_tol=1e-8):
+            prev = crd
+        else:
+            return False
+
+    return True
+
+
+def share(p, a, b):
+    return (1 - p) * a + p * b
+
+
 def angle_from_3pnt(p0, p1, p2):
     a = np.copy(p0) - np.copy(p1)
     b = np.copy(p2) - np.copy(p1)

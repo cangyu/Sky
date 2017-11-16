@@ -1987,23 +1987,7 @@ def boundary_face_num(_dim, _f=None):
         raise ValueError("Invalid input.")
 
 
-def internal_face_num(_u, _v, _w=None):
-    """
-    Block内部Face数量
-    :param _u: U方向节点数
-    :type _u: int
-    :param _v: V方向节点数
-    :type _v: int
-    :param _w: W方向节点数
-    :type _w: int
-    :return: Number of internal faces
-    :rtype: int
-    """
 
-    if _w is None:
-        return (_u - 2) * (_v - 1) + (_v - 2) * (_u - 1)
-    else:
-        return (_u - 1) * (_v - 1) * (_w - 2) + (_u - 1) * (_v - 2) * (_w - 1) + (_u - 2) * (_v - 1) * (_w - 1)
 
 
 def boundary_node_num(_dim, _f=None):
@@ -2033,80 +2017,10 @@ def boundary_node_num(_dim, _f=None):
         raise ValueError("Invalid input.")
 
 
-def internal_node_num(_u, _v, _w=None):
-    return node_num(_u - 2, _v - 2) if _w is None else node_num(_u - 2, _v - 2, _w - 2)
 
 
-def is_boundary_pnt(_dim, _crd):
-    """
-    判断点是否是边界点
-    :param _dim: Block维度
-    :param _crd: 坐标
-    :return: 点是否在Block边界上
-    :rtype: bool
-    """
-
-    if len(_crd) == 2 and len(_dim) == 2:
-        _i, _j = _crd
-        _u, _v = _dim
-        return _i in (0, _u - 1) or _j in (0, _v - 1)
-    elif len(_crd) == 3 and len(_dim) == 3:
-        _i, _j, _k = _crd
-        _u, _v, _w = _dim
-        return _i in (0, _u - 1) or _j in (0, _v - 1) or _k in (0, _w - 1)
-    else:
-        raise ValueError("Invalid input")
 
 
-def face_num(_u, _v, _w=None):
-    """
-    计算单个Block中的Face数量
-    :param _u: U方向节点数
-    :type _u: int
-    :param _v: V方向节点数
-    :type _v: int
-    :param _w: W方向节点数
-    :type _w: int
-    :return: Number of faces.
-    :rtype: int
-    """
-
-    if _w is None:
-        return _u * (_v - 1) + _v * (_u - 1)
-    else:
-        return _u * (_v - 1) * (_w - 1) + _v * (_w - 1) * (_u - 1) + _w * (_u - 1) * (_v - 1)
-
-
-def cell_num(_u, _v, _w=None):
-    """
-    计算单个Block中的Cell数量
-    :param _u: U方向节点数
-    :type _u: int
-    :param _v: V方向节点数
-    :type _v: int
-    :param _w: W方向节点数
-    :type _w: int
-    :return: Number of cells.
-    :rtype: int
-    """
-
-    return (_u - 1) * (_v - 1) if _w is None else (_u - 1) * (_v - 1) * (_w - 1)
-
-
-def node_num(_u, _v, _w=None):
-    """
-    计算单个Block中的Node数量
-    :param _u: U方向节点数
-    :type _u: int
-    :param _v: V方向节点数
-    :type _v: int
-    :param _w: W方向节点数
-    :type _w: int
-    :return: Number of nodes.
-    :rtype: int
-    """
-
-    return _u * _v if _w is None else _u * _v * _w
 
 
 def dimensional_copy(dst, src, dim):
