@@ -1,5 +1,6 @@
 import unittest
 import os
+import time
 import math
 import numpy as np
 from numpy.linalg import norm
@@ -804,6 +805,7 @@ class Wing(object):
 #
 
 if __name__ == '__main__':
+    t_begin = time.time()
     # suite = unittest.TestSuite()
     # suite.addTest(AirfoilTestCase('test_3d_grid'))
     # runner = unittest.TextTestRunner()
@@ -821,3 +823,5 @@ if __name__ == '__main__':
     bunch = wing.gen_grid(60, 20, 100, 200, (60, 40, 200, 100, 90, 80, 40, 10))
     bunch[0].save('test.igs')
     bunch[1].save('test.xyz')
+    t_end = time.time()
+    print('{}s'.format(t_end - t_begin))

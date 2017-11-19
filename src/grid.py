@@ -1152,19 +1152,19 @@ class EllipticGrid3D(object):
         r1 = self.r_xi(i, j, k)
         r2 = self.r_eta(i, j, k)
         r3 = self.r_zeta(i, j, k)
-        return np.dot(r1, r3) * np.dot(r2, r3) - np.dot(r1, r2) * norm(r3)
+        return np.dot(r1, r3) * np.dot(r2, r3) - np.dot(r1, r2) * vector_square(r3)
 
     def beta23(self, i, j, k):
         r1 = self.r_xi(i, j, k)
         r2 = self.r_eta(i, j, k)
         r3 = self.r_zeta(i, j, k)
-        return np.dot(r2, r1) * np.dot(r3, r1) - np.dot(r2, r3) * norm(r1)
+        return np.dot(r2, r1) * np.dot(r3, r1) - np.dot(r2, r3) * vector_square(r1)
 
     def beta31(self, i, j, k):
         r1 = self.r_xi(i, j, k)
         r2 = self.r_eta(i, j, k)
         r3 = self.r_zeta(i, j, k)
-        return np.dot(r3, r2) * np.dot(r1, r2) - np.dot(r3, r1) * norm(r2)
+        return np.dot(r3, r2) * np.dot(r1, r2) - np.dot(r3, r1) * vector_square(r2)
 
     def jacobi(self, i, j, k):
         return np.linalg.det(np.matrix([self.r_xi(i, j, k), self.r_eta(i, j, k), self.r_zeta(i, j, k)])) ** 2
@@ -1261,9 +1261,9 @@ class Laplace3D(EllipticGrid3D):
                     self.a1[i][j][k] = vector_square(self.r2[i][j][k]) * vector_square(self.r3[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) ** 2
                     self.a2[i][j][k] = vector_square(self.r3[i][j][k]) * vector_square(self.r1[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) ** 2
                     self.a3[i][j][k] = vector_square(self.r1[i][j][k]) * vector_square(self.r2[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) ** 2
-                    self.b12[i][j][k] = np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * norm(self.r3[i][j][k])
-                    self.b23[i][j][k] = np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * norm(self.r1[i][j][k])
-                    self.b31[i][j][k] = np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * norm(self.r2[i][j][k])
+                    self.b12[i][j][k] = np.dot(self.r1[i][j][k], self.r3[i][j][k]) * np.dot(self.r2[i][j][k], self.r3[i][j][k]) - np.dot(self.r1[i][j][k], self.r2[i][j][k]) * vector_square(self.r3[i][j][k])
+                    self.b23[i][j][k] = np.dot(self.r2[i][j][k], self.r1[i][j][k]) * np.dot(self.r3[i][j][k], self.r1[i][j][k]) - np.dot(self.r2[i][j][k], self.r3[i][j][k]) * vector_square(self.r1[i][j][k])
+                    self.b31[i][j][k] = np.dot(self.r3[i][j][k], self.r2[i][j][k]) * np.dot(self.r1[i][j][k], self.r2[i][j][k]) - np.dot(self.r3[i][j][k], self.r1[i][j][k]) * vector_square(self.r2[i][j][k])
 
     def calc_eqn_param(self, i, j, k):
         ans = np.empty(19, float)
@@ -1819,20 +1819,13 @@ def on_boundary(pnt, shape):
     else:
         i, j, k = pnt
         u, v, w, _ = shape
-        return i == 0 or i == u - 1 or j == 0 or j == v - 1 or k == 0 or j == _w - 1
+        return i == 0 or i == u - 1 or j == 0 or j == v - 1 or k == 0 or j == w - 1
 
 
 class NeutralMapFile(object):
     def __init__(self, str_grid):
         self.blk = str_grid
         self.desc = []
-
-        self.shell_pnt_idx = []
-        self.shell_pnt_num = np.empty(blk_num, int)
-        for k in range(blk_num):
-            pn = boundary_node_num(blk_shape[k])
-            shell_pnt_num[k] = pn
-            shell_pnt_idx.append(np.zeros(pn, int))
 
     @property
     def grid(self):
@@ -1850,6 +1843,16 @@ class NeutralMapFile(object):
     def cell_num(self):
         return sum([blk_cell_num(self.blk[i].shape) for i in range(self.blk_num)])
 
+    @property
+    def pnt_num(self):
+        # TODO
+        return 0
+
+    @property
+    def face_num(self):
+        # TODO
+        return 0
+
     def add(self, entry):
         """
         Add topological or boundary info of the grid.
@@ -1860,7 +1863,7 @@ class NeutralMapFile(object):
 
         self.desc.append(entry)
 
-    def calc_topology(self):
+    def compute_topology(self):
         pass
 
     def save(self, fn):
@@ -1886,6 +1889,19 @@ class NeutralMapFile(object):
         for i in range(len(self.desc)):
             self.desc[i].write(f_out)
         f_out.close()
+
+    @property
+    def all_pnt(self):
+        ret = np.empty((self.pnt_num, 3), float)
+        return ret
+
+    def calc_pnt_idx(self, k, pnt):
+        # TODO
+        return 0
+
+    def calc_cell_idx(self, k, pnt, q):
+        # TODO
+        return 0
 
 
 class NMFTestCase(unittest.TestCase):
@@ -2199,6 +2215,50 @@ class XFCell(XFSection):
                 out_stream.write("({} ({} {} {} {} {}))".format(self.index, hex(self.zone_id)[2:], hex(self.first_index)[2:], hex(self.last_index)[2:], hex(self.cell_type)[2:], hex(self.elem_type)[2:]))
 
 
+def pnt_circle_x(pnt):
+    # [i, j, k], [i, j + 1, k], [i, j + 1, k + 1], [i, j, k + 1]
+    ret = np.array([pnt] * 4)
+    ret[1][1] += 1
+    ret[2][1] += 1
+    ret[2][2] += 1
+    ret[3][2] += 1
+    return ret
+
+
+def pnt_circle_y(pnt):
+    # [i, j, k], [i, j, k + 1], [i + 1, j, k + 1], [i + 1, j, k]
+    ret = np.array([pnt] * 4)
+    ret[1][2] += 1
+    ret[2][0] += 1
+    ret[2][2] += 1
+    ret[3][0] += 1
+    return ret
+
+
+def pnt_circle_z(pnt):
+    # [i, j, k], [i + 1, j, k], [i + 1, j + 1, k], [i, j + 1, k]
+    ret = np.array([pnt] * 4)
+    ret[1][0] += 1
+    ret[2][0] += 1
+    ret[2][1] += 1
+    ret[3][1] += 1
+    return ret
+
+
+def pnt_circle_h(pnt):
+    # [i, j], [i+1, j]
+    ret = np.array([pnt] * 2)
+    ret[1][0] += 1
+    return ret
+
+
+def pnt_circle_v(pnt):
+    # [i, j], [i, j+1]
+    ret = np.array([pnt] * 2)
+    ret[1][1] += 1
+    return ret
+
+
 class FluentMSH(object):
     def __init__(self):
         """
@@ -2248,42 +2308,119 @@ class FluentMSH(object):
         :rtype: FluentMSH
         """
 
+        msh = cls()
         dim = nmf.dim
+        zone_idx = 1
+        face_idx = 1
         cell_num = nmf.cell_num
         pnt_num = nmf.pnt_num
         face_num = nmf.face_num
 
-        msh = cls()
+        '''Declaration'''
         msh.add(XFHeader())
         msh.add(XFComment('Dimension:'))
         msh.add(XFDimension(dim))
         msh.add(XFComment("Cell Declaration:"))
         msh.add(XFCell.declaration(cell_num))
+        msh.add(XFComment("Point Declaration:"))
+        msh.add(XFNode.declaration(pnt_num))
+        msh.add(XFComment("Face Declaration:"))
+        msh.add(XFFace.declaration(face_num))
+
+        '''Cell'''
         msh.add(XFComment("Cell Info:"))
-        zone_idx = 1
-        msh.add(XFCell(zone_idx, 1, cell_num, CellType.Fluid, CellElement.Hexahedral))
+        msh.add(XFCell(zone_idx, 1, cell_num, CellType.Fluid, CellElement.Hexahedral if dim == 3 else CellElement.Quadrilateral))
+        zone_idx += 1
 
-        pnt_coordinate = np.empty((pnt_num, 3), float)
-        cnt = 0
-        for k in range(nmf.blk_num):
-            u, v, w, _ = nmf.blk[k].shape
-            cur_blk = nmf.blk[k]
-            for ck in range(1, w-1):
-                for cj in range(1, v-1):
-                    for ci in range(1, u-1):
-                        pnt_coordinate[cnt] = cur_blk[ci][cj][ck]
-                        cnt += 1
+        '''Point'''
+        msh.add(XFComment("Point Coordinates:"))
+        msh.add(XFNode(zone_idx, 1, pnt_num, NodeType.Any, dim, nmf.all_pnt))
+        zone_idx += 1
 
-        for k, blk in enumerate(blk_list):
-            pn = shell_pnt_num[k]
-            for pc in range(pn):
-                if shell_pnt_idx[k][pc] != 0:
-                    continue
+        '''Interior Face'''
+        if dim == 3:
+            for b in range(nmf.blk_num):
+                cur_face_total = blk_internal_face_num(nmf.blk[b].shape)
+                face = np.empty((cur_face_total, 6), int)
+                u, v, w, _ = nmf.blk[b].shape
+                n = 0
 
-                '''Record new pnt coordinate without duplication'''
-                ci, cj, ck = shell_pnt_coord_from_idx(k, pc)
-                dimensional_copy(pnt_desc[pnt_cnt], blk[ci][cj][ck], dim)
-                pnt_cnt += 1
+                for i in range(1, u - 1):
+                    for j in range(v - 1):
+                        for k in range(w - 1):
+                            p = np.array([i, j, k])
+                            crd_list = pnt_circle_x(p)
+                            for t in range(4):
+                                face[n][t] = nmf.calc_pnt_idx(k, crd_list[t])
+                            face[n][4] = nmf.calc_cell_idx(k, p, 1)  # c0
+                            face[n][5] = nmf.calc_cell_idx(k, p, 2)  # c1
+                            n += 1
+
+                for j in range(1, v - 1):
+                    for k in range(w - 1):
+                        for i in range(u - 1):
+                            p = np.array([i, j, k])
+                            crd_list = pnt_circle_y(p)
+                            for t in range(4):
+                                face[n][t] = nmf.calc_pnt_idx(k, crd_list[t])
+                            face[n][4] = nmf.calc_cell_idx(k, p, 1)  # c0
+                            face[n][5] = nmf.calc_cell_idx(k, p, 4)  # c1
+                            n += 1
+
+                for k in range(1, w - 1):
+                    for i in range(u - 1):
+                        for j in range(v - 1):
+                            p = np.array([i, j, k])
+                            crd_list = pnt_circle_z(p)
+                            for t in range(4):
+                                face[n][t] = nmf.calc_pnt_idx(k, crd_list[t])
+                            face[n][4] = nmf.calc_cell_idx(k, p, 1)  # c0
+                            face[n][5] = nmf.calc_cell_idx(k, p, 5)  # c1
+                            n += 1
+
+                msh.add(XFComment("Blk-{} interior faces:".format(b + 1)))
+                msh.add(XFFace(zone_idx, face_idx, face_idx + n - 1, BCType.Interior, FaceType.Quadrilateral, face))
+                face_idx += n
+                zone_idx += 1
+        else:
+            for b in range(nmf.blk_num):
+                cur_face_total = blk_internal_face_num(nmf.blk[b].shape)
+                face = np.empty((cur_face_total, 4), int)
+                u, v, _ = nmf.blk[b].shape
+                n = 0
+
+                for j in range(1, v - 1):
+                    for i in range(u - 1):
+                        p = np.array([i, j])
+                        crd_list = pnt_circle_h(p)
+                        face[n][0] = nmf.calc_pnt_idx(b, crd_list[0])
+                        face[n][1] = nmf.calc_pnt_idx(b, crd_list[1])
+                        face[n][2] = nmf.calc_cell_idx(b, p, 1)
+                        face[n][3] = nmf.calc_cell_idx(b, p, 4)
+                        n += 1
+
+                for i in range(1, u - 1):
+                    for j in range(v - 1):
+                        p = np.array([i, j])
+                        crd_list = pnt_circle_v(p)
+                        face[n][0] = nmf.calc_pnt_idx(b, crd_list[0])
+                        face[n][1] = nmf.calc_pnt_idx(b, crd_list[1])
+                        face[n][2] = nmf.calc_cell_idx(b, p, 2)
+                        face[n][3] = nmf.calc_cell_idx(b, p, 1)
+                        n += 1
+
+                '''Flush internal edges into MSH file'''
+                msh.add(XFComment("Blk-{} internal edges:".format(b)))
+                msh.add(XFFace(zone_idx, face_idx, face_idx + n - 1, BCType.Interior, FaceType.Linear, face))
+                face_idx += n
+                zone_idx += 1
+
+        '''Boundary Face'''
+        for entry in nmf.desc:
+            if entry.type == 'ONE_TO_ONE':
+                pass
+            else:
+                pass
 
         return msh
 
