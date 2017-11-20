@@ -1822,10 +1822,80 @@ def on_boundary(pnt, shape):
         return i == 0 or i == u - 1 or j == 0 or j == v - 1 or k == 0 or j == w - 1
 
 
+def blk_node_idx(pnt, shape):
+    """
+    The node index in a single block(2D or 3D).
+    :param pnt: Coordinate of the point.
+    :param shape: Shape of the block.
+    :return: Index with (I > J > K) preference, starting from 0.
+    :rtype: int
+    """
+
+    if len(shape) == 3:
+        u, v, _ = shape
+        i, j = pnt
+        return j * u + i
+    elif len(shape) == 4:
+        u, v, w, _ = shape
+        i, j, k = pnt
+        return k * u * v + j * u + i
+    else:
+        raise ValueError('Invalid shape input.')
+
+
+def blk_internal_node_idx(pnt, shape):
+    """
+    The node index within a block, counting from the internal.
+    :param pnt: Coordinate of the point.
+    :param shape: Shape of the block.
+    :return: Internal index of the point with (I > J > K) preference, starting from 0.
+    :rtype: int
+    """
+
+    if len(shape) == 3:
+        u, v, _ = shape
+        i, j = pnt
+        return blk_node_idx((i - 1, j - 1), (u - 2, v - 2))
+    elif len(shape) == 4:
+        u, v, w, _ = shape
+        i, j, k = pnt
+        return blk_node_idx((i - 1, j - 1, k - 1), (u - 2, v - 2, w - 2))
+    else:
+        raise ValueError('Invalid shape input.')
+
+
+def boundary_pnt_caste(shape):
+    """
+    Calculate the caste of the boundary points on a single block.
+    Used to serialize all the boundary points.
+    :param shape: The shape of the block.
+    :return: Caste of the boundary points.
+    """
+
+    u, v, w, _ = shape
+    ret = np.empty(6, int)
+    ret[0] = ret[1] = w * v
+    ret[2] = ret[3] = (u - 2) * w
+    ret[4] = ret[5] = (u - 2) * (v - 2)
+    for i in range(1, 6):
+        ret[i] += ret[i - 1]
+    return ret
+
+
 class NeutralMapFile(object):
     def __init__(self, str_grid):
         self.blk = str_grid
         self.desc = []
+
+        self.internal_pnt_num = np.array([blk_internal_node_num(str_grid[i].shape) for i in range(self.blk_num)])
+        self.boundary_pnt_num = np.array([blk_node_num(str_grid[i].shape) for i in range(self.blk_num)])
+        self.boundary_pnt_num -= self.internal_pnt_num
+        self.boundary_pnt_idx = [np.zeros(self.boundary_pnt_num[i], int) for i in range(self.blk_num)]
+        for i in range(1, self.blk_num):
+            self.internal_pnt_num[i] += self.internal_pnt_num[i - 1]
+            self.boundary_pnt_num[i] += self.boundary_pnt_num[i - 1]
+
+        self.boundary_pnt_caste = np.array([boundary_pnt_caste(self.blk[i].shape) for i in range(self.blk_num)])
 
     @property
     def grid(self):
@@ -1864,6 +1934,7 @@ class NeutralMapFile(object):
         self.desc.append(entry)
 
     def compute_topology(self):
+        # TODO
         pass
 
     def save(self, fn):
@@ -1892,12 +1963,109 @@ class NeutralMapFile(object):
 
     @property
     def all_pnt(self):
+        # TODO
         ret = np.empty((self.pnt_num, 3), float)
         return ret
 
-    def calc_pnt_idx(self, k, pnt):
-        # TODO
-        return 0
+    def calc_boundary_pnt_seq(self, b, pnt):
+        u, v, w, _ = self.blk[b].shape
+        i, j, k = pnt
+
+        if i == 0:
+            return j + k * v
+        elif i == u - 1:
+            return self.boundary_pnt_caste[b][0] + j + k * v
+        else:
+            if j == 0:
+                return self.boundary_pnt_caste[b][1] + k + (i - 1) * w
+            elif j == v - 1:
+                return self.boundary_pnt_caste[b][2] + k + (i - 1) * w
+            else:
+                if k == 0:
+                    return self.boundary_pnt_caste[b][3] + (i - 1) + (j - 1) * (u - 2)
+                elif k == w - 1:
+                    return self.boundary_pnt_caste[b][4] + (i - 1) + (j - 1) * (u - 2)
+                else:
+                    raise ValueError("Not a boundary pnt.")
+
+    def calc_pnt_idx(self, b, pnt):
+        """
+        Given a point and its blk idx, calculate the global index of that point.
+        :param b: Block index.
+        :type b: int
+        :param pnt: Coordinate of the point.
+        :return: The global index of the point.
+        :rtype: int
+        """
+
+        shape = self.blk[b].shape
+        if on_boundary(pnt, shape):
+            t = self.calc_boundary_pnt_seq(b, pnt)
+            return self.boundary_pnt_idx[b][t]
+        else:
+            base = 0 if b == 0 else self.internal_pnt_num[b - 1]
+            off = blk_internal_node_idx(pnt, shape)
+            return base + off
+
+    def calc_boundary_pnt(self, b, seq):
+        u, v, w, _ = self.blk[b].shape
+        if seq < self.boundary_pnt_caste[b][0]:
+            i = 0
+            j = seq % v
+            k = seq // v
+        elif seq < self.boundary_pnt_caste[b][1]:
+            cp = seq - self.boundary_pnt_caste[b][0]
+            i = u - 1
+            j = cp % v
+            k = cp // v
+        elif seq < self.boundary_pnt_caste[b][2]:
+            cp = seq - self.boundary_pnt_caste[b][1]
+            i = 1 + cp // w
+            j = 0
+            k = cp % w
+        elif seq < self.boundary_pnt_caste[b][3]:
+            cp = seq - self.boundary_pnt_caste[b][2]
+            i = 1 + cp // w
+            j = v - 1
+            k = cp % w
+        elif seq < self.boundary_pnt_caste[b][4]:
+            cp = seq - self.boundary_pnt_caste[b][3]
+            i = cp % (u - 2) + 1
+            j = cp // (u - 2) + 1
+            k = 0
+        elif seq < self.boundary_pnt_caste[b][5]:
+            cp = seq - self.boundary_pnt_caste[b][4]
+            i = cp % (u - 2) + 1
+            j = cp // (u - 2) + 1
+            k = w - 1
+        else:
+            raise ValueError("Invalid pnt index.")
+
+        return np.array([i, j, k])
+
+    def calc_pnt(self, idx):
+        """
+        Given a global point index, find the related point.
+        Note that there may be multiple answers.
+        :param idx: Global point index within the grid.
+        :type idx: int
+        :return: (b, (i, j, k))+, b is the block index, and (i, j, k) is the coordinate within that block.
+        """
+
+        ret = []
+        if idx >= self.internal_pnt_num[-1]:
+            base = self.internal_pnt_num[-1]
+            off = idx - base
+        else:
+            b=0
+            while idx >= self.internal_pnt_num[b]:
+                b+=1
+
+
+
+
+
+        return ret
 
     def calc_cell_idx(self, k, pnt, q):
         # TODO
@@ -2329,7 +2497,8 @@ class FluentMSH(object):
 
         '''Cell'''
         msh.add(XFComment("Cell Info:"))
-        msh.add(XFCell(zone_idx, 1, cell_num, CellType.Fluid, CellElement.Hexahedral if dim == 3 else CellElement.Quadrilateral))
+        cell_type = CellElement.Hexahedral if dim == 3 else CellElement.Quadrilateral
+        msh.add(XFCell(zone_idx, 1, cell_num, CellType.Fluid, cell_type))
         zone_idx += 1
 
         '''Point'''
@@ -2409,7 +2578,6 @@ class FluentMSH(object):
                         face[n][3] = nmf.calc_cell_idx(b, p, 1)
                         n += 1
 
-                '''Flush internal edges into MSH file'''
                 msh.add(XFComment("Blk-{} internal edges:".format(b)))
                 msh.add(XFFace(zone_idx, face_idx, face_idx + n - 1, BCType.Interior, FaceType.Linear, face))
                 face_idx += n
