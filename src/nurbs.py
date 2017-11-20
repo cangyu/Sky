@@ -9,8 +9,366 @@ from scipy.interpolate import BSpline, make_interp_spline
 from scipy.linalg import solve
 from scipy.misc import comb
 from iges import Model, Entity110, Entity126, Entity128
-from transform import Quaternion, DCM
 from misc import angle_from_3pnt, array_smart_copy, normalize, pnt_dist, read_airfoil_pts, sqrt2, sqrt3
+
+"""
+Implementation of the coordinate-transforming utility.
+
+TODO:
+Add more testing cases.
+"""
+
+
+class Quaternion(object):
+    symbol = ['', 'i', 'j', 'k']
+
+    def __init__(self, w: float, x: float, y: float, z: float):
+        """
+        Quaternion q = w + x*i + y*j + z*k
+        Unit Quaternion: q = w + x*i + y*j + z*k = cos(theta/2) + sin(theta/2) * u
+        """
+
+        self.comp = np.array([w, x, y, z])
+
+    @property
+    def w(self):
+        return self.comp[0]
+
+    @w.setter
+    def w(self, _w):
+        self.comp[0] = _w
+
+    @property
+    def x(self):
+        return self.comp[1]
+
+    @x.setter
+    def x(self, _x):
+        self.comp[1] = _x
+
+    @property
+    def y(self):
+        return self.comp[2]
+
+    @y.setter
+    def y(self, _y):
+        self.comp[2] = _y
+
+    @property
+    def z(self):
+        return self.comp[3]
+
+    @z.setter
+    def z(self, _z):
+        self.comp[3] = _z
+
+    @property
+    def real(self):
+        return self.comp[0]
+
+    @property
+    def img(self):
+        return self.comp[1:]
+
+    @property
+    def conj(self):
+        return Quaternion(self.comp[0], -self.comp[1], -self.comp[2], -self.comp[3])
+
+    @property
+    def norm(self):
+        return math.sqrt(sum(map(lambda t: t ** 2, self.comp)))
+
+    @property
+    def inv(self):
+        """
+        q^-1 = q' / |q|^2
+        """
+
+        return self.conj / sum(map(lambda t: t ** 2, self.comp))
+
+    @classmethod
+    def from_array(cls, _v):
+        return cls(_v[0], _v[1], _v[2], _v[3])
+
+    @classmethod
+    def from_real_img(cls, _real, _img):
+        return cls(_real, _img[0], _img[1], _img[2])
+
+    @classmethod
+    def from_3d(cls, x):
+        return Quaternion(0, x[0], x[1], x[2])
+
+    def __str__(self):
+        ans = ''
+        first_valid = False
+        for i in range(4):
+            if not math.isclose(self.comp[i], 0):
+                ans += ' ' if first_valid else ''
+                ans += '+' if first_valid and self.comp[i] > 0 else ''
+                ans += '{}{}'.format(self.comp[i], Quaternion.symbol[i])
+                if not first_valid:
+                    first_valid = True
+
+        return ans
+
+    def __eq__(self, other):
+        return (self.comp == other.comp).all()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __add__(self, other):
+        return Quaternion.from_array(self.comp + other.comp)
+
+    def __iadd__(self, other):
+        self.comp += other.comp
+
+    def __sub__(self, other):
+        return Quaternion.from_array(self.comp - other.comp)
+
+    def __isub__(self, other):
+        self.comp -= other.comp
+
+    def __mul__(self, other):
+        if isinstance(other, Quaternion):
+            a1 = self.real
+            a2 = other.real
+            v1 = self.img
+            v2 = other.img
+            a = a1 * a2 - np.inner(v1, v2)
+            t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+            return Quaternion.from_real_img(a, t)
+        else:
+            return Quaternion.from_array(self.comp * other)
+
+    def __imul__(self, other):
+        if isinstance(other, Quaternion):
+            a1 = self.real
+            a2 = other.real
+            v1 = self.img
+            v2 = other.img
+            a = a1 * a2 - np.inner(v1, v2)
+            t = a1 * v2 + a2 * v1 + np.cross(v1, v2)
+            self.w = a
+            self.x = t[0]
+            self.y = t[1]
+            self.z = t[2]
+        else:
+            self.comp *= other
+
+    def __truediv__(self, other):
+        """
+        a / b = a * b.inv
+        """
+
+        if isinstance(other, Quaternion):
+            return self * other.inv
+        else:
+            return Quaternion.from_array(self.comp / other)
+
+    def __itruediv__(self, other):
+        if isinstance(other, Quaternion):
+            self.__imul__(other.inv)
+        else:
+            self.comp /= other
+
+    @property
+    def is_unit(self):
+        return math.isclose(self.norm, 1.0)
+
+    def normalize(self):
+        self.comp /= self.norm
+
+    @property
+    def theta(self):
+        return 2 * math.acos(self.comp[0])
+
+    @property
+    def u(self):
+        st2 = math.sin(self.theta / 2)
+        return np.array([self.comp[1] / st2, self.comp[2] / st2, self.comp[3] / st2])
+
+    @classmethod
+    def from_u_theta(cls, u, theta):
+        t2 = theta / 2
+        st = math.sin(t2)
+        ct = math.cos(t2)
+        nu = normalize(u)
+        return cls(ct, st * nu[0], st * nu[1], st * nu[2])
+
+    def rotate(self, x):
+        """
+        定义一个3维空间中的线性变换: Lq(x) = q * x * q', 其中'*'按照四元数的乘法定义，将x看成一个纯四元数，q'是q的共轭
+        有3个性质：
+        1: Lq(x+y) = Lq(x) + Lq(y) , Lq(a * x) = a * Lq(x) 其中x,y为3维向量，a为实数，该性质表明这是一个线性变换
+        2：若q为单位4元数，则 ||Lq(x)|| = ||x||
+        3：若q为单位4元数 且x平行于q的虚部, 则 Lq(x) = x
+        特别地，若q为单位4元数，Lq(x)为Rodriguez旋转公式，结果为x绕u逆时针旋转theta后的向量x'
+        """
+
+        if self.is_unit:
+            ct = math.cos(self.theta)
+            st = math.sin(self.theta)
+            u = self.u
+            return ct * x + (1 - ct) * np.dot(u, x) * u + st * np.cross(u, x)
+        else:
+            a = self.real
+            v = self.img
+            return (a ** 2 - sum(map(lambda _t: _t ** 2, v))) * x + 2 * np.dot(v, x) * v + 2 * a * np.cross(v, x)
+
+    @property
+    def rot_matrix(self):
+        s, a, b, c = self.comp
+        a2 = a ** 2
+        b2 = b ** 2
+        c2 = c ** 2
+        ab = a * b
+        sc = s * c
+        ac = a * c
+        sb = s * b
+        bc = b * c
+        sa = s * a
+
+        return np.array([[1 - 2 * (b2 + c2), 2 * (ab - sc), 2 * (ac + sb)],
+                         [2 * (ab + sc), 1 - 2 * (a2 + c2), 2 * (bc - sa)],
+                         [2 * (ac - sb), 2 * (bc + sa), 1 - 2 * (a2 + b2)]])
+
+    @classmethod
+    def from_rot_matrix(cls, r, positive=True):
+        a = 0.5 * math.sqrt(1 + r[0][0] + r[1][1] + r[2][2]) * (1.0 if positive else -1.0)
+        b = 0.25 * (r[2][1] - r[1][2]) / a
+        c = 0.25 * (r[0][2] - r[2][0]) / a
+        d = 0.25 * (r[1][0] - r[0][1]) / a
+        return cls(a, b, c, d)
+
+
+class EulerAngle(object):
+    def __init__(self, a, b, g):
+        """
+        Intrinsic Rotation
+        :param a: rotation angle around z-axis
+        :param b: rotation angle around y-axis
+        :param g: rotation angle around x-axis
+        """
+
+        self.alpha = a
+        self.beta = b
+        self.gamma = g
+
+    @property
+    def roll(self):
+        return self.gamma
+
+    @roll.setter
+    def roll(self, val):
+        self.gamma = val
+
+    @property
+    def pitch(self):
+        return self.beta
+
+    @pitch.setter
+    def pitch(self, val):
+        self.beta = val
+
+    @property
+    def yaw(self):
+        return self.alpha
+
+    @yaw.setter
+    def yaw(self, val):
+        self.alpha = val
+
+    @property
+    def z_rot_matrix(self):
+        sa = math.sin(self.alpha)
+        ca = math.cos(self.alpha)
+
+        return np.matrix([ca, -sa, 0],
+                         [sa, ca, 0],
+                         [0, 0, 1])
+
+    @property
+    def y_rot_matrix(self):
+        sb = math.sin(self.beta)
+        cb = math.cos(self.beta)
+
+        return np.matrix([[cb, 0, sb],
+                          [0, 1, 0],
+                          [-sb, 0, cb]])
+
+    @property
+    def x_rot_matrix(self):
+        sg = math.sin(self.gamma)
+        cg = math.cos(self.gamma)
+
+        return np.matrix([[1, 0, 0],
+                          [0, cg, -sg],
+                          [0, sg, cg]])
+
+    @property
+    def rot_matrix(self):
+        """
+        R(alpha, beta, gamma) = Rz(alpha) * Ry(beta) * Rx(gamma)
+        :return: Rotation matrix
+        """
+
+        sa = math.sin(self.alpha)
+        ca = math.cos(self.alpha)
+        sb = math.sin(self.beta)
+        cb = math.cos(self.beta)
+        sg = math.sin(self.gamma)
+        cg = math.cos(self.gamma)
+
+        return np.matrix([[ca * cb, ca * sb * sg - sa * cg, ca * sb * cg + sa * sg],
+                          [sa * cb, sa * sb * sg + ca * cg, sa * sb * cg - ca * sg],
+                          [-sb, cb * sg, cb * cg]])
+
+
+class DCM(object):
+    def __init__(self, base1, base2):
+        """
+        Direction Cosine Matrix
+        :param base1: 起始坐标轴标架
+        :param base2: 目标坐标轴标架
+        """
+
+        i1 = normalize(base1[0])
+        j1 = normalize(base1[1])
+        k1 = normalize(base1[2])
+        i2 = normalize(base2[0])
+        j2 = normalize(base2[1])
+        k2 = normalize(base2[2])
+
+        self.dcm = np.matrix([[np.dot(i1, i2), np.dot(i1, j2), np.dot(i1, k2)],
+                              [np.dot(j1, i2), np.dot(j1, j2), np.dot(j1, k2)],
+                              [np.dot(k1, i2), np.dot(k1, j2), np.dot(k1, k2)]])
+
+    @property
+    def rot_matrix(self):
+        return self.dcm
+
+
+class TransformTestCase(unittest.TestCase):
+    def test_quaternion(self):
+        # axis, angle
+        data = [[(1, 1, 1), 30],
+                [(1, 1, 1), 45],
+                [(1, 1, 1), 90],
+                [(1, 1, 1), 180]]
+
+        # w, x, y, z
+        ans = [(0.9659258, 0.1494292, 0.1494292, 0.1494292),
+               (0.9238795, 0.2209424, 0.2209424, 0.2209424),
+               (0.7071068, 0.4082483, 0.4082483, 0.4082483),
+               (0, 0.5773503, 0.5773503, 0.5773503)]
+
+        for k, dt in enumerate(data):
+            q = Quaternion.from_u_theta(dt[0], math.radians(dt[1]))
+            print(q)
+            for i in range(4):
+                self.assertTrue(math.isclose(ans[k][i], q.comp[i], abs_tol=1e-7))
+
 
 """
 Implementation of NURBS Basis, Crv, Surf.
@@ -233,6 +591,78 @@ def all_basis_val(u, p, u_vec):
         ans[k] = bfv[k - (i - p)]
 
     return ans
+
+
+class BasicUtilityTestCase(unittest.TestCase):
+    def test_find_span(self):
+        # n, p, u, u_vec
+        data = [[2, 2, 0, (0, 0, 0, 1, 1, 1)],
+                [2, 2, 1, (0, 0, 0, 1, 1, 1)],
+                [9, 3, 0.0, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.1, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.2, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.3, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.5, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.6, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.7, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 0.8, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
+                [9, 3, 1.0, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)]]
+        ans = [2, 2, 3, 5, 5, 6, 8, 8, 9, 9, 9]
+
+        for k, dt in enumerate(data):
+            cur_ans = find_span(dt[0], dt[1], dt[2], dt[3])
+            self.assertEqual(cur_ans, ans[k])
+
+    def test_all_basis_val(self):
+        # u, p, u_vec
+        data = [[2.5, 0, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)],
+                [2.5, 1, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)],
+                [2.5, 2, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)]]
+        ans = [[0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0.5, 0.5, 0, 0, 0, 0],
+               [0, 0, 1 / 8, 3 / 4, 1 / 8, 0, 0, 0]]
+
+        for i in range(len(data)):
+            cur_ans = all_basis_val(data[i][0], data[i][1], data[i][2])
+            for j in range(len(ans[i])):
+                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
+
+    def test_line_intersection(self):
+        # p1, u1, p2, u2
+        data = [[(0, 5, 0), (1, 0, 0), (0, 5, 0), (0, 0, 1)],
+                [(0, 0, 0), (1, 1, 0), (5, 0, 0), (1, -1, 0)],
+                [(0, 1, 0), (0, 0, 1), (0, 2, 0), (1, 0, 0)]]
+        ans = [(0, 5, 0),
+               (2.5, 2.5, 0),
+               None]
+
+        for i in range(len(data)):
+            try:
+                cur_ans = line_intersection(data[i][0], data[i][1], data[i][2], data[i][3])
+            except AssertionError as e:
+                print("Exception caught! with msg: \'{}\'".format(e))
+            else:
+                for j in range(len(ans[i])):
+                    self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
+
+    def test_point_to_line(self):
+        # t, p, u
+        data = [[(0, 0, 0), (5, 0, 0), (1, -1, 0)],
+                [(0, 2, 0), (0, 1, 0), (0, 0, 1)],
+                [(3, 4, 5), (2, 2, 2), (0, 0, 0)]]
+
+        ans = [(2.5, 2.5, 0),
+               (0, 1, 0),
+               None]
+
+        for i in range(len(ans)):
+            try:
+                cur_ans = point_to_line(data[i][0], data[i][1], data[i][2])
+            except AssertionError as e:
+                print("Exception caught! with msg: \'{}\'".format(e))
+            else:
+                for j in range(len(ans[i])):
+                    self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
 
 
 class Crv(object):
@@ -1592,6 +2022,468 @@ def point_inverse(c, p, dim=None, e1=1e-7):
     return u0
 
 
+class NURBSCrvTestCase(unittest.TestCase):
+    def test_construction(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1],
+                 [0, 0, 0, 0.5, 1, 1, 1],
+                 [0, 0, 0, 0, 1, 1, 1, 1],
+                 [0, 0, 0, 0, 1, 1, 1, 1],
+                 [0, 0, 1, 1]]
+        pnt = [[[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]],
+               [[1, 0], [1, 1], [-1, 1], [-1, 0]],
+               [[1, 0], [1, 2], [-1, 2], [-1, 0]],
+               [[sqrt3 / 2, 1 / 2], [sqrt3, -3], [-sqrt3, -3], [-sqrt3 / 2, 1 / 2]],
+               [[10, 10], [100, 100]]]
+        w = [[1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1],
+             [1, 0.5, 0.5, 1],
+             [1, 1 / 3, 1 / 3, 1],
+             [1, 1 / 6, 1 / 6, 1],
+             [1, 1]]
+        ans = ['circle1.igs', 'circle2.igs', 'circle3.igs', 'circle4.igs', 'line.igs']
+
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(pnt) == len(w) == len(ans))
+
+        iges_model = Model()
+        for k in range(len(ans)):
+            iges_model.clear()
+            geom = Crv(u_vec[k], list(map(lambda _p, _w: to_homogeneous(np.append(_p, [0]), _w), pnt[k], w[k])))
+            iges_model.add(geom.to_iges())
+            iges_model.save(ans[k])
+            print(repr(geom))
+
+    def test_call(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 0, 1, 2, 3, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0), (3, 2, 0), (4, 1, 0), (5, -1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 4, 1, 1, 1],
+             [1, 1, 2]]
+
+        # u, derivative
+        data = [[(0, 0), (1, 0), (3, 0)],
+                [(0, 1), (0, 2), (1, 1)]]
+        ans = [[(0, 0, 0), (7 / 5, 6 / 5, 0), (5, -1, 0)],
+               [(0, 2, 0), (-4, 0, 0), (-1, 0, 0)]]
+
+        # Just used to avoid warning
+        self.assertTrue(len(u_vec) == len(p) == len(w) == len(data) == len(ans))
+
+        for i in range(len(data)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda t: crv(t[0], t[1]), data[i]))
+            np.testing.assert_array_equal(cur_ans, ans[i])
+
+    def test_length(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        ans = [sqrt2, math.pi / 2]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = crv.length
+            self.assertTrue(math.isclose(cur_ans, ans[i]))
+
+    def test_curvature(self):
+        # knot, ctrl points, weights
+        u_vec = [[0, 0, 3, 3],
+                 [0, 0, 0, 1, 1, 1]]
+        p = [[(0, 0, 0), (1, 1, 0)],
+             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
+        w = [[1, 1],
+             [1, 1, 2]]
+
+        data = [[0, 1.5, 3],
+                [0, 0.5, 1]]
+        ans = [[0, 0, 0],
+               [1, 1, 1]]
+
+        for i in range(len(ans)):
+            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
+            cur_ans = list(map(lambda u: crv.curvature(u), data[i]))
+            for j in range(len(cur_ans)):
+                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
+
+    def test_reverse(self):
+        u_vec = [0, 0, 0, 1, 3, 6, 6, 8, 8, 8]
+        s_vec = [0, 0, 0, 2, 2, 5, 7, 8, 8, 8]
+        p = [(1, 2, 2), (2, 4, 8), (3, 9, 27), (4, 16, 64), (5, 25, 125), (6, 36, 216)]
+        q = [(6, 36, 216), (5, 25, 125), (4, 16, 64), (3, 9, 27), (2, 4, 8), (1, 2, 2)]
+        w = [1, 1, 1, 1, 1, 1]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        crv.reverse()
+        self.assertTrue(np.array_equal(crv.U, s_vec))
+        self.assertTrue(np.array_equal(crv.cpt, q))
+
+    def test_pan(self):
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        pan_dir = (3, 4, 5)
+        ans = [(4, 4, 5), (4, 5, 5), (3, 5, 5)]
+
+        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+        iges_model = Model()
+        iges_model.add(crv.to_iges())
+        crv.pan(pan_dir)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_pan.igs')
+
+        self.assertTrue(np.array_equal(crv.cpt, ans))
+        self.assertTrue(np.array_equal(crv.weight, w))
+
+    def test_rotate(self):
+        # knot, ctrl points, weights
+        u_vec = [0, 0, 0, 1, 1, 1]
+        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
+        w = [1, 1, 2]
+
+        # anchor point, rotation axis, rotation angle
+        data = [[(0, 0, 0), (1, 1, 1), 30],
+                [(0, 0, 0), (1, 1, 1), 45],
+                [(0, 0, 0), (1, 1, 1), 90],
+                [(0, 0, 0), (1, 1, 1), 180]]
+        ans = [[(0.9106836, 1 / 3, -0.2440169), (2 / 3, 1.2440169, 0.0893164), (-0.2440169, 0.9106836, 1 / 3)],
+               [(0.8047379, 0.5058793, -0.3106172), (0.4941207, 1.3106172, 0.1952621), (-0.3106172, 0.8047379, 0.5058793)],
+               [(1 / 3, 0.9106836, -0.2440169), (0.0893164, 1.2440169, 2 / 3), (-0.2440169, 1 / 3, 0.9106836)],
+               [(-1 / 3, 2 / 3, 2 / 3), (1 / 3, 1 / 3, 4 / 3), (2 / 3, -1 / 3, 2 / 3)]]
+
+        # Just used to avoid warning
+        self.assertTrue(len(data) == len(ans))
+
+        for i, rt in enumerate(data):
+            iges_model = Model()
+            crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
+            # print(crv)
+            iges_model.add(crv.to_iges())
+            crv.rotate(rt[0], rt[1], rt[2])
+            # print(crv)
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_rotate-{}.igs'.format(i))
+
+            np.testing.assert_array_almost_equal(crv.cpt, ans[i])
+
+    def test_insert_knot(self):
+        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        data = [(2.5, 1),  # 插入1个不在原节点矢量中的节点
+                (2, 1),  # 插入1个在原节点矢量中的节点
+                (2.5, 3),  # 插入1个不在原节点矢量中的节点3次
+                (2, 2),  # 插入1个在原节点矢量中的节点2次
+                (2.5, 4)]  # 插入1个不在原节点矢量中的节点4次
+        ans = ['test_insert-0.igs',
+               'test_insert-1.igs',
+               'test_insert-2.igs',
+               'test_insert-3.igs',
+               None]
+
+        for i in range(len(data)):
+            crv = Crv(u_vec, pw)
+            try:
+                crv.insert_knot(data[i][0], data[i][1])
+            except ValueError as e:
+                print('Ok, illegal insertion detected with following msg:\n{}'.format(e))
+            else:
+                iges_model = Model()
+                iges_model.add(crv.to_iges())
+                iges_model.save(ans[i])
+
+        # Should yield identical results
+        crv1 = Crv(u_vec, pw)
+        crv2 = Crv(u_vec, pw)
+        crv1.insert_knot(2)
+        crv1.insert_knot(2)
+        crv2.insert_knot(2, 2)
+
+        self.assertTrue(np.array_equal(crv1.U, crv2.U))
+        self.assertTrue(np.array_equal(crv1.Pw, crv2.Pw))
+
+    def test_refine(self):
+        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        data = [2.5, 2.5, 2.5]
+        ans = [0, 0, 0, 0, 1, 2, 2.5, 2.5, 2.5, 3, 4, 5, 5, 5, 5]
+
+        crv = Crv(u_vec, pw)
+        iges_model = Model()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_refine_original.igs')
+        crv.refine(data)
+        iges_model.clear()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_refine_after.igs')
+        self.assertTrue(np.array_equal(crv.U, ans))
+
+    def test_elevate(self):
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_elevate_before.igs')
+        crv.elevate(2)
+        iges_model.clear()
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_elevate_after.igs')
+
+        self.assertTrue(True)
+
+    def test_reparameterization(self):
+        # Knot, ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.3, 0.7, 1.0, 1.0, 1.0, 1.0]
+        pw = [(0, 3.14, 0, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        param = [(2, 1, 3, 2),
+                 (2, 0, 3, 1)]
+
+        iges_model = Model()
+        for k, dt in enumerate(param):
+            iges_model.clear()
+            crv = Crv(u_vec, pw)
+            iges_model.add(crv.to_iges())
+            crv.reparameterization(dt[0], dt[1], dt[2], dt[3])
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_reparameterization-{}.igs'.format(k))
+
+        self.assertTrue(True)
+
+    def test_split(self):
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_split_before.igs')
+
+        iges_model.clear()
+        crv_seg = Crv.split(crv, [0.2, 0.6])
+        for seg in crv_seg:
+            iges_model.add(seg.to_iges())
+        iges_model.save('test_split_after.igs')
+
+        self.assertTrue(True)
+
+    def test_decompose(self):
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+
+        iges_model = Model()
+        crv = Crv(u_vec, pw)
+        iges_model.add(crv.to_iges())
+        iges_model.save('test_decompose_before.igs')
+
+        iges_model.clear()
+        crv_seg = Crv.decompose(crv)
+        for seg in crv_seg:
+            iges_model.add(seg.to_iges())
+        iges_model.save('test_decompose_after.igs')
+
+        self.assertTrue(True)
+
+    def test_point_inverse(self):
+        # Knot , ctrl_pnt
+        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
+        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
+        crv = Crv(u_vec, pw)
+
+        data = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.9, 1]
+        for u in data:
+            self.assertEqual(u, point_inverse(crv, crv(u)))
+
+    def test_spline(self):
+        # airfoil, degree, knot method
+        data = [('M6', 3, 'chord'), ('M6', 3, 'centripetal'), ('M6', 5, 'chord'), ('M6', 5, 'centripetal'),
+                ('NACA0012', 3, 'chord'), ('NACA0012', 3, 'centripetal'), ('NACA0012', 5, 'chord'), ('NACA0012', 5, 'centripetal'),
+                ('RAE2822', 3, 'chord'), ('RAE2822', 3, 'centripetal'), ('RAE2822', 5, 'chord'), ('RAE2822', 5, 'centripetal')]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            spline_foil = Spline(read_airfoil_pts(dt[0]))
+            iges_model.clear()
+            iges_model.add(spline_foil.to_iges())
+            iges_model.save('test_spline-{}_{}_{}_{}.igs'.format(k, dt[0], dt[1], dt[2]))
+
+        self.assertTrue(True)
+
+    def test_global_interp(self):
+        # airfoil, degree, knot method
+        data = [('M6', 3, 'chord'), ('M6', 3, 'centripetal'), ('M6', 5, 'chord'), ('M6', 5, 'centripetal'),
+                ('NACA0012', 3, 'chord'), ('NACA0012', 3, 'centripetal'), ('NACA0012', 5, 'chord'), ('NACA0012', 5, 'centripetal'),
+                ('RAE2822', 3, 'chord'), ('RAE2822', 3, 'centripetal'), ('RAE2822', 5, 'chord'), ('RAE2822', 5, 'centripetal')]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            crv = GlobalInterpolatedCrv(read_airfoil_pts(dt[0]), dt[1], dt[2])
+            iges_model.clear()
+            iges_model.add(crv.to_iges())
+            iges_model.save('test_global_interp_crv-{}_{}_{}_{}.igs'.format(k, dt[0], dt[1], dt[2]))
+
+        self.assertTrue(True)
+
+    def test_local_interp(self):
+        cr = 12
+        spn = 21
+
+        '''Front'''
+        fsl = np.array([1.2, 2.3, 2.45, 0])
+        fsl[-1] = spn - sum(fsl[:-1])
+        alpha = np.radians([50, 45, 33, 28])
+        fp = np.zeros((5, 3))
+        for i in range(4):
+            fp[i + 1] = fp[i]
+            fp[i + 1][0] += fsl[i] * math.tan(alpha[i])
+            fp[i + 1][2] += fsl[i]
+        ftv = np.array([[0, 0, 1],
+                        [math.sin(alpha[1]), 0, math.cos(alpha[1])],
+                        [math.sin(alpha[1]), 0, math.cos(alpha[1])],
+                        [math.sin(alpha[3]), 0, math.cos(alpha[3])],
+                        [math.sin(alpha[3]), 0, math.cos(alpha[3])]])
+
+        '''Tail'''
+        tsl = np.array([1.6, 4.0, 1.8, 0])
+        tsl[-1] = spn - sum(tsl[:-1])
+        beta = np.radians([-15, -48, -20, 15])
+        tp = np.zeros((5, 3))
+        tp[0][0] = cr
+        for i in range(4):
+            tp[i + 1] = tp[i]
+            tp[i + 1][0] += tsl[i] * math.tan(beta[i])
+            tp[i + 1][2] += tsl[i]
+        ttv = np.array([[0, 0, 1],
+                        [math.sin(beta[1]), 0, math.cos(beta[1])],
+                        [math.sin(beta[1]), 0, math.cos(beta[1])],
+                        [math.sin(beta[3]), 0, math.cos(beta[3])],
+                        [math.sin(beta[3]), 0, math.cos(beta[3])]])
+
+        '''Display'''
+        iges_model = Model()
+        fc = LocalCubicInterpolatedCrv(fp, ftv)
+        tc = LocalCubicInterpolatedCrv(tp, ttv)
+        iges_model.add(fc.to_iges())
+        iges_model.add(tc.to_iges())
+        iges_model.save('lci.igs')
+
+        self.assertTrue(True)
+
+    def test_circle(self):
+        # r, center, norm_vec
+        data = [[0.3, (0, 0, 0), (0, 0, 1)],
+                [0.3, (0, 0, 0), (0, 1, 0)],
+                [0.3, (0, 0, 0), (1, 0, 0)],
+                [0.3, (0, 0, 0), (1, 1, 1)],
+                [1.5, (-1, -1, -1), (0, 0, 1)],
+                [1.5, (-2.7, 0, 0), (0, 1, 0)],
+                [1.5, (0, -3.14, 0), (1, 0, 0)],
+                [1.5, (0, 0, -0.618), (1, 1, 1)]]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            arc = Circle.closed_circle(dt[0], dt[1], dt[2])
+            iges_model.clear()
+            iges_model.add(arc.to_iges())
+            iges_model.save('test_circle-{}_{}.igs'.format(k, dt[0]))
+
+        self.assertTrue(True)
+
+    def test_arc(self):
+        # center, start, theta, norm_vec
+        data = [[(0, 0, 0), (0.1, 0, 0), -20, (0, 0, 1)],
+                [(0, 0, 0), (0.1, 0, 0), 0, (0, 0, 1)],
+                [(0, 0, 0), (0.1, 0, 0), 3, (0, 0, 1)],
+                [(0, 0, 0), (0.2, 0, 0), 45, (0, 0, 1)],
+                [(0, 0, 0), (0.3, 0, 0), 65.2, (0, 0, 1)],
+                [(0, 0, 0), (0.4, 0, 0), 90, (0, 0, 1)],
+                [(0, 0, 0), (0.5, 0, 0), 120, (0, 0, 1)],
+                [(0, 0, 0), (0.6, 0, 0), 135, (0, 0, 1)],
+                [(0, 0, 0), (0.7, 0, 0), 150, (0, 0, 1)],
+                [(0, 0, 0), (0.8, 0, 0), 180, (0, 0, 1)],
+                [(0, 0, 0), (0.9, 0, 0), 195, (0, 0, 1)],
+                [(0, 0, 0), (1.0, 0, 0), 225, (0, 0, 1)],
+                [(0, 0, 0), (1.1, 0, 0), 240, (0, 0, 1)],
+                [(0, 0, 0), (1.2, 0, 0), 270, (0, 0, 1)],
+                [(0, 0, 0), (1.3, 0, 0), 315, (0, 0, 1)],
+                [(0, 0, 0), (1.4, 0, 0), 324, (0, 0, 1)],
+                [(0, 0, 0), (1.5, 0, 0), 360, (0, 0, 1)],
+                [(0, 0, 0), (0.1, 0, 0), 1024, (0, 0, 1)],
+                [(0.5, 1.2, 1.3), (0.1, 0, 0), 3, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.2, 0, 0), 45, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.3, 0, 0), 65.2, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.4, 0, 0), 90, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.5, 0, 0), 120, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.6, 0, 0), 135, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.7, 0, 0), 150, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.8, 0, 0), 180, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (0.9, 0, 0), 195, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.0, 0, 0), 225, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.1, 0, 0), 240, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.2, 0, 0), 270, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.3, 0, 0), 315, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.4, 0, 0), 324, (1, 1, 1)],
+                [(0.5, 1.2, 1.3), (1.5, 0, 0), 360, (1, 1, 1)]]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            try:
+                arc = Circle(dt[0], dt[1], dt[2], dt[3])
+            except ValueError as e:
+                print('Exception caught with msg: {}'.format(e))
+            else:
+                iges_model.add(arc.to_iges())
+
+        iges_model.save('test_arc.igs')
+        self.assertTrue(True)
+
+    def test_arc_2pnt(self):
+        # start, end, theta, norm_vec
+        data = [[(0, 0, 500), (0, 0, 100), 180, (0, 1, 0)],
+                [(0, 0, 50), (0, 0, 10), 180, (0, 1, 0)],
+                [(0, 0, 5), (0, 0, 1), 180, (0, 1, 0)]]
+
+        iges_model = Model()
+        for k, dt in enumerate(data):
+            arc = Circle.from_2pnt(dt[0], dt[1], dt[2], dt[3])
+            iges_model.clear()
+            iges_model.add(arc.to_iges())
+            iges_model.save('test_arc_pnt-{}.igs'.format(k))
+        self.assertTrue(True)
+
+    def test_conic(self):
+        # a,b of an ellipse
+        data = [(10, 6), (20, 8), (50, 12), (10, 25)]
+        z = 10
+
+        for k, dt in enumerate(data):
+            a, b = dt
+            arc1 = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Circle
+            arc2 = ConicArc((0, b, 0), (-1, 0, 0), (0, -b, 0), (1, 0, 0), (-a, 0, 0))  # 1/2 Ellipse Circle
+            arc3 = ConicArc((0, b, z), (-1, 0, 0), (0, -b, z), (1, 0, 0), (-a, 0, z))  # 1/2 Ellipse Circle pan on Z
+            iges_model = Model()
+            iges_model.add(arc1.to_iges())
+            iges_model.add(arc2.to_iges())
+            iges_model.add(arc3.to_iges())
+            print(arc2)
+            iges_model.save('test_conic-{}.igs'.format(k))
+        self.assertTrue(True)
+
+
 class Surf(object):
     def __init__(self, u, v, pts, rational=True):
         """
@@ -2692,541 +3584,7 @@ class LocalBiCubicInterpSurf(Surf):
         super(LocalBiCubicInterpSurf, self).__init__(u_knot, v_knot, cpt, rational=False)
 
 
-class BasicUtilityTester(unittest.TestCase):
-    def test_find_span(self):
-        # n, p, u, u_vec
-        data = [[2, 2, 0, (0, 0, 0, 1, 1, 1)],
-                [2, 2, 1, (0, 0, 0, 1, 1, 1)],
-                [9, 3, 0.0, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.1, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.2, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.3, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.5, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.6, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.7, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 0.8, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)],
-                [9, 3, 1.0, (0, 0, 0, 0, 0.1, 0.1, 0.3, 0.5, 0.5, 0.7, 1, 1, 1, 1)]]
-        ans = [2, 2, 3, 5, 5, 6, 8, 8, 9, 9, 9]
-
-        for k, dt in enumerate(data):
-            cur_ans = find_span(dt[0], dt[1], dt[2], dt[3])
-            self.assertEqual(cur_ans, ans[k])
-
-    def test_all_basis_val(self):
-        # u, p, u_vec
-        data = [[2.5, 0, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)],
-                [2.5, 1, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)],
-                [2.5, 2, (0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 5)]]
-        ans = [[0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-               [0, 0, 0, 0.5, 0.5, 0, 0, 0, 0],
-               [0, 0, 1 / 8, 3 / 4, 1 / 8, 0, 0, 0]]
-
-        for i in range(len(data)):
-            cur_ans = all_basis_val(data[i][0], data[i][1], data[i][2])
-            for j in range(len(ans[i])):
-                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
-
-    def test_line_intersection(self):
-        # p1, u1, p2, u2
-        data = [[(0, 5, 0), (1, 0, 0), (0, 5, 0), (0, 0, 1)],
-                [(0, 0, 0), (1, 1, 0), (5, 0, 0), (1, -1, 0)],
-                [(0, 1, 0), (0, 0, 1), (0, 2, 0), (1, 0, 0)]]
-        ans = [(0, 5, 0),
-               (2.5, 2.5, 0),
-               None]
-
-        for i in range(len(data)):
-            try:
-                cur_ans = line_intersection(data[i][0], data[i][1], data[i][2], data[i][3])
-            except AssertionError as e:
-                print("Exception caught! with msg: \'{}\'".format(e))
-            else:
-                for j in range(len(ans[i])):
-                    self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
-
-    def test_point_to_line(self):
-        # t, p, u
-        data = [[(0, 0, 0), (5, 0, 0), (1, -1, 0)],
-                [(0, 2, 0), (0, 1, 0), (0, 0, 1)],
-                [(3, 4, 5), (2, 2, 2), (0, 0, 0)]]
-
-        ans = [(2.5, 2.5, 0),
-               (0, 1, 0),
-               None]
-
-        for i in range(len(ans)):
-            try:
-                cur_ans = point_to_line(data[i][0], data[i][1], data[i][2])
-            except AssertionError as e:
-                print("Exception caught! with msg: \'{}\'".format(e))
-            else:
-                for j in range(len(ans[i])):
-                    self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
-
-
-class NURBSCrvTester(unittest.TestCase):
-    def test_construction(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1],
-                 [0, 0, 0, 0.5, 1, 1, 1],
-                 [0, 0, 0, 0, 1, 1, 1, 1],
-                 [0, 0, 0, 0, 1, 1, 1, 1],
-                 [0, 0, 1, 1]]
-        pnt = [[[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0]],
-               [[1, 0], [1, 1], [-1, 1], [-1, 0]],
-               [[1, 0], [1, 2], [-1, 2], [-1, 0]],
-               [[sqrt3 / 2, 1 / 2], [sqrt3, -3], [-sqrt3, -3], [-sqrt3 / 2, 1 / 2]],
-               [[10, 10], [100, 100]]]
-        w = [[1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1, 1 / sqrt2, 1],
-             [1, 0.5, 0.5, 1],
-             [1, 1 / 3, 1 / 3, 1],
-             [1, 1 / 6, 1 / 6, 1],
-             [1, 1]]
-        ans = ['circle1.igs', 'circle2.igs', 'circle3.igs', 'circle4.igs', 'line.igs']
-
-        # Just used to avoid warning
-        self.assertTrue(len(u_vec) == len(pnt) == len(w) == len(ans))
-
-        iges_model = Model()
-        for k in range(len(ans)):
-            iges_model.clear()
-            geom = Crv(u_vec[k], list(map(lambda _p, _w: to_homogeneous(np.append(_p, [0]), _w), pnt[k], w[k])))
-            iges_model.add(geom.to_iges())
-            iges_model.save(ans[k])
-            print(repr(geom))
-
-    def test_call(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 0, 1, 2, 3, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0), (3, 2, 0), (4, 1, 0), (5, -1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 4, 1, 1, 1],
-             [1, 1, 2]]
-
-        # u, derivative
-        data = [[(0, 0), (1, 0), (3, 0)],
-                [(0, 1), (0, 2), (1, 1)]]
-        ans = [[(0, 0, 0), (7 / 5, 6 / 5, 0), (5, -1, 0)],
-               [(0, 2, 0), (-4, 0, 0), (-1, 0, 0)]]
-
-        # Just used to avoid warning
-        self.assertTrue(len(u_vec) == len(p) == len(w) == len(data) == len(ans))
-
-        for i in range(len(data)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = list(map(lambda t: crv(t[0], t[1]), data[i]))
-            np.testing.assert_array_equal(cur_ans, ans[i])
-
-    def test_length(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 1],
-             [1, 1, 2]]
-
-        ans = [sqrt2, math.pi / 2]
-
-        for i in range(len(ans)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = crv.length
-            self.assertTrue(math.isclose(cur_ans, ans[i]))
-
-    def test_curvature(self):
-        # knot, ctrl points, weights
-        u_vec = [[0, 0, 3, 3],
-                 [0, 0, 0, 1, 1, 1]]
-        p = [[(0, 0, 0), (1, 1, 0)],
-             [(1, 0, 0), (1, 1, 0), (0, 1, 0)]]
-        w = [[1, 1],
-             [1, 1, 2]]
-
-        data = [[0, 1.5, 3],
-                [0, 0.5, 1]]
-        ans = [[0, 0, 0],
-               [1, 1, 1]]
-
-        for i in range(len(ans)):
-            crv = Crv(u_vec[i], list(map(lambda _p, _w: to_homogeneous(_p, _w), p[i], w[i])))
-            cur_ans = list(map(lambda u: crv.curvature(u), data[i]))
-            for j in range(len(cur_ans)):
-                self.assertTrue(math.isclose(cur_ans[j], ans[i][j]))
-
-    def test_reverse(self):
-        u_vec = [0, 0, 0, 1, 3, 6, 6, 8, 8, 8]
-        s_vec = [0, 0, 0, 2, 2, 5, 7, 8, 8, 8]
-        p = [(1, 2, 2), (2, 4, 8), (3, 9, 27), (4, 16, 64), (5, 25, 125), (6, 36, 216)]
-        q = [(6, 36, 216), (5, 25, 125), (4, 16, 64), (3, 9, 27), (2, 4, 8), (1, 2, 2)]
-        w = [1, 1, 1, 1, 1, 1]
-
-        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-        crv.reverse()
-        self.assertTrue(np.array_equal(crv.U, s_vec))
-        self.assertTrue(np.array_equal(crv.cpt, q))
-
-    def test_pan(self):
-        # knot, ctrl points, weights
-        u_vec = [0, 0, 0, 1, 1, 1]
-        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
-        w = [1, 1, 2]
-
-        pan_dir = (3, 4, 5)
-        ans = [(4, 4, 5), (4, 5, 5), (3, 5, 5)]
-
-        crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-        iges_model = Model()
-        iges_model.add(crv.to_iges())
-        crv.pan(pan_dir)
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_pan.igs')
-
-        self.assertTrue(np.array_equal(crv.cpt, ans))
-        self.assertTrue(np.array_equal(crv.weight, w))
-
-    def test_rotate(self):
-        # knot, ctrl points, weights
-        u_vec = [0, 0, 0, 1, 1, 1]
-        p = [(1, 0, 0), (1, 1, 0), (0, 1, 0)]
-        w = [1, 1, 2]
-
-        # anchor point, rotation axis, rotation angle
-        data = [[(0, 0, 0), (1, 1, 1), 30],
-                [(0, 0, 0), (1, 1, 1), 45],
-                [(0, 0, 0), (1, 1, 1), 90],
-                [(0, 0, 0), (1, 1, 1), 180]]
-        ans = [[(0.9106836, 1 / 3, -0.2440169), (2 / 3, 1.2440169, 0.0893164), (-0.2440169, 0.9106836, 1 / 3)],
-               [(0.8047379, 0.5058793, -0.3106172), (0.4941207, 1.3106172, 0.1952621), (-0.3106172, 0.8047379, 0.5058793)],
-               [(1 / 3, 0.9106836, -0.2440169), (0.0893164, 1.2440169, 2 / 3), (-0.2440169, 1 / 3, 0.9106836)],
-               [(-1 / 3, 2 / 3, 2 / 3), (1 / 3, 1 / 3, 4 / 3), (2 / 3, -1 / 3, 2 / 3)]]
-
-        # Just used to avoid warning
-        self.assertTrue(len(data) == len(ans))
-
-        for i, rt in enumerate(data):
-            iges_model = Model()
-            crv = Crv(u_vec, list(map(lambda _p, _w: to_homogeneous(_p, _w), p, w)))
-            # print(crv)
-            iges_model.add(crv.to_iges())
-            crv.rotate(rt[0], rt[1], rt[2])
-            # print(crv)
-            iges_model.add(crv.to_iges())
-            iges_model.save('test_rotate-{}.igs'.format(i))
-
-            np.testing.assert_array_almost_equal(crv.cpt, ans[i])
-
-    def test_insert_knot(self):
-        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        data = [(2.5, 1),  # 插入1个不在原节点矢量中的节点
-                (2, 1),  # 插入1个在原节点矢量中的节点
-                (2.5, 3),  # 插入1个不在原节点矢量中的节点3次
-                (2, 2),  # 插入1个在原节点矢量中的节点2次
-                (2.5, 4)]  # 插入1个不在原节点矢量中的节点4次
-        ans = ['test_insert-0.igs',
-               'test_insert-1.igs',
-               'test_insert-2.igs',
-               'test_insert-3.igs',
-               None]
-
-        for i in range(len(data)):
-            crv = Crv(u_vec, pw)
-            try:
-                crv.insert_knot(data[i][0], data[i][1])
-            except ValueError as e:
-                print('Ok, illegal insertion detected with following msg:\n{}'.format(e))
-            else:
-                iges_model = Model()
-                iges_model.add(crv.to_iges())
-                iges_model.save(ans[i])
-
-        # Should yield identical results
-        crv1 = Crv(u_vec, pw)
-        crv2 = Crv(u_vec, pw)
-        crv1.insert_knot(2)
-        crv1.insert_knot(2)
-        crv2.insert_knot(2, 2)
-
-        self.assertTrue(np.array_equal(crv1.U, crv2.U))
-        self.assertTrue(np.array_equal(crv1.Pw, crv2.Pw))
-
-    def test_refine(self):
-        u_vec = [0, 0, 0, 0, 1, 2, 3, 4, 5, 5, 5, 5]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        data = [2.5, 2.5, 2.5]
-        ans = [0, 0, 0, 0, 1, 2, 2.5, 2.5, 2.5, 3, 4, 5, 5, 5, 5]
-
-        crv = Crv(u_vec, pw)
-        iges_model = Model()
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_refine_original.igs')
-        crv.refine(data)
-        iges_model.clear()
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_refine_after.igs')
-        self.assertTrue(np.array_equal(crv.U, ans))
-
-    def test_elevate(self):
-        # Knot , ctrl_pnt
-        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        iges_model = Model()
-        crv = Crv(u_vec, pw)
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_elevate_before.igs')
-        crv.elevate(2)
-        iges_model.clear()
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_elevate_after.igs')
-
-        self.assertTrue(True)
-
-    def test_reparameterization(self):
-        # Knot, ctrl_pnt
-        u_vec = [0, 0, 0, 0, 0.3, 0.7, 1.0, 1.0, 1.0, 1.0]
-        pw = [(0, 3.14, 0, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        param = [(2, 1, 3, 2),
-                 (2, 0, 3, 1)]
-
-        iges_model = Model()
-        for k, dt in enumerate(param):
-            iges_model.clear()
-            crv = Crv(u_vec, pw)
-            iges_model.add(crv.to_iges())
-            crv.reparameterization(dt[0], dt[1], dt[2], dt[3])
-            iges_model.add(crv.to_iges())
-            iges_model.save('test_reparameterization-{}.igs'.format(k))
-
-        self.assertTrue(True)
-
-    def test_split(self):
-        # Knot , ctrl_pnt
-        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        iges_model = Model()
-        crv = Crv(u_vec, pw)
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_split_before.igs')
-
-        iges_model.clear()
-        crv_seg = Crv.split(crv, [0.2, 0.6])
-        for seg in crv_seg:
-            iges_model.add(seg.to_iges())
-        iges_model.save('test_split_after.igs')
-
-        self.assertTrue(True)
-
-    def test_decompose(self):
-        # Knot , ctrl_pnt
-        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-
-        iges_model = Model()
-        crv = Crv(u_vec, pw)
-        iges_model.add(crv.to_iges())
-        iges_model.save('test_decompose_before.igs')
-
-        iges_model.clear()
-        crv_seg = Crv.decompose(crv)
-        for seg in crv_seg:
-            iges_model.add(seg.to_iges())
-        iges_model.save('test_decompose_after.igs')
-
-        self.assertTrue(True)
-
-    def test_point_inverse(self):
-        # Knot , ctrl_pnt
-        u_vec = [0, 0, 0, 0, 0.1, 0.2, 0.3, 0.4, 1, 1, 1, 1]
-        pw = [(0, 0, 0, 1), (0, math.pi, 0, 1), (0, 0, 4, 1), (1, 0, -2, 1), (0, 1, 0, 1), (2, 0, 0, 1), (0, 0, 9, 1), (0.618, 1.414, 2.718, 1)]
-        crv = Crv(u_vec, pw)
-
-        data = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.9, 1]
-        for u in data:
-            self.assertEqual(u, point_inverse(crv, crv(u)))
-
-    def test_spline(self):
-        # airfoil, degree, knot method
-        data = [('M6', 3, 'chord'), ('M6', 3, 'centripetal'), ('M6', 5, 'chord'), ('M6', 5, 'centripetal'),
-                ('NACA0012', 3, 'chord'), ('NACA0012', 3, 'centripetal'), ('NACA0012', 5, 'chord'), ('NACA0012', 5, 'centripetal'),
-                ('RAE2822', 3, 'chord'), ('RAE2822', 3, 'centripetal'), ('RAE2822', 5, 'chord'), ('RAE2822', 5, 'centripetal')]
-
-        iges_model = Model()
-        for k, dt in enumerate(data):
-            spline_foil = Spline(read_airfoil_pts(dt[0]))
-            iges_model.clear()
-            iges_model.add(spline_foil.to_iges())
-            iges_model.save('test_spline-{}_{}_{}_{}.igs'.format(k, dt[0], dt[1], dt[2]))
-
-        self.assertTrue(True)
-
-    def test_global_interp(self):
-        # airfoil, degree, knot method
-        data = [('M6', 3, 'chord'), ('M6', 3, 'centripetal'), ('M6', 5, 'chord'), ('M6', 5, 'centripetal'),
-                ('NACA0012', 3, 'chord'), ('NACA0012', 3, 'centripetal'), ('NACA0012', 5, 'chord'), ('NACA0012', 5, 'centripetal'),
-                ('RAE2822', 3, 'chord'), ('RAE2822', 3, 'centripetal'), ('RAE2822', 5, 'chord'), ('RAE2822', 5, 'centripetal')]
-
-        iges_model = Model()
-        for k, dt in enumerate(data):
-            crv = GlobalInterpolatedCrv(read_airfoil_pts(dt[0]), dt[1], dt[2])
-            iges_model.clear()
-            iges_model.add(crv.to_iges())
-            iges_model.save('test_global_interp_crv-{}_{}_{}_{}.igs'.format(k, dt[0], dt[1], dt[2]))
-
-        self.assertTrue(True)
-
-    def test_local_interp(self):
-        cr = 12
-        spn = 21
-
-        '''Front'''
-        fsl = np.array([1.2, 2.3, 2.45, 0])
-        fsl[-1] = spn - sum(fsl[:-1])
-        alpha = np.radians([50, 45, 33, 28])
-        fp = np.zeros((5, 3))
-        for i in range(4):
-            fp[i + 1] = fp[i]
-            fp[i + 1][0] += fsl[i] * math.tan(alpha[i])
-            fp[i + 1][2] += fsl[i]
-        ftv = np.array([[0, 0, 1],
-                        [math.sin(alpha[1]), 0, math.cos(alpha[1])],
-                        [math.sin(alpha[1]), 0, math.cos(alpha[1])],
-                        [math.sin(alpha[3]), 0, math.cos(alpha[3])],
-                        [math.sin(alpha[3]), 0, math.cos(alpha[3])]])
-
-        '''Tail'''
-        tsl = np.array([1.6, 4.0, 1.8, 0])
-        tsl[-1] = spn - sum(tsl[:-1])
-        beta = np.radians([-15, -48, -20, 15])
-        tp = np.zeros((5, 3))
-        tp[0][0] = cr
-        for i in range(4):
-            tp[i + 1] = tp[i]
-            tp[i + 1][0] += tsl[i] * math.tan(beta[i])
-            tp[i + 1][2] += tsl[i]
-        ttv = np.array([[0, 0, 1],
-                        [math.sin(beta[1]), 0, math.cos(beta[1])],
-                        [math.sin(beta[1]), 0, math.cos(beta[1])],
-                        [math.sin(beta[3]), 0, math.cos(beta[3])],
-                        [math.sin(beta[3]), 0, math.cos(beta[3])]])
-
-        '''Display'''
-        iges_model = Model()
-        fc = LocalCubicInterpolatedCrv(fp, ftv)
-        tc = LocalCubicInterpolatedCrv(tp, ttv)
-        iges_model.add(fc.to_iges())
-        iges_model.add(tc.to_iges())
-        iges_model.save('lci.igs')
-
-        self.assertTrue(True)
-
-    def test_circle(self):
-        # r, center, norm_vec
-        data = [[0.3, (0, 0, 0), (0, 0, 1)],
-                [0.3, (0, 0, 0), (0, 1, 0)],
-                [0.3, (0, 0, 0), (1, 0, 0)],
-                [0.3, (0, 0, 0), (1, 1, 1)],
-                [1.5, (-1, -1, -1), (0, 0, 1)],
-                [1.5, (-2.7, 0, 0), (0, 1, 0)],
-                [1.5, (0, -3.14, 0), (1, 0, 0)],
-                [1.5, (0, 0, -0.618), (1, 1, 1)]]
-
-        iges_model = Model()
-        for k, dt in enumerate(data):
-            arc = Circle.closed_circle(dt[0], dt[1], dt[2])
-            iges_model.clear()
-            iges_model.add(arc.to_iges())
-            iges_model.save('test_circle-{}_{}.igs'.format(k, dt[0]))
-
-        self.assertTrue(True)
-
-    def test_arc(self):
-        # center, start, theta, norm_vec
-        data = [[(0, 0, 0), (0.1, 0, 0), -20, (0, 0, 1)],
-                [(0, 0, 0), (0.1, 0, 0), 0, (0, 0, 1)],
-                [(0, 0, 0), (0.1, 0, 0), 3, (0, 0, 1)],
-                [(0, 0, 0), (0.2, 0, 0), 45, (0, 0, 1)],
-                [(0, 0, 0), (0.3, 0, 0), 65.2, (0, 0, 1)],
-                [(0, 0, 0), (0.4, 0, 0), 90, (0, 0, 1)],
-                [(0, 0, 0), (0.5, 0, 0), 120, (0, 0, 1)],
-                [(0, 0, 0), (0.6, 0, 0), 135, (0, 0, 1)],
-                [(0, 0, 0), (0.7, 0, 0), 150, (0, 0, 1)],
-                [(0, 0, 0), (0.8, 0, 0), 180, (0, 0, 1)],
-                [(0, 0, 0), (0.9, 0, 0), 195, (0, 0, 1)],
-                [(0, 0, 0), (1.0, 0, 0), 225, (0, 0, 1)],
-                [(0, 0, 0), (1.1, 0, 0), 240, (0, 0, 1)],
-                [(0, 0, 0), (1.2, 0, 0), 270, (0, 0, 1)],
-                [(0, 0, 0), (1.3, 0, 0), 315, (0, 0, 1)],
-                [(0, 0, 0), (1.4, 0, 0), 324, (0, 0, 1)],
-                [(0, 0, 0), (1.5, 0, 0), 360, (0, 0, 1)],
-                [(0, 0, 0), (0.1, 0, 0), 1024, (0, 0, 1)],
-                [(0.5, 1.2, 1.3), (0.1, 0, 0), 3, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.2, 0, 0), 45, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.3, 0, 0), 65.2, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.4, 0, 0), 90, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.5, 0, 0), 120, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.6, 0, 0), 135, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.7, 0, 0), 150, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.8, 0, 0), 180, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (0.9, 0, 0), 195, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.0, 0, 0), 225, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.1, 0, 0), 240, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.2, 0, 0), 270, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.3, 0, 0), 315, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.4, 0, 0), 324, (1, 1, 1)],
-                [(0.5, 1.2, 1.3), (1.5, 0, 0), 360, (1, 1, 1)]]
-
-        iges_model = Model()
-        for k, dt in enumerate(data):
-            try:
-                arc = Circle(dt[0], dt[1], dt[2], dt[3])
-            except ValueError as e:
-                print('Exception caught with msg: {}'.format(e))
-            else:
-                iges_model.add(arc.to_iges())
-
-        iges_model.save('test_arc.igs')
-        self.assertTrue(True)
-
-    def test_arc_2pnt(self):
-        # start, end, theta, norm_vec
-        data = [[(0, 0, 500), (0, 0, 100), 180, (0, 1, 0)],
-                [(0, 0, 50), (0, 0, 10), 180, (0, 1, 0)],
-                [(0, 0, 5), (0, 0, 1), 180, (0, 1, 0)]]
-
-        iges_model = Model()
-        for k, dt in enumerate(data):
-            arc = Circle.from_2pnt(dt[0], dt[1], dt[2], dt[3])
-            iges_model.clear()
-            iges_model.add(arc.to_iges())
-            iges_model.save('test_arc_pnt-{}.igs'.format(k))
-        self.assertTrue(True)
-
-    def test_conic(self):
-        # a,b of an ellipse
-        data = [(10, 6), (20, 8), (50, 12), (10, 25)]
-        z = 10
-
-        for k, dt in enumerate(data):
-            a, b = dt
-            arc1 = ConicArc((0, -b, 0), (1, 0, 0), (a, 0, 0), (0, 1, 0), (a / sqrt2, -b / sqrt2, 0))  # 1/4 Ellipse Circle
-            arc2 = ConicArc((0, b, 0), (-1, 0, 0), (0, -b, 0), (1, 0, 0), (-a, 0, 0))  # 1/2 Ellipse Circle
-            arc3 = ConicArc((0, b, z), (-1, 0, 0), (0, -b, z), (1, 0, 0), (-a, 0, z))  # 1/2 Ellipse Circle pan on Z
-            iges_model = Model()
-            iges_model.add(arc1.to_iges())
-            iges_model.add(arc2.to_iges())
-            iges_model.add(arc3.to_iges())
-            print(arc2)
-            iges_model.save('test_conic-{}.igs'.format(k))
-        self.assertTrue(True)
-
-
-class NURBSSurfTester(unittest.TestCase):
+class NURBSSurfTestCase(unittest.TestCase):
     def test_call(self):
         pass
 
