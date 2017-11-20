@@ -1651,13 +1651,14 @@ class Plot3DTestCase(unittest.TestCase):
 Implementation of NASA's Neutral Map File representation.
 
 Ref:
-(1) https://geolab.larc.nasa.gov/Volume/Doc/nmf.htm
-(2) https://github.com/mrklein/p3d2gmsh/blob/master/p3d2gmsh.py
+https://geolab.larc.nasa.gov/Volume/Doc/nmf.htm
 """
 
 
 class NMFEntry(object):
     NMF_LITERAL = '#{:^19}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
+    FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
+    CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
 
     def __init__(self, tp, b1, f1, rg1, b2, f2, rg2, swp):
         """
@@ -1675,7 +1676,8 @@ class NMFEntry(object):
         :type f2: int
         :param rg2: Range descriptions of the second block.
         :param swp: Orientation flag(Specified only for Type==ONE_TO_ONE).
-                    False if the primary directions of the two identified faces are aligned(though perhaps in opposite directions) and True otherwise.
+                    False if the primary directions of the two identified faces are aligned(though perhaps in opposite directions)
+                    and True otherwise.
         :type swp: bool
         """
 
@@ -1696,6 +1698,28 @@ class NMFEntry(object):
         self.B2SecStart = rg2[1][0]  # The starting index in the secondary coordinate direction for the face in the 2nd block.
         self.B2SecEnd = rg2[1][1]  # The ending index in the secondary coordinate direction for the face in the 2nd block.
         self.Swap = swp
+
+        '''Check'''
+        if self.Swap:
+            assert self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
+            assert self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
+        else:
+            assert self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
+            assert self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
+
+    @property
+    def pri_node_num(self):
+        return self.B1PriEnd - self.B1PriStart + 1
+
+    @property
+    def sec_node_num(self):
+        return self.B1SecEnd - self.B1SecStart + 1
+
+    @property
+    def face_num(self):
+        t1 = self.pri_node_num - 1
+        t2 = self.sec_node_num - 1
+        return t1 if t2 == 0 else t1 * t2
 
     def write(self, f_out):
         ret = '{:<20}'.format(self.Type)
@@ -1882,46 +1906,108 @@ def boundary_pnt_caste(shape):
     return ret
 
 
+def blk_cell_idx(pnt, shape):
+    """
+    Calculate the cell index in a block through its corner point.
+    :param pnt: Coordinate of the corner point.
+    :param shape: The shape of the block.
+    :return: Take the corner point as origin, inherit the positive directions from block,
+             calculate the cell index at the 1st quadrant(Starting from 0).
+    :rtype: int
+    """
+
+    if len(shape) == 4:
+        u, v, w, _ = shape
+        i, j, k = pnt
+        assert 0 <= i < u - 1 and 0 <= j < v - 1 and 0 <= k < w - 1
+        return (u - 1) * (v - 1) * k + (u - 1) * j + i
+    elif len(shape) == 3:
+        u, v, _ = shape
+        i, j = pnt
+        assert 0 <= i < u - 1 and 0 <= j < v - 1
+        return j * (u - 1) + i
+    else:
+        raise ValueError('Invalid shape.')
+
+
+def blk_cell_idx_quadrant(pnt, shape, q):
+    """
+    Calculate the cell index in a block through its corner point and quadrant number.
+    :param pnt: Coordinate of the corner point.
+    :param shape: The shape of the block.
+    :param q: Quadrant number.
+    :type q: int
+    :return: Take the corner point as origin, inherit the positive directions from block,
+             calculate the index of cell at specified quadrant(Starting from 0).
+    :rtype: int
+    """
+
+    if len(shape) == 4:
+        i, j, k = pnt
+        if q == 1:
+            return blk_cell_idx(pnt, shape)
+        elif q == 2:
+            return blk_cell_idx((i - 1, j, k), shape)
+        elif q == 3:
+            return blk_cell_idx((i - 1, j - 1, k), shape)
+        elif q == 4:
+            return blk_cell_idx((i, j - 1, k), shape)
+        elif q == 5:
+            return blk_cell_idx((i, j, k - 1), shape)
+        elif q == 6:
+            return blk_cell_idx((i - 1, j, k - 1), shape)
+        elif q == 7:
+            return blk_cell_idx((i - 1, j - 1, k - 1), shape)
+        elif q == 8:
+            return blk_cell_idx((i, j - 1, k - 1), shape)
+        else:
+            raise ValueError('Invalid quadrant number.')
+    elif len(shape) == 3:
+        assert 1 <= q <= 4
+        i, j = pnt
+        if q == 1:
+            return blk_cell_idx(pnt, shape)
+        elif q == 2:
+            return blk_cell_idx((i - 1, j), shape)
+        elif q == 3:
+            return blk_cell_idx((i - 1, j - 1), shape)
+        elif q == 4:
+            return blk_cell_idx((i, j - 1), shape)
+        else:
+            raise ValueError('Invalid quadrant number.')
+    else:
+        raise ValueError('Invalid shape.')
+
+
 class NeutralMapFile(object):
+    SUBSCRIPT_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
+
     def __init__(self, str_grid):
         self.blk = str_grid
         self.desc = []
 
         self.internal_pnt_num = np.array([blk_internal_node_num(str_grid[i].shape) for i in range(self.blk_num)])
-        self.boundary_pnt_num = np.array([blk_node_num(str_grid[i].shape) for i in range(self.blk_num)])
-        self.boundary_pnt_num -= self.internal_pnt_num
-        self.boundary_pnt_idx = [np.zeros(self.boundary_pnt_num[i], int) for i in range(self.blk_num)]
         for i in range(1, self.blk_num):
             self.internal_pnt_num[i] += self.internal_pnt_num[i - 1]
+
+        self.boundary_pnt_num = np.array([blk_node_num(str_grid[i].shape) for i in range(self.blk_num)])
+        self.boundary_pnt_num -= self.internal_pnt_num
+        for i in range(1, self.blk_num):
             self.boundary_pnt_num[i] += self.boundary_pnt_num[i - 1]
+
+        self.boundary_pnt_idx = [np.zeros(self.boundary_pnt_num[i], int) for i in range(self.blk_num)]
+        self.boundary_pnt_cnt = 0
+        self.boundary_pnt_map = {}
 
         self.boundary_pnt_caste = np.array([boundary_pnt_caste(self.blk[i].shape) for i in range(self.blk_num)])
 
-    @property
-    def grid(self):
-        return self.blk
+        self.cell_start = np.array([blk_cell_num(self.blk[i].shape) for i in range(self.blk_num)])
+        for i in range(1, self.blk_num):
+            self.cell_start[i] += self.cell_start[i - 1]
 
-    @property
-    def dim(self):
-        return len(self.blk[0].shape) - 1
-
-    @property
-    def blk_num(self):
-        return len(self.blk)
-
-    @property
-    def cell_num(self):
-        return sum([blk_cell_num(self.blk[i].shape) for i in range(self.blk_num)])
-
-    @property
-    def pnt_num(self):
-        # TODO
-        return 0
-
-    @property
-    def face_num(self):
-        # TODO
-        return 0
+        self.internal_face_num = np.array([blk_internal_face_num(self.blk[i].shape) for i in range(self.blk_num)])
+        for i in range(1, self.blk_num):
+            self.internal_face_num[i] += self.internal_face_num[i - 1]
 
     def add(self, entry):
         """
@@ -1932,10 +2018,6 @@ class NeutralMapFile(object):
         """
 
         self.desc.append(entry)
-
-    def compute_topology(self):
-        # TODO
-        pass
 
     def save(self, fn):
         """
@@ -1961,10 +2043,135 @@ class NeutralMapFile(object):
             self.desc[i].write(f_out)
         f_out.close()
 
+    def face_invariant_val(self, b, f):
+        u, v, w, _ = self.blk[b - 1].shape
+        if f == 1 or f == 3 or f == 5:
+            return 0
+        elif f == 2:
+            return w - 1
+        elif f == 4:
+            return u - 1
+        elif f == 6:
+            return v - 1
+        else:
+            raise ValueError('Invalid face number.')
+
+    def calc_real_pnt(self, entry, logic_pnt, side):
+        ret = np.empty(3, int)
+        x1 = logic_pnt[0]
+        x2 = logic_pnt[1]
+        if side == 1:
+            ri = [entry.B1PriStart + x1, entry.B1SecStart + x2, self.face_invariant_val(entry.B1, entry.F1)]
+            mp = NeutralMapFile.SUBSCRIPT_MAP[entry.F1]
+        elif side == 2:
+            ri = [entry.B2PriStart + x1, entry.B2SecStart + x2, self.face_invariant_val(entry.B2, entry.F2)]
+            mp = NeutralMapFile.SUBSCRIPT_MAP[entry.F1]
+        else:
+            raise ValueError('Invalid side number.')
+
+        for i in range(3):
+            ret[mp[i]] = ri[i]
+        return ret
+
+    @property
+    def grid(self):
+        return self.blk
+
+    @property
+    def dim(self):
+        return len(self.blk[0].shape) - 1
+
+    @property
+    def blk_num(self):
+        return len(self.blk)
+
+    @property
+    def cell_num(self):
+        return self.cell_start[-1]
+
+    @property
+    def pnt_num(self):
+        return self.internal_pnt_num[-1] + self.boundary_pnt_cnt
+
+    @property
+    def face_num(self):
+        return self.internal_face_num[-1] + sum([e.face_num for e in self.desc])
+
+    def compute_topology(self):
+        """
+        Indexing all nodes without duplication.
+        :return: None.
+        """
+
+        n = self.boundary_pnt_num[-1]
+
+        '''Nodes within a boundary'''
+        for entry in self.desc:
+            for x1 in range(1, entry.pri_node_num - 1):
+                for x2 in range(1, entry.sec_node_num - 1):
+                    p1 = self.calc_real_pnt(entry, (x1, x2), 1)
+                    t1 = self.calc_boundary_pnt_seq(entry.B1, p1)
+                    self.boundary_pnt_idx[entry.B1][t1] = n
+                    if entry.B2 != 0:
+                        p2 = self.calc_real_pnt(entry, (x1, x2), 2)
+                        t2 = self.calc_boundary_pnt_seq(entry.B2, p2)
+                        self.boundary_pnt_idx[entry.B2][t2] = n
+                    n += 1
+
+        '''Nodes on the boundary'''
+        for entry in self.desc:
+            lp = entry.all_boundary_logic_pnt
+            for logic_pnt in lp:
+                # For each point on the boundary, if it has been indexed, just skip;
+                # if not, find all pnt related to this and index them all.
+                real_pnt = self.calc_real_pnt(entry, logic_pnt, 1)
+                seq = self.calc_boundary_pnt_seq(entry.B1, real_pnt)
+                if self.boundary_pnt_idx[entry.B1][seq] == 0:
+                    t = self.find_all_occurance(entry.B1, entry.F1, real_pnt)
+                    for item in t:
+                        b, crd = item
+                        seq = self.calc_boundary_pnt_seq(b, crd)
+                        self.boundary_pnt_idx[b][seq] = n
+                    n += 1
+
+        self.boundary_pnt_cnt = n - self.boundary_pnt_num[-1]
+
+    def find_all_occurance(self, b, f, p):
+        ret = [(b, p)]
+        t = 0
+        while t < len(ret):
+            cb, cp = ret[t]
+            face = shell_pnt_face_idx(cb, crd)
+            for f1 in face:
+                if adj_desc[cb][f1 - 1][1] != 0:
+                    b2, f2, swap = adj_desc[cb][f1 - 1]
+                    cp_crd = get_counterpart_pnt_coord(f1, b2, f2, crd, swap)
+                    p2 = shell_pnt_idx_from_coord(b2, cp_crd)
+                    ca = (b2, p2)
+                    if ca not in adj_blk_pnt:
+                        adj_blk_pnt.append(ca)
+            t += 1
+
+        return ret
+
     @property
     def all_pnt(self):
-        # TODO
         ret = np.empty((self.pnt_num, 3), float)
+        n = 0
+        for b in range(self.blk_num):
+            u, v, w, _ = self.blk[b].shape
+            for k in range(1, w - 1):
+                for j in range(1, v - 1):
+                    for i in range(1, u - 1):
+                        ret[n] = self.blk[b][i][j][k]
+                        n += 1
+
+        for t in range(self.boundary_pnt_cnt):
+            b, crd = self.boundary_pnt_map[n][0]
+            i, j, k = crd
+            ret[n] = self.blk[b][i][j][k]
+            n += 1
+
         return ret
 
     def calc_boundary_pnt_seq(self, b, pnt):
@@ -2043,33 +2250,10 @@ class NeutralMapFile(object):
 
         return np.array([i, j, k])
 
-    def calc_pnt(self, idx):
-        """
-        Given a global point index, find the related point.
-        Note that there may be multiple answers.
-        :param idx: Global point index within the grid.
-        :type idx: int
-        :return: (b, (i, j, k))+, b is the block index, and (i, j, k) is the coordinate within that block.
-        """
-
-        ret = []
-        if idx >= self.internal_pnt_num[-1]:
-            base = self.internal_pnt_num[-1]
-            off = idx - base
-        else:
-            b=0
-            while idx >= self.internal_pnt_num[b]:
-                b+=1
-
-
-
-
-
-        return ret
-
-    def calc_cell_idx(self, k, pnt, q):
-        # TODO
-        return 0
+    def calc_cell_idx(self, b, pnt, q):
+        base = 0 if b == 0 else self.cell_start[b - 1]
+        off = blk_cell_idx_quadrant(pnt, self.blk[b].shape, q)
+        return base + off
 
 
 class NMFTestCase(unittest.TestCase):
@@ -2413,6 +2597,29 @@ def pnt_circle_z(pnt):
     return ret
 
 
+def pnt_circle(pnt, norm_dir):
+    """
+    Calculate the surrounding 4 points from given pnt
+    with specified norm direction.
+    :param pnt: Origin.
+    :param norm_dir: Norm direction.
+                     0-(X, x, I, i, U, u)
+                     1-(Y, y, J, j, V, v)
+                     2-(Z, z, K, k, W, w)
+    :type norm_dir: int
+    :return: Surrounding 4 points.
+    """
+
+    if norm_dir == 0:
+        return pnt_circle_x(pnt)
+    elif norm_dir == 1:
+        return pnt_circle_y(pnt)
+    elif norm_dir == 2:
+        return pnt_circle_z(pnt)
+    else:
+        raise ValueError('Invalid norm direction.')
+
+
 def pnt_circle_h(pnt):
     # [i, j], [i+1, j]
     ret = np.array([pnt] * 2)
@@ -2427,7 +2634,64 @@ def pnt_circle_v(pnt):
     return ret
 
 
+def xf_calc_boundary_info(entry, nmf):
+    """
+    Calculate the boundary adjacent info in Fluent MSH format with given description.
+    :param entry: Adjacent description.
+    :type entry: NMFEntry
+    :param nmf: Neutral Map File holding global info.
+    :type nmf: NeutralMapFile
+    :return: Boundary adjacent info in MSH format.
+    """
+
+    dim = nmf.dim
+    elem_num = 6 if dim == 3 else 4
+    n = entry.face_num
+    ret = np.empty((n, elem_num), int)
+
+    n = 0
+    if dim == 3:
+        if entry.Type == 'ONE_TO_ONE':
+            for x1 in range(entry.pri_node_num - 1):
+                for x2 in range(entry.sec_node_num - 1):
+                    p1 = nmf.calc_real_pnt(entry, (x1, x2), 1)
+                    p2 = nmf.calc_real_pnt(entry, (x1, x2), 2)
+                    norm_dir = NMFEntry.FACE_INVARIANT[entry.F1]
+                    crd_list = pnt_circle(p1, norm_dir)
+                    for t in range(4):
+                        ret[n][t] = nmf.calc_pnt_idx(entry.B1, crd_list[t])
+                    c1 = nmf.calc_cell_idx(entry.B1, p1, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F1])
+                    c2 = nmf.calc_cell_idx(entry.B2, p2, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F2])
+                    ret[n][4] = c1
+                    ret[n][5] = c2
+                    n += 1
+        else:
+            for x1 in range(entry.pri_node_num - 1):
+                for x2 in range(entry.sec_node_num - 1):
+                    p = nmf.calc_real_pnt(entry, (x1, x2), 1)
+                    norm_dir = NMFEntry.FACE_INVARIANT[entry.F1]
+                    crd_list = pnt_circle(p, norm_dir)
+                    for t in range(4):
+                        ret[n][t] = nmf.calc_pnt_idx(entry.B1, crd_list[t])
+                    c1 = nmf.calc_cell_idx(entry.B1, p, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F1])
+                    c2 = 0
+                    ret[n][4] = c1
+                    ret[n][5] = c2
+                    n += 1
+    else:
+        pass
+
+    return ret
+
+
 class FluentMSH(object):
+    NMF2MSH_BC_DICT = {'ONE_TO_ONE': BCType.Interior,
+                       'WALL': BCType.Wall,
+                       'Symmetry-X': BCType.Symmetry,
+                       'Symmetry-Y': BCType.Symmetry,
+                       'Symmetry-Z': BCType.Symmetry,
+                       'FAR': BCType.PressureFarField}
+
     def __init__(self):
         """
         ANSYS Fluent MSH File
@@ -2584,11 +2848,14 @@ class FluentMSH(object):
                 zone_idx += 1
 
         '''Boundary Face'''
-        for entry in nmf.desc:
-            if entry.type == 'ONE_TO_ONE':
-                pass
-            else:
-                pass
+        face_type = FaceType.Quadrilateral if dim == 3 else FaceType.Linear
+        for k, entry in enumerate(nmf.desc):
+            adj_info = xf_calc_boundary_info(entry, nmf)
+            bc_type = FluentMSH.NMF2MSH_BC_DICT[entry.type]
+            msh.add(XFComment('Boundary-{}:'.format(k + 1)))
+            msh.add(XFFace(zone_idx, face_idx, face_idx + n - 1, bc_type, face_type, adj_info))
+            face_idx += n
+            zone_idx += 1
 
         return msh
 
