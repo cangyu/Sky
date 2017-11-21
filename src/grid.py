@@ -1292,98 +1292,6 @@ https://geolab.larc.nasa.gov/Volume/Doc/nmf.htm
 """
 
 
-class NMFEntry(object):
-    NMF_LITERAL = '#{:^19}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
-
-    def __init__(self, tp, b1, f1, rg1, b2, f2, rg2, swp):
-        """
-        Entry used in Neutral Map File to indicate the topological features of the mesh.
-        :param tp:The type of feature (topological or boundary condition) to be defined and positioned within the mesh.
-        :type tp: str
-        :param b1: The number of the first block(Starting from 1).
-        :type b1: int
-        :param f1: The face number for the first block(From 1 to 6).
-        :type f1: int
-        :param rg1: Range descriptions of the first block.
-        :param b2:The number of the second block(Starting from 1).
-        :type b2: int
-        :param f2: The face number for the second block(From 1 to 6).
-        :type f2: int
-        :param rg2: Range descriptions of the second block.
-        :param swp: Orientation flag(Specified only for Type==ONE_TO_ONE).
-                    False if the primary directions of the two identified faces are aligned(though perhaps in opposite directions)
-                    and True otherwise.
-        :type swp: bool
-        """
-
-        assert b1 > 0 and 1 <= f1 <= 6 and rg1.shape == (2, 2)
-        assert b2 > 0 and 1 <= f2 <= 6 and rg2.shape == (2, 2)
-
-        self.Type = tp
-        self.B1 = b1
-        self.F1 = f1
-        self.B1PriStart = rg1[0][0]  # The starting index in the primary coordinate direction for the face in the 1st block.
-        self.B1PriEnd = rg1[0][1]  # The ending index in the primary coordinate direction for the face in the 1st block.
-        self.B1SecStart = rg1[1][0]  # The starting index in the secondary coordinate direction for the face in the 1st block.
-        self.B1SecEnd = rg1[1][1]  # The ending index in the secondary coordinate direction for the face in the 1st block.
-        self.B2 = b2
-        self.F2 = f2
-        self.B2PriStart = rg2[0][0]  # The starting index in the primary coordinate direction for the face in the 2nd block.
-        self.B2PriEnd = rg2[0][1]  # The ending index in the primary coordinate direction for the face in the 2nd block.
-        self.B2SecStart = rg2[1][0]  # The starting index in the secondary coordinate direction for the face in the 2nd block.
-        self.B2SecEnd = rg2[1][1]  # The ending index in the secondary coordinate direction for the face in the 2nd block.
-        self.Swap = swp
-
-        '''Check'''
-        assert self.dim_check()
-
-    @property
-    def pri_node_num(self):
-        return self.B1PriEnd - self.B1PriStart + 1
-
-    @property
-    def sec_node_num(self):
-        return self.B1SecEnd - self.B1SecStart + 1
-
-    @property
-    def node_num(self):
-        t1 = self.pri_node_num
-        t2 = self.sec_node_num
-        return t1 if t2 == 0 else t1 * t2
-
-    @property
-    def face_num(self):
-        t1 = self.pri_node_num - 1
-        t2 = self.sec_node_num - 1
-        return t1 if t2 == 0 else t1 * t2
-
-    def dim_check(self):
-        if self.Swap:
-            t1 = self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
-            t2 = self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
-        else:
-            t1 = self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
-            t2 = self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
-        return t1 and t2
-
-    def write(self, f_out):
-        ret = '{:<20}'.format(self.Type)
-        ret += '{:>8}'.format(self.B1)
-        ret += '{:>2}'.format(self.F1)
-        ret += '{:>8}'.format(self.B1PriStart)
-        ret += '{:>8}'.format(self.B1PriEnd)
-        ret += '{:>8}'.format(self.B1SecStart)
-        ret += '{:>8}'.format(self.B1SecEnd)
-        ret += '{:>8}'.format(self.B2)
-        ret += '{:>2}'.format(self.F2)
-        ret += '{:>8}'.format(self.B2PriStart)
-        ret += '{:>8}'.format(self.B2PriEnd)
-        ret += '{:>8}'.format(self.B2SecStart)
-        ret += '{:>8}'.format(self.B2SecEnd)
-        ret += '{:>6}'.format('TRUE' if self.Swap else 'FALSE')
-        f_out.write(ret)
-
-
 def blk_node_num(shape):
     """
     Calculate the num of nodes in a block.
@@ -1634,6 +1542,100 @@ class NeutralMapFile(object):
     SUBSCRIPT_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
     FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
     CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
+
+    class NMFEntry(object):
+        NMF_LITERAL = '#{:^19}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
+
+        def __init__(self, tp, b1, f1, rg1, b2, f2, rg2, swp):
+            """
+            Entry used in Neutral Map File to indicate the topological features of the mesh.
+            :param tp:The type of feature (topological or boundary condition) to be defined and positioned within the mesh.
+            :type tp: str
+            :param b1: The number of the first block(Starting from 1).
+            :type b1: int
+            :param f1: The face number for the first block(From 1 to 6).
+            :type f1: int
+            :param rg1: Range descriptions of the first block.
+            :param b2:The number of the second block(Starting from 1).
+            :type b2: int
+            :param f2: The face number for the second block(From 1 to 6).
+            :type f2: int
+            :param rg2: Range descriptions of the second block.
+            :param swp: Orientation flag(Specified only for Type==ONE_TO_ONE).
+                        False if the primary directions of the two identified faces are aligned(though perhaps in opposite directions)
+                        and True otherwise.
+            :type swp: bool
+            """
+
+            assert b1 > 0 and 1 <= f1 <= 6 and rg1.shape == (2, 2)
+            assert b2 > 0 and 1 <= f2 <= 6 and rg2.shape == (2, 2)
+
+            self.Type = tp
+            self.B1 = b1
+            self.F1 = f1
+            self.B1PriStart = rg1[0][0]  # The starting index in the primary coordinate direction for the face in the 1st block.
+            self.B1PriEnd = rg1[0][1]  # The ending index in the primary coordinate direction for the face in the 1st block.
+            self.B1SecStart = rg1[1][0]  # The starting index in the secondary coordinate direction for the face in the 1st block.
+            self.B1SecEnd = rg1[1][1]  # The ending index in the secondary coordinate direction for the face in the 1st block.
+            self.B2 = b2
+            self.F2 = f2
+            self.B2PriStart = rg2[0][0]  # The starting index in the primary coordinate direction for the face in the 2nd block.
+            self.B2PriEnd = rg2[0][1]  # The ending index in the primary coordinate direction for the face in the 2nd block.
+            self.B2SecStart = rg2[1][0]  # The starting index in the secondary coordinate direction for the face in the 2nd block.
+            self.B2SecEnd = rg2[1][1]  # The ending index in the secondary coordinate direction for the face in the 2nd block.
+            self.Swap = swp
+
+            self.PriReverse = False
+            self.SecReverse = False
+
+            '''Check'''
+            assert self.dim_check()
+
+        @property
+        def pri_node_num(self):
+            return self.B1PriEnd - self.B1PriStart + 1
+
+        @property
+        def sec_node_num(self):
+            return self.B1SecEnd - self.B1SecStart + 1
+
+        @property
+        def node_num(self):
+            t1 = self.pri_node_num
+            t2 = self.sec_node_num
+            return t1 if t2 == 0 else t1 * t2
+
+        @property
+        def face_num(self):
+            t1 = self.pri_node_num - 1
+            t2 = self.sec_node_num - 1
+            return t1 if t2 == 0 else t1 * t2
+
+        def dim_check(self):
+            if self.Swap:
+                t1 = self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
+                t2 = self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
+            else:
+                t1 = self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
+                t2 = self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
+            return t1 and t2
+
+        def write(self, f_out):
+            ret = '{:<20}'.format(self.Type)
+            ret += '{:>8}'.format(self.B1)
+            ret += '{:>2}'.format(self.F1)
+            ret += '{:>8}'.format(self.B1PriStart)
+            ret += '{:>8}'.format(self.B1PriEnd)
+            ret += '{:>8}'.format(self.B1SecStart)
+            ret += '{:>8}'.format(self.B1SecEnd)
+            ret += '{:>8}'.format(self.B2)
+            ret += '{:>2}'.format(self.F2)
+            ret += '{:>8}'.format(self.B2PriStart)
+            ret += '{:>8}'.format(self.B2PriEnd)
+            ret += '{:>8}'.format(self.B2SecStart)
+            ret += '{:>8}'.format(self.B2SecEnd)
+            ret += '{:>6}'.format('TRUE' if self.Swap else 'FALSE')
+            f_out.write(ret)
 
     def __init__(self, str_grid):
         self.blk = str_grid
