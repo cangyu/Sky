@@ -1,16 +1,9 @@
-import unittest
 import sys
 import math
 import numpy as np
 from numpy.linalg import inv, det
 from random import random, randint
 from collections.abc import Callable
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-"""
-Latin Hypercube Sampling
-"""
 
 
 class LHS(object):
@@ -44,45 +37,8 @@ class LHS(object):
         :return: Random sampling.
         """
 
-        rp = np.copy([np.random.permutation(self.sample_num) for i in range(self.var_num)]).transpose()
+        rp = np.copy([np.random.permutation(self.sample_num) for _ in range(self.var_num)]).transpose()
         return [[self.entry[j][rp[i][j]] for j in range(self.var_num)] for i in range(self.sample_num)]
-
-
-class Person(object):
-    def __init__(self, _nm, _ag):
-        self._name = _nm
-        self._age = _ag
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def age(self):
-        return self._age
-
-    def __repr__(self):
-        return "My name is {}, I'm {} years old now!".format(self.name, self.age)
-
-
-class LHSTester(unittest.TestCase):
-    def test_sample(self):
-        a = (0, 1, 2, 3, 4, 5)
-        b = ['a', 'b', 'c', 'd', 'e', 'f']
-        c = ('I', 'II', 'III', 'IV', 'V', 'VI')
-        d = np.array([1.1, 2.2, 3.3, 4.4, 5.5, 6.6])
-        e = (Person('ggsmd', 21), Person('sbtty', 22), Person('smdhx', 23), Person('shzyh', 24), Person('sgdb', 25), Person('tltbpa', 26))
-        self.assertTrue(len(a) == len(b) == len(c) == len(d) == len(e))
-
-        lhc = LHS([a, b, c, d, e])
-        sp = lhc.sample()
-        for i in range(len(sp)):
-            print('\n {}'.format(sp[i]))
-
-
-"""
-Kriging Surrogate Model
-"""
 
 
 class Kriging(object):
@@ -210,59 +166,6 @@ class Kriging(object):
 
     def show(self):
         pass
-
-
-class Branin(object):
-    def __init__(self, a=1.0, b=5.1 / (4 * np.pi ** 2), c=5 / np.pi, r=6.0, s=10.0, t=1 / (8 * np.pi)):
-        """
-        Branin-Hoo function which has 3 global minima.
-        """
-        self.a = a
-        self.b = b
-        self.c = c
-        self.r = r
-        self.s = s
-        self.t = t
-
-    def __call__(self, x):
-        """
-        Calculate the value at (x1, x2).
-        :param x: Parameter vector.
-        :return: Value at (x1, x2).
-        :rtype: float
-        """
-
-        x1 = x[0]
-        x2 = x[1]
-        ans = self.s
-        ans += self.s * (1.0 - self.t) * math.cos(x1)
-        ans += self.a * (x2 - self.b * x1 ** 2 + self.c * x1 - self.r) ** 2
-        return ans
-
-
-class KrigingTester(unittest.TestCase):
-    def test_interp(self):
-        branin_func = Branin()
-        lhc = LHS(np.array([np.linspace(-5, 10, 20), np.linspace(0, 15, 20)]))
-
-        x = lhc.sample()
-        y = np.empty(len(x), float)
-        for k, vx in enumerate(x):
-            y[k] = branin_func(vx)
-
-        kg = Kriging(x, y)
-        x0 = (-math.pi, 12.275)
-        x1 = (math.pi, 2.275)
-        x2 = (9.42478, 2.475)
-        print("\nGlobal minimum: {} Kriging: {} Actual: {}".format(x0, kg.interp(x0), branin_func(x0)))
-        print("\nGlobal minimum: {} Kriging: {} Actual: {}".format(x1, kg.interp(x1), branin_func(x1)))
-        print("\nGlobal minimum: {} Kriging: {} Actual: {}".format(x2, kg.interp(x2), branin_func(x2)))
-        self.assertTrue(np.allclose(list(map(lambda u: kg.interp(u), x)), y))
-
-
-"""
-Genetic Algorithm
-"""
 
 
 class Chromosome(object):
@@ -449,118 +352,3 @@ class NashRealCodedGA(RealCodedGA):
         """
 
         super(NashRealCodedGA, self).__init__(arg_rg, obj_func, eval_func)
-
-
-class Rastrigin(object):
-    def __call__(self, x):
-        n = len(x)
-        a = 10
-        return a * n + sum(list(map(lambda u: u ** 2 - a * math.cos(2 * math.pi * u), x)))
-
-    def show(self):
-        x1 = np.linspace(-5.12, 5.12, 100)
-        x2 = np.linspace(-5.12, 5.12, 100)
-
-        X, Y = np.meshgrid(x1, x2, indexing='ij')
-
-        val = np.empty((100, 100))
-        for i in range(100):
-            for j in range(100):
-                val[i][j] = self.__call__((x1[i], x2[j]))
-
-        fig = plt.figure()
-        ax = Axes3D(fig)
-        ax.plot_surface(X, Y, val, rstride=1, cstride=1, cmap=plt.cm.hot)
-        plt.show()
-
-
-class Ackley(object):
-    def __call__(self, x):
-        return -20 * math.exp(-0.2 * math.sqrt(0.5 * (x[0] ** 2 + x[1] ** 2))) - math.exp(0.5 * (math.cos(2 * math.pi * x[0]) + math.cos(2 * math.pi * x[1]))) + math.e + 20
-
-    def show(self):
-        x1 = np.linspace(-5.12, 5.12, 100)
-        x2 = np.linspace(-5.12, 5.12, 100)
-
-        gx, gy = np.meshgrid(x1, x2, indexing='ij')
-
-        val = np.empty((100, 100))
-        for i in range(100):
-            for j in range(100):
-                val[i][j] = self.__call__((x1[i], x2[j]))
-
-        fig = plt.figure()
-        ax = Axes3D(fig)
-        ax.plot_surface(gx, gy, val, rstride=1, cstride=1, cmap=plt.cm.hot)
-        plt.show()
-
-
-class Sphere(object):
-    def __call__(self, x):
-        return sum(list(map(lambda u: u ** 2, x)))
-
-
-class Rosenbrock(object):
-    def __call__(self, x):
-        n = len(x)
-        if n < 2:
-            raise AssertionError("Insufficient input parameters.")
-
-        ret = 0
-        for i in range(n - 1):
-            ret += 100 * (x[i + 1] - x[i] ** 2) ** 2 + (x[i] - 1) ** 2
-
-        return ret
-
-
-class GATester(unittest.TestCase):
-    def test_rastrigin(self):
-        rastrigin = Rastrigin()
-        f_rastrigin = rastrigin.__call__
-        rg = np.array([[-5.12, 5.12],
-                       [-5.12, 5.12],
-                       [-5.12, 5.12],
-                       [-5.12, 5.12]])
-        print('Testing Rastrigin function with {} variables ...'.format(len(rg)))
-        rga = RealCodedGA(rg, f_rastrigin, lambda u: -f_rastrigin(u))
-        ans = rga.find_optimal(600, 100, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(f_rastrigin(ans), ans))
-        self.assertTrue(True)
-
-    def test_ackley(self):
-        ackley = Ackley()
-        f_ackley = ackley.__call__
-        rg = np.array([[-5.12, 5.12],
-                       [-5.12, 5.12]])
-        print('Testing Ackley function ...')
-        rga = RealCodedGA(rg, f_ackley, lambda u: -f_ackley(u))
-        ans = rga.find_optimal(300, 60, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(f_ackley(ans), ans))
-        self.assertTrue(True)
-
-    def test_sphere(self):
-        sphere = Sphere()
-        f_sphere = sphere.__call__
-        rg = np.array([[-5.12, 5.12],
-                       [-5.12, 5.12]])
-        print('Testing Sphere function with {} variables ...'.format(len(rg)))
-        rga = RealCodedGA(rg, f_sphere, lambda u: -f_sphere(u))
-        ans = rga.find_optimal(300, 60, 0.05)
-        print('Global Minimum: {}, Param: {}\n'.format(f_sphere(ans), ans))
-        self.assertTrue(True)
-
-    def test_rosenbrock(self):
-        rosenbrock = Rosenbrock()
-        f_rosenbrock = rosenbrock.__call__
-        rg = np.array([[-5.12, 5.12],
-                       [-5.12, 5.12],
-                       [-5.12, 5.12]])
-        print('Testing Rosenbrock function with {} variables ...'.format(len(rg)))
-        rga = RealCodedGA(rg, f_rosenbrock, lambda u: -f_rosenbrock(u))
-        ans = rga.find_optimal(1000, 300, 0.42)
-        print('Global Minimum: {}, Param: {}\n'.format(f_rosenbrock(ans), ans))
-        self.assertTrue(True)
-
-
-if __name__ == '__main__':
-    unittest.main()
