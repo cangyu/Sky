@@ -3,11 +3,87 @@ import math
 from copy import deepcopy
 import numpy as np
 from abc import ABCMeta, abstractmethod
-from math import sin, cos, tan, radians, fabs, atan2
 from scipy.integrate import romberg
-from scipy.optimize import root
-from nurbs import Crv, ConicArc, to_homogeneous, to_cartesian, LocalCubicInterpolatedCrv, Line, point_inverse, Circle, Skinned, RuledSurf, Coons
+from nurbs import Crv, ConicArc, to_homogeneous, to_cartesian, Line, Circle, Skinned, RuledSurf, Coons
 from misc import sqrt2
+from wing import WingProfile
+
+
+class WingPlanform(metaclass=ABCMeta):
+    @abstractmethod
+    def x_front(self, u):
+        """
+        Calculate the X-coordinate on leading edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on leading edge.
+        :rtype: float
+        """
+
+        pass
+
+    @abstractmethod
+    def x_tail(self, u):
+        """
+        Calculate the X-coordinate on trailing edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on trailing edge.
+        :rtype: float
+        """
+
+        pass
+
+    @abstractmethod
+    def z(self, u):
+        """
+        Calculate the Z-coordinate in span-wise direction.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: Z-coordinate in span-wise direction.
+        :rtype: float
+        """
+
+        pass
+
+    def chord_len(self, u):
+        return self.x_tail(u) - self.x_front(u)
+
+    @property
+    def area(self):
+        """
+        Total area of the planar wing. (Not a half)
+        :return: The area.
+        :rtype: float
+        """
+
+        return 2 * math.fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
+
+    @property
+    def mean_aerodynamic_chord(self):
+        """
+        Get the mean aerodynamic chord length of the wing.
+        :return: The MAC.
+        :rtype: float
+        """
+
+        return math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area) * self.z(1)
+
+    @property
+    def span(self):
+        return 2 * (self.z(1) - self.z(0))
+
+    @property
+    def root_chord_len(self):
+        return self.chord_len(0)
+
+    @property
+    def tip_chord_len(self):
+        return self.chord_len(1)
+
+    @abstractmethod
+    def __repr__(self):
+        pass
 
 
 class Nose(object):
@@ -149,7 +225,7 @@ class Tail(object):
         self.frame_down = deepcopy(arc7)
 
         arc8 = Circle.from_2pnt(p12, p15, 180, (1, 0, 0))
-        arc8_1, arc8_2 = ClampedNURBSCrv.split(arc8, [0.5])
+        arc8_1, arc8_2 = Crv.split(arc8, [0.5])
         self.frame_back_up = deepcopy(arc8_1)
         self.frame_back_down = deepcopy(arc8_2)
 
@@ -172,84 +248,6 @@ class Tail(object):
         arc9.reset(arc9.U, arc9.Pw)
 
         self.frame_mid = deepcopy(arc9)
-
-
-class WingPlanform(metaclass=ABCMeta):
-    @abstractmethod
-    def x_front(self, u):
-        """
-        Calculate the X-coordinate on leading edge.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: X-coordinate on leading edge.
-        :rtype: float
-        """
-
-        pass
-
-    @abstractmethod
-    def x_tail(self, u):
-        """
-        Calculate the X-coordinate on trailing edge.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: X-coordinate on trailing edge.
-        :rtype: float
-        """
-
-        pass
-
-    @abstractmethod
-    def z(self, u):
-        """
-        Calculate the Z-coordinate in span-wise direction.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: Z-coordinate in span-wise direction.
-        :rtype: float
-        """
-
-        pass
-
-    def chord_len(self, u):
-        return self.x_tail(u) - self.x_front(u)
-
-    @property
-    def area(self):
-        """
-        Total area of the planar wing. (Not a half)
-        :return: The area.
-        :rtype: float
-        """
-
-        return 2 * fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
-
-    @property
-    def mean_aerodynamic_chord(self):
-        """
-        Get the mean aerodynamic chord length of the wing.
-        :return: The MAC.
-        :rtype: float
-        """
-
-        return self.z(1) * fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area)
-
-    @property
-    def span(self):
-        return 2 * (self.z(1) - self.z(0))
-
-    @property
-    def root_chord_len(self):
-        return self.chord_len(0)
-
-    @property
-    def tip_chord_len(self):
-        return self.chord_len(1)
-
-
-    @abstractmethod
-    def __repr__(self):
-        pass
 
 
 class HorizontalStablizer(object):
