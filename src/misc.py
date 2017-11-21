@@ -2,7 +2,7 @@ import os
 import math
 import numpy as np
 from numpy.linalg import norm
-from settings import GRID_DBG, AIRFOIL_DIR
+from settings import AIRFOIL_DIR
 
 sqrt2 = math.sqrt(2)
 sqrt3 = math.sqrt(3)
@@ -51,11 +51,6 @@ def read_airfoil_pts(foil_name):
 
 def vector_square(u):
     return sum(map(lambda x: x ** 2, u))
-
-
-def report_process(msg):
-    if GRID_DBG:
-        print(msg)
 
 
 def array_smart_copy(src, dst):

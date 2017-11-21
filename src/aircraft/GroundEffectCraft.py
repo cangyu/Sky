@@ -9,7 +9,6 @@ from wing import WingProfile
 from misc import sqrt2
 
 
-'''Wing Calculation'''
 '''Area and ratio'''
 s = 38.88
 sir = 0.68

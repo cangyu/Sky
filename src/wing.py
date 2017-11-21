@@ -8,11 +8,8 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 from iges import Model, Entity116, Entity110
 from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
-from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential
-from grid import LinearTFI2D, LinearTFI3D
-from grid import Plot3D, Plot3DBlock
-from grid import Laplace2D, ThomasMiddlecoff2D, Laplace3D
-from fluent import XF_MSH, BCType
+from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential, FluentMSH, BCType
+from grid import LinearTFI2D, LinearTFI3D, Plot3D, Plot3DBlock, Laplace2D, ThomasMiddlecoff2D
 from misc import pnt_dist, read_airfoil_pts, pnt_pan
 from settings import AIRFOIL_LIST
 
@@ -767,9 +764,9 @@ class Wing(object):
             blk[i].calc_grid(node[nu], node[nv], node[nw])
         tfi_grid = [blk[i].grid for i in range(len(blk))]
 
-        '''Smoothing'''
+        # '''Smoothing'''
         # print('Smoothing...')
-        # for i in (6, 7, 8):
+        # for i in (6, 7, 8, 12):
         #     print('Smoothing blk{}...'.format(i))
         #     l3d = Laplace3D(tfi_grid[i])
         #     l3d.smooth()
