@@ -1,4 +1,3 @@
-import unittest
 import sys
 import platform
 from abc import abstractmethod
@@ -6,13 +5,11 @@ from copy import deepcopy
 from enum import Enum, unique
 import math
 import numpy as np
-import scipy
 from scipy.optimize import newton
 from scipy.linalg import norm
 from scipy import sparse
 from scipy.sparse.linalg import dsolve
-import matplotlib.pyplot as plt
-from misc import share, equal_check, vector_square
+from misc import equal_check, vector_square
 
 """
 Implementation of the Spacing control.
@@ -172,101 +169,6 @@ def linear_expand(seq, begin, end):
     dlt = end - begin
     r_dlt = r_max - r_min
     return np.full_like(seq, begin) if r_dlt == 0 else np.copy(list(map(lambda u: (u - r_min) / r_dlt * dlt + begin, seq)))
-
-
-class SpacingTestCase(unittest.TestCase):
-    def test_single_exponential(self):
-        # n, A
-        data = [(101, 5),
-                (101, 3),
-                (101, 1),
-                (101, 0.05),
-                (101, -0.05),
-                (101, -1),
-                (101, -3),
-                (101, -5)]
-
-        plt.figure()
-        for i in range(len(data)):
-            r = single_exponential(data[i][0], data[i][1])
-            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r, label='A={}'.format(data[i][1]))
-        plt.xlabel('u')
-        plt.ylabel('f(u)')
-        plt.title('Single Exponential')
-        plt.legend()
-        plt.show()
-        self.assertTrue(True)
-
-    def test_double_exponential(self):
-        # n, A1, A2, A3, A2取负值使得中间较密, 取正值使得中间稀疏，两边密集
-        data = [(401, 0.5, -1.5, 0.5),
-                (401, 0.5, 1.5, 0.5)]
-
-        plt.figure()
-        for i in range(len(data)):
-            r = double_exponential(data[i][0], data[i][1], data[i][2], data[i][3])
-            plt.plot(np.linspace(0.0, 1.0, data[i][0]), r, label='A1={}, A2={}, A3={}'.format(data[i][1], data[i][2], data[i][3]))
-        plt.xlabel('u')
-        plt.ylabel('f(u)')
-        plt.title('Double Exponential')
-        plt.legend()
-        plt.show()
-        self.assertTrue(True)
-
-    def test_hyperbolic_tangent(self):
-        # n, B
-        data = [(201, 3), (201, 2), (201, 1)]
-
-        plt.figure()
-        for k, dt in enumerate(data):
-            r = hyperbolic_tangent(dt[0], dt[1])
-            plt.plot(np.linspace(0.0, 1.0, dt[0]), r, label='B={}'.format(dt[1]))
-        plt.xlabel('u')
-        plt.ylabel('f(u)')
-        plt.title('Hyperbolic Tangent')
-        plt.legend()
-        plt.show()
-        self.assertTrue(True)
-
-    def test_hyperbolic_sine(self):
-        # n, C
-        data = [(201, 3), (201, 2), (201, 1)]
-
-        plt.figure()
-        for k, dt in enumerate(data):
-            r = hyperbolic_sine(dt[0], dt[1])
-            plt.plot(np.linspace(0.0, 1.0, dt[0]), r, label='C={}'.format(dt[1]))
-        plt.xlabel('u')
-        plt.ylabel('f(u)')
-        plt.title('Hyperbolic Sine')
-        plt.legend()
-        plt.show()
-        self.assertTrue(True)
-
-    def test_newton_raphson(self):
-        # pa1, pa2, pa3
-        data = [(0.4, -1.2, 0.5)]
-        ans = [0]
-
-        self.assertTrue(len(data) == len(ans))
-
-        for k, dt in enumerate(data):
-            pa1, pa2, pa3 = dt
-            p = (1 - pa1) * pa3 * (scipy.exp(pa2) - 1) / ((1 - pa3) * pa1 * pa2 * scipy.exp(pa2))
-            p1z = math.log(p)
-
-            def f(x):
-                return scipy.exp(x) - 1.0 - p * x
-
-            def pf(x):
-                return scipy.exp(x) - p
-
-            def ppf(x):
-                return scipy.exp(x)
-
-            fp1z = f(p1z)
-            pa4 = newton(f, 5 * p1z, fprime=pf, maxiter=20, fprime2=ppf)
-            print(p, p1z, fp1z, pa4, f(pa4))
 
 
 """
@@ -644,160 +546,6 @@ class LinearTFI3D(TFI):
                     self.grid[i][j][k] -= pwc[k] * puc[i] * pc15[j] + pwc[k] * pu[i] * pc25[j] + pw[k] * puc[i] * pc16[j] + pw[k] * pu[i] * pc26[j]
                     self.grid[i][j][k] += puc[i] * pvc[j] * pwc[k] * self.p135 + puc[i] * pvc[j] * pw[k] * self.p136 + puc[i] * pv[j] * pwc[k] * self.p145 + puc[i] * pv[j] * pw[k] * self.p146 + pu[i] * pvc[j] * pwc[k] * self.p235 + pu[i] * pvc[j] * pw[k] * self.p236 + pu[i] * pv[j] * pwc[k] * self.p245 + pu[i] * pv[
                         j] * pw[k] * self.p246
-
-
-class TFITestCase(unittest.TestCase):
-    def test_2d_rect(self):
-        # L, W, U, V
-        data = [(5, 4, 11, 9),
-                (8, 8, 31, 21)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI2D(lambda u: np.array([dt[0] * u, 0, 0]),  # C1
-                              lambda v: np.array([0, dt[1] * v, 0]),  # C3
-                              lambda u: np.array([dt[0] * u, dt[1], 0]),  # C2
-                              lambda v: np.array([dt[0], dt[1] * v, 0]))  # C4
-            tfi.calc_grid(np.linspace(0, 1, dt[2]),
-                          np.linspace(0, 1, dt[3]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_2d_rect-{}.xyz'.format(k))
-
-    def test_2d_circle(self):
-        # R1, R2, U, V
-        data = [(1, 2, 6, 11),
-                (0, 5, 16, 33)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI2D(lambda u: np.array([(1 - u) * dt[0] + u * dt[1], 0, 0]),
-                              lambda v: np.array([dt[0] * math.cos(0.5 * math.pi * v), dt[0] * math.sin(0.5 * math.pi * v), 0]),
-                              lambda u: np.array([0, (1 - u) * dt[0] + u * dt[1], 0]),
-                              lambda v: np.array([dt[1] * math.cos(0.5 * math.pi * v), dt[1] * math.sin(0.5 * math.pi * v), 0]))
-
-            tfi.calc_grid(np.linspace(0, 1, dt[2]),
-                          np.linspace(0, 1, dt[3]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_2d_circle-{}.xyz'.format(k))
-
-    def test_2d_eccentric(self):
-        # Delta, R1, R2, U, V
-        data = [(-10, 4, 25, 16, 41),
-                (-10, 0, 25, 16, 41),
-                (-1, 2, 5, 16, 33)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI2D(lambda u: np.array([(dt[0] + dt[1]) * (1 - u) + dt[2] * u, 0, 0]),
-                              lambda v: np.array([dt[1] * math.cos(math.pi * v) + dt[0], dt[1] * math.sin(math.pi * v), 0]),
-                              lambda u: np.array([(dt[0] - dt[1]) * (1 - u) - dt[2] * u, 0, 0]),
-                              lambda v: np.array([dt[2] * math.cos(math.pi * v), dt[2] * math.sin(math.pi * v), 0]))
-
-            tfi.calc_grid(np.linspace(0, 1, dt[3]),
-                          np.linspace(0, 1, dt[4]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_2d_eccentric-{}.xyz'.format(k))
-
-    def test_2d_crv_rect(self):
-        # L, H1, H2, H3
-        data = [(100, 40, 60, 10, 50, 25)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI2D(lambda u: np.array([u * dt[0], 4 * dt[3] * u * (1 - u), 0]),
-                              lambda v: np.array([0, v * dt[1], 0]),
-                              lambda u: np.array([u * dt[0], (dt[1] * (1 - u * u) + dt[2] * u * u), 0]),
-                              lambda v: np.array([dt[0], v * dt[2], 0]))
-
-            tfi.calc_grid(np.linspace(0, 1, dt[4]),
-                          np.linspace(0, 1, dt[5]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_2d_crv_rect-{}.xyz'.format(k))
-
-    def test_3d_cuboid(self):
-        # L, W, H, U, V, W
-        data = [(5, 4, 3, 11, 9, 5),
-                (10, 10, 10, 21, 31, 41)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI3D(lambda v, w: np.array([0, v * dt[1], w * dt[2]]),
-                              lambda v, w: np.array([dt[0], v * dt[1], w * dt[2]]),
-                              lambda w, u: np.array([u * dt[0], 0, w * dt[2]]),
-                              lambda w, u: np.array([u * dt[0], dt[1], w * dt[2]]),
-                              lambda u, v: np.array([u * dt[0], v * dt[1], 0]),
-                              lambda u, v: np.array([u * dt[0], v * dt[1], dt[2]]))
-            tfi.calc_grid(np.linspace(0, 1.0, dt[3]),
-                          np.linspace(0, 1.0, dt[4]),
-                          np.linspace(0, 1.0, dt[5]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_3d_cuboid-{}.xyz'.format(k))
-
-    def test_3d_sect(self):
-        # R_MIN, R_MAX, THETA_MIN, THETA_MAX, H_MIN, H_MAX, U, V, W
-        data = [(5, 20, 60, 120, -50, 50, 31, 16, 61)]
-        ans = []
-
-        for k, dt in enumerate(data):
-            tfi = LinearTFI3D(lambda v, w: np.array([dt[0] * math.cos(math.radians(share(v, dt[2], dt[3]))), dt[0] * math.sin(math.radians(share(v, dt[2], dt[3]))), share(w, dt[4], dt[5])]),
-                              lambda v, w: np.array([dt[1] * math.cos(math.radians(share(v, dt[2], dt[3]))), dt[1] * math.sin(math.radians(share(v, dt[2], dt[3]))), share(w, dt[4], dt[5])]),
-                              lambda w, u: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(dt[2])), share(u, dt[0], dt[1]) * math.sin(math.radians(dt[2])), share(w, dt[4], dt[5])]),
-                              lambda w, u: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(dt[3])), share(u, dt[0], dt[1]) * math.sin(math.radians(dt[3])), share(w, dt[4], dt[5])]),
-                              lambda u, v: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(share(v, dt[2], dt[3]))), share(u, dt[0], dt[1]) * math.sin(math.radians(share(v, dt[2], dt[3]))), dt[4]]),
-                              lambda u, v: np.array([share(u, dt[0], dt[1]) * math.cos(math.radians(share(v, dt[2], dt[3]))), share(u, dt[0], dt[1]) * math.sin(math.radians(share(v, dt[2], dt[3]))), dt[5]]))
-            tfi.calc_grid(np.linspace(0, 1.0, dt[6]),
-                          np.linspace(0, 1.0, dt[7]),
-                          np.linspace(0, 1.0, dt[8]))
-            ans.append(tfi.grid)
-
-        self.assertTrue(len(data) == len(ans))
-
-        msh = Plot3D()
-        for k, g in enumerate(ans):
-            msh.clear()
-            blk = Plot3DBlock.construct_from_array(g)
-            msh.add(blk)
-            msh.save('test_3d_sect-{}.xyz'.format(k))
 
 
 """
@@ -1295,41 +1043,6 @@ class ThomasMiddlecoff3D(EllipticGrid3D):
         pass
 
 
-class EllipticTestCase(unittest.TestCase):
-    def test_3d_laplace(self):
-        # Delta, R1, R2, U, V, W
-        data = [(-10, 4, 25, 16, 41, 21),
-                (-1, 2, 5, 16, 33, 16)]
-
-        tfi_grid = []
-        laplace_grid = []
-        for dt in data:
-            tfi = LinearTFI2D(lambda u: np.array([(dt[0] + dt[1]) * (1 - u) + dt[2] * u, 0, 0]),
-                              lambda v: np.array([dt[1] * math.cos(math.pi * v) + dt[0], dt[1] * math.sin(math.pi * v), 0]),
-                              lambda u: np.array([(dt[0] - dt[1]) * (1 - u) - dt[2] * u, 0, 0]),
-                              lambda v: np.array([dt[2] * math.cos(math.pi * v), dt[2] * math.sin(math.pi * v), 0]))
-            tfi.calc_grid(uniform(dt[3]), uniform(dt[4]))
-            extruded_grid = np.empty((dt[3], dt[4], dt[5], 3))
-            for i in range(dt[3]):
-                for j in range(dt[4]):
-                    for k in range(dt[5]):
-                        extruded_grid[i][j][k] = tfi.grid[i][j]
-                        extruded_grid[i][j][k][2] = k
-            laplace_blk = Laplace3D(extruded_grid)
-            laplace_blk.smooth()
-            tfi_grid.append(extruded_grid)
-            laplace_grid.append(laplace_blk.grid)
-
-        for i in range(len(data)):
-            msh = Plot3D()
-            msh.add(Plot3DBlock.construct_from_array(tfi_grid[i]))
-            msh.save('test_3d_eccentric-{}_tfi.xyz'.format(i))
-            msh.clear()
-            msh.add(Plot3DBlock.construct_from_array(laplace_grid[i]))
-            msh.save('test_3d_eccentric-{}_laplace.xyz'.format(i))
-        self.assertTrue(True)
-
-
 """
 Implementation of the Plot3D standard.
 
@@ -1571,82 +1284,6 @@ class Plot3D(object):
         f_out.close()
 
 
-class Plot3DTestCase(unittest.TestCase):
-    def test_single(self):
-        # x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw
-        rect_param = [(0, 100, 0, 60, 0, 40, 61, 16, 21),
-                      (0, 100, 0, 60, 0, 40, 61, 16, 1)]
-        # r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw
-        sect_param = [(50, 100, 60, 320, 0, 30, 61, 16, 21),
-                      (50, 100, 60, 320, 0, 30, 61, 16, 1)]
-        ans = []
-
-        for p in rect_param:
-            x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw = p
-            pts = np.zeros((nu, nv, nw, 3))
-            u_list = np.linspace(x_min, x_max, nu)
-            v_list = np.linspace(y_min, y_max, nv)
-            w_list = np.linspace(z_min, z_max, nw)
-            for i in range(nu):
-                for j in range(nv):
-                    for k in range(nw):
-                        pts[i][j][k][0] = u_list[i]
-                        pts[i][j][k][1] = v_list[j]
-                        pts[i][j][k][2] = w_list[k]
-            ans.append(pts)
-
-        for p in sect_param:
-            r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw = p
-            pts = np.zeros((nu, nv, nw, 3))
-            u_list = np.linspace(r_min, r_max, nu)
-            v_list = np.linspace(theta_min, theta_max, nv)
-            w_list = np.linspace(h_min, h_max, nw)
-            for i in range(nu):
-                for j in range(nv):
-                    for k in range(nw):
-                        ct = math.radians(v_list[j])
-                        pts[i][j][k] = np.array([u_list[i] * math.cos(ct), u_list[i] * math.sin(ct), w_list[k]])
-            ans.append(pts)
-
-        self.assertTrue(len(ans) == len(rect_param) + len(sect_param))
-
-        grid = Plot3D()
-        for t in range(len(ans)):
-            grid.clear()
-            blk = Plot3DBlock.construct_from_array(ans[t])
-            grid.add(blk)
-            fn = "'test_plot3d_single-{}.xyz".format(t)
-            grid.save(fn)
-
-    def test_multi(self):
-        # x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw
-        rect_param = [(0, 100, 0, 60, 0, 40, 61, 16, 21),
-                      (120, 200, 75, 100, 50, 80, 61, 16, 21)]
-        ans = []
-
-        for p in rect_param:
-            x_min, x_max, y_min, y_max, z_min, z_max, nu, nv, nw = p
-            pts = np.zeros((nu, nv, nw, 3))
-            u_list = np.linspace(x_min, x_max, nu)
-            v_list = np.linspace(y_min, y_max, nv)
-            w_list = np.linspace(z_min, z_max, nw)
-            for i in range(nu):
-                for j in range(nv):
-                    for k in range(nw):
-                        pts[i][j][k][0] = u_list[i]
-                        pts[i][j][k][1] = v_list[j]
-                        pts[i][j][k][2] = w_list[k]
-            ans.append(pts)
-
-        self.assertTrue(len(ans) == len(rect_param))
-
-        grid = Plot3D()
-        for t in range(len(ans)):
-            blk = Plot3DBlock.construct_from_array(ans[t])
-            grid.add(blk)
-        grid.save('test_plot3d_multi.xyz')
-
-
 """
 Implementation of NASA's Neutral Map File representation.
 
@@ -1657,8 +1294,6 @@ https://geolab.larc.nasa.gov/Volume/Doc/nmf.htm
 
 class NMFEntry(object):
     NMF_LITERAL = '#{:^19}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
-    FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
-    CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
 
     def __init__(self, tp, b1, f1, rg1, b2, f2, rg2, swp):
         """
@@ -1700,12 +1335,7 @@ class NMFEntry(object):
         self.Swap = swp
 
         '''Check'''
-        if self.Swap:
-            assert self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
-            assert self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
-        else:
-            assert self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
-            assert self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
+        assert self.dim_check()
 
     @property
     def pri_node_num(self):
@@ -1716,10 +1346,25 @@ class NMFEntry(object):
         return self.B1SecEnd - self.B1SecStart + 1
 
     @property
+    def node_num(self):
+        t1 = self.pri_node_num
+        t2 = self.sec_node_num
+        return t1 if t2 == 0 else t1 * t2
+
+    @property
     def face_num(self):
         t1 = self.pri_node_num - 1
         t2 = self.sec_node_num - 1
         return t1 if t2 == 0 else t1 * t2
+
+    def dim_check(self):
+        if self.Swap:
+            t1 = self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
+            t2 = self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
+        else:
+            t1 = self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
+            t2 = self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
+        return t1 and t2
 
     def write(self, f_out):
         ret = '{:<20}'.format(self.Type)
@@ -1985,39 +1630,20 @@ def blk_cell_idx_quadrant(pnt, shape, q):
         raise ValueError('Invalid shape.')
 
 
-def boundary_pnt_face(pnt, shape):
-    u, v, w, _ = shape
-    i, j, k = pnt
-
-    ret = []
-    if i == 0:
-        ret.append(1)
-    if i == u - 1:
-        ret.append(2)
-    if j == 0:
-        ret.append(3)
-    if j == v - 1:
-        ret.append(4)
-    if k == 0:
-        ret.append(5)
-    if k == w - 1:
-        ret.append(6)
-
-    return ret
-
-
 class NeutralMapFile(object):
     SUBSCRIPT_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
+    FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
+    CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
 
     def __init__(self, str_grid):
         self.blk = str_grid
         self.desc = []
 
-        self.internal_pnt_num = np.array([blk_internal_node_num(str_grid[i].shape) for i in range(self.blk_num)])
+        self.internal_pnt_num = np.array([blk_internal_node_num(self.blk[i].shape) for i in range(self.blk_num)])
         for i in range(1, self.blk_num):
             self.internal_pnt_num[i] += self.internal_pnt_num[i - 1]
 
-        self.boundary_pnt_num = np.array([blk_node_num(str_grid[i].shape) for i in range(self.blk_num)])
+        self.boundary_pnt_num = np.array([blk_node_num(self.blk[i].shape) for i in range(self.blk_num)])
         self.boundary_pnt_num -= self.internal_pnt_num
         for i in range(1, self.blk_num):
             self.boundary_pnt_num[i] += self.boundary_pnt_num[i - 1]
@@ -2281,11 +1907,6 @@ class NeutralMapFile(object):
         base = 0 if b == 0 else self.cell_start[b - 1]
         off = blk_cell_idx_quadrant(pnt, self.blk[b].shape, q)
         return base + off
-
-
-class NMFTestCase(unittest.TestCase):
-    def test_pnt_num(self):
-        pass
 
 
 """
@@ -2683,12 +2304,12 @@ def xf_calc_boundary_info(entry, nmf):
                 for x2 in range(entry.sec_node_num - 1):
                     p1 = nmf.calc_real_pnt(entry, (x1, x2), 1)
                     p2 = nmf.calc_real_pnt(entry, (x1, x2), 2)
-                    norm_dir = NMFEntry.FACE_INVARIANT[entry.F1]
+                    norm_dir = NeutralMapFile.FACE_INVARIANT[entry.F1]
                     crd_list = pnt_circle(p1, norm_dir)
                     for t in range(4):
                         ret[n][t] = nmf.calc_pnt_idx(entry.B1, crd_list[t])
-                    c1 = nmf.calc_cell_idx(entry.B1, p1, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F1])
-                    c2 = nmf.calc_cell_idx(entry.B2, p2, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F2])
+                    c1 = nmf.calc_cell_idx(entry.B1, p1, NeutralMapFile.CELL_QUADRANT_ON_FACE[entry.F1])
+                    c2 = nmf.calc_cell_idx(entry.B2, p2, NeutralMapFile.CELL_QUADRANT_ON_FACE[entry.F2])
                     ret[n][4] = c1
                     ret[n][5] = c2
                     n += 1
@@ -2696,11 +2317,11 @@ def xf_calc_boundary_info(entry, nmf):
             for x1 in range(entry.pri_node_num - 1):
                 for x2 in range(entry.sec_node_num - 1):
                     p = nmf.calc_real_pnt(entry, (x1, x2), 1)
-                    norm_dir = NMFEntry.FACE_INVARIANT[entry.F1]
+                    norm_dir = NeutralMapFile.FACE_INVARIANT[entry.F1]
                     crd_list = pnt_circle(p, norm_dir)
                     for t in range(4):
                         ret[n][t] = nmf.calc_pnt_idx(entry.B1, crd_list[t])
-                    c1 = nmf.calc_cell_idx(entry.B1, p, NMFEntry.CELL_QUADRANT_ON_FACE[entry.F1])
+                    c1 = nmf.calc_cell_idx(entry.B1, p, NeutralMapFile.CELL_QUADRANT_ON_FACE[entry.F1])
                     c2 = 0
                     ret[n][4] = c1
                     ret[n][5] = c2
@@ -2885,15 +2506,3 @@ class FluentMSH(object):
             zone_idx += 1
 
         return msh
-
-
-class FluentMSHTestCase(unittest.TestCase):
-    def test_2d(self):
-        pass
-
-    def test_3d(self):
-        pass
-
-
-if __name__ == '__main__':
-    unittest.main()
