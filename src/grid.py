@@ -1747,13 +1747,14 @@ def blk_node_num(shape):
     :rtype: int
     """
 
-    assert len(shape) in (3, 4)
     if len(shape) == 3:
         u, v, _ = shape
         return u * v
-    else:
+    elif len(shape) == 4:
         u, v, w, _ = shape
         return u * v * w
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def blk_face_num(shape):
@@ -1764,13 +1765,14 @@ def blk_face_num(shape):
     :rtype: int
     """
 
-    assert len(shape) in (3, 4)
     if len(shape) == 3:
         u, v, _ = shape
         return u * (v - 1) + v * (u - 1)
-    else:
+    elif len(shape) == 4:
         u, v, w, _ = shape
         return u * (v - 1) * (w - 1) + v * (w - 1) * (u - 1) + w * (u - 1) * (v - 1)
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def blk_cell_num(shape):
@@ -1781,13 +1783,14 @@ def blk_cell_num(shape):
     :rtype: int
     """
 
-    assert len(shape) in (3, 4)
     if len(shape) == 3:
         u, v, _ = shape
         return (u - 1) * (v - 1)
-    else:
+    elif len(shape) == 4:
         u, v, w, _ = shape
         return (u - 1) * (v - 1) * (w - 1)
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def blk_internal_node_num(shape):
@@ -1798,13 +1801,14 @@ def blk_internal_node_num(shape):
     :rtype: int
     """
 
-    assert len(shape) in (3, 4)
     if len(shape) == 3:
         u, v, _ = shape
         return (u - 2) * (v - 2)
-    else:
+    elif len(shape) == 4:
         u, v, w, _ = shape
         return (u - 2) * (v - 2) * (w - 2)
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def blk_internal_face_num(shape):
@@ -1815,13 +1819,14 @@ def blk_internal_face_num(shape):
     :rtype: int
     """
 
-    assert len(shape) in (3, 4)
     if len(shape) == 3:
         u, v, _ = shape
         return (u - 2) * (v - 1) + (u - 1) * (v - 2)
-    else:
+    elif len(shape) == 4:
         u, v, w, _ = shape
         return (u - 1) * (v - 1) * (w - 2) + (u - 1) * (v - 2) * (w - 1) + (u - 2) * (v - 1) * (w - 1)
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def on_boundary(pnt, shape):
@@ -1834,16 +1839,17 @@ def on_boundary(pnt, shape):
     """
 
     assert len(pnt) == len(shape) - 1
-    assert len(shape) in (3, 4)
 
     if len(shape) == 3:
         i, j = pnt
         u, v, _ = shape
         return i == 0 or i == u - 1 or j == 0 or j == v - 1
-    else:
+    elif len(shape) == 4:
         i, j, k = pnt
         u, v, w, _ = shape
         return i == 0 or i == u - 1 or j == 0 or j == v - 1 or k == 0 or j == w - 1
+    else:
+        raise ValueError('Invalid shape.')
 
 
 def blk_node_idx(pnt, shape):
@@ -1864,7 +1870,7 @@ def blk_node_idx(pnt, shape):
         i, j, k = pnt
         return k * u * v + j * u + i
     else:
-        raise ValueError('Invalid shape input.')
+        raise ValueError('Invalid shape.')
 
 
 def blk_internal_node_idx(pnt, shape):
@@ -1885,7 +1891,7 @@ def blk_internal_node_idx(pnt, shape):
         i, j, k = pnt
         return blk_node_idx((i - 1, j - 1, k - 1), (u - 2, v - 2, w - 2))
     else:
-        raise ValueError('Invalid shape input.')
+        raise ValueError('Invalid shape.')
 
 
 def boundary_pnt_caste(shape):
@@ -1977,6 +1983,27 @@ def blk_cell_idx_quadrant(pnt, shape, q):
             raise ValueError('Invalid quadrant number.')
     else:
         raise ValueError('Invalid shape.')
+
+
+def boundary_pnt_face(pnt, shape):
+    u, v, w, _ = shape
+    i, j, k = pnt
+
+    ret = []
+    if i == 0:
+        ret.append(1)
+    if i == u - 1:
+        ret.append(2)
+    if j == 0:
+        ret.append(3)
+    if j == v - 1:
+        ret.append(4)
+    if k == 0:
+        ret.append(5)
+    if k == w - 1:
+        ret.append(6)
+
+    return ret
 
 
 class NeutralMapFile(object):
@@ -2127,7 +2154,7 @@ class NeutralMapFile(object):
                 real_pnt = self.calc_real_pnt(entry, logic_pnt, 1)
                 seq = self.calc_boundary_pnt_seq(entry.B1, real_pnt)
                 if self.boundary_pnt_idx[entry.B1][seq] == 0:
-                    t = self.find_all_occurance(entry.B1, entry.F1, real_pnt)
+                    t = self.find_all_occurrence(entry.B1, real_pnt)
                     for item in t:
                         b, crd = item
                         seq = self.calc_boundary_pnt_seq(b, crd)
@@ -2136,20 +2163,20 @@ class NeutralMapFile(object):
 
         self.boundary_pnt_cnt = n - self.boundary_pnt_num[-1]
 
-    def find_all_occurance(self, b, f, p):
+    def find_all_occurrence(self, b, p):
         ret = [(b, p)]
         t = 0
         while t < len(ret):
             cb, cp = ret[t]
-            face = shell_pnt_face_idx(cb, crd)
-            for f1 in face:
-                if adj_desc[cb][f1 - 1][1] != 0:
-                    b2, f2, swap = adj_desc[cb][f1 - 1]
-                    cp_crd = get_counterpart_pnt_coord(f1, b2, f2, crd, swap)
+            face = boundary_pnt_face(cp, self.blk[cb].shape)
+            for f in face:
+                if adj_desc[cb][f - 1][1] != 0:
+                    b2, f2, swap = adj_desc[cb][f - 1]
+                    cp_crd = get_counterpart_pnt_coord(f, b2, f2, crd, swap)
                     p2 = shell_pnt_idx_from_coord(b2, cp_crd)
                     ca = (b2, p2)
-                    if ca not in adj_blk_pnt:
-                        adj_blk_pnt.append(ca)
+                    if ca not in ret:
+                        ret.append(ca)
             t += 1
 
         return ret
