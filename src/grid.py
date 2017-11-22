@@ -1538,104 +1538,221 @@ def blk_cell_idx_quadrant(pnt, shape, q):
         raise ValueError('Invalid shape.')
 
 
-class NeutralMapFile(object):
-    SUBSCRIPT_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
-    FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
-    CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
+def face_invariant_idx(f, shape):
+    """
+    Get the invariant index on certain face according to NMF convention.
+    :param f: Face number.
+    :type f: int
+    :param shape: Shape of the block.
+    :return: Invariant index for face 'f'.
+    """
 
-    class NMFEntry(object):
-        NMF_LITERAL = '#{:^19}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
+    u, v, w, _ = shape
+    if f == 1 or f == 3 or f == 5:
+        return 1
+    elif f == 2:
+        return w
+    elif f == 4:
+        return u
+    elif f == 6:
+        return v
+    else:
+        raise ValueError('Invalid face number.')
 
-        def __init__(self, tp, b1, f1, rg1, b2, f2, rg2, swp):
-            """
-            Entry used in Neutral Map File to indicate the topological features of the mesh.
-            :param tp:The type of feature (topological or boundary condition) to be defined and positioned within the mesh.
-            :type tp: str
-            :param b1: The number of the first block(Starting from 1).
-            :type b1: int
-            :param f1: The face number for the first block(From 1 to 6).
-            :type f1: int
-            :param rg1: Range descriptions of the first block.
-            :param b2:The number of the second block(Starting from 1).
-            :type b2: int
-            :param f2: The face number for the second block(From 1 to 6).
-            :type f2: int
-            :param rg2: Range descriptions of the second block.
-            :param swp: Orientation flag(Specified only for Type==ONE_TO_ONE).
-                        False if the primary directions of the two identified faces are aligned(though perhaps in opposite directions)
-                        and True otherwise.
-            :type swp: bool
-            """
 
-            assert b1 > 0 and 1 <= f1 <= 6 and rg1.shape == (2, 2)
-            assert b2 > 0 and 1 <= f2 <= 6 and rg2.shape == (2, 2)
+class NMFEntry(object):
+    ONE_TO_ONE = 'ONE_TO_ONE'
+    NMF_LITERAL = '# {:<18}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
+    IDX_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
 
-            self.Type = tp
-            self.B1 = b1
-            self.F1 = f1
-            self.B1PriStart = rg1[0][0]  # The starting index in the primary coordinate direction for the face in the 1st block.
-            self.B1PriEnd = rg1[0][1]  # The ending index in the primary coordinate direction for the face in the 1st block.
-            self.B1SecStart = rg1[1][0]  # The starting index in the secondary coordinate direction for the face in the 1st block.
-            self.B1SecEnd = rg1[1][1]  # The ending index in the secondary coordinate direction for the face in the 1st block.
-            self.B2 = b2
-            self.F2 = f2
-            self.B2PriStart = rg2[0][0]  # The starting index in the primary coordinate direction for the face in the 2nd block.
-            self.B2PriEnd = rg2[0][1]  # The ending index in the primary coordinate direction for the face in the 2nd block.
-            self.B2SecStart = rg2[1][0]  # The starting index in the secondary coordinate direction for the face in the 2nd block.
-            self.B2SecEnd = rg2[1][1]  # The ending index in the secondary coordinate direction for the face in the 2nd block.
-            self.Swap = swp
+    def __init__(self, *args, **kwargs):
+        """
+        Entry used in Neutral Map File to indicate the topological features of the mesh.
+        :param args: Parameters.
+        :param kwargs: Options.
+        """
 
+        assert len(args) in (7, 13)
+
+        self.Type = args[0]  # The type of feature (topological or boundary condition) to be defined and positioned within the mesh.
+        self.B1 = args[1]  # The number of the first block(Starting from 1).
+        self.F1 = args[2]  # The face number for the first block(From 1 to 6).
+        self.B1PriStart = args[3]  # The starting index in the primary coordinate direction for the face in the 1st block.
+        self.B1PriEnd = args[4]  # The ending index in the primary coordinate direction for the face in the 1st block.
+        self.B1SecStart = args[5]  # The starting index in the secondary coordinate direction for the face in the 1st block.
+        self.B1SecEnd = args[6]  # The ending index in the secondary coordinate direction for the face in the 1st block.
+        assert self.B1 > 0 and 1 <= self.F1 <= 6
+        self.B1Shape = np.zeros(4, int)
+
+        if len(args) == 13:
+            self.B2 = args[7]  # The number of the second block(Starting from 1).
+            self.F2 = args[8]  # The face number for the second block(From 1 to 6).
+            self.B2PriStart = args[9]  # The starting index in the primary coordinate direction for the face in the 2nd block.
+            self.B2PriEnd = args[10]  # The ending index in the primary coordinate direction for the face in the 2nd block.
+            self.B2SecStart = args[11]  # The starting index in the secondary coordinate direction for the face in the 2nd block.
+            self.B2SecEnd = args[12]  # The ending index in the secondary coordinate direction for the face in the 2nd block.
+            assert self.B2 > 0 and 1 <= self.F2 <= 6
+            self.B2Shape = np.zeros(4, int)
+
+            '''
+            Orientation flag(Specified only for Type==ONE_TO_ONE).
+                False - The primary directions of the two faces are aligned
+                True - Otherwise
+            '''
+            self.Swap = kwargs['swap'] if 'swap' in kwargs else False
+            if self.Swap:
+                assert self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
+                assert self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
+            else:
+                assert self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
+                assert self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
+
+            '''Even directions are aligned, they may be opposite'''
             self.PriReverse = False
             self.SecReverse = False
 
-            '''Check'''
-            assert self.dim_check()
+        '''Indicate relative position'''
+        self.OnLeft = True
 
-        @property
-        def pri_node_num(self):
-            return self.B1PriEnd - self.B1PriStart + 1
+        '''Points back to parent'''
+        self.NMF = None
 
-        @property
-        def sec_node_num(self):
-            return self.B1SecEnd - self.B1SecStart + 1
+    @classmethod
+    def single(cls, tp, b1, f1, s1, e1, s2, e2):
+        return cls(tp, b1, f1, s1, e1, s2, e2)
 
-        @property
-        def node_num(self):
-            t1 = self.pri_node_num
-            t2 = self.sec_node_num
-            return t1 if t2 == 0 else t1 * t2
+    @classmethod
+    def one2one(cls, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swp):
+        return cls(NMFEntry.ONE_TO_ONE, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swap=swp)
 
-        @property
-        def face_num(self):
-            t1 = self.pri_node_num - 1
-            t2 = self.sec_node_num - 1
-            return t1 if t2 == 0 else t1 * t2
-
-        def dim_check(self):
-            if self.Swap:
-                t1 = self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
-                t2 = self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
-            else:
-                t1 = self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
-                t2 = self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
-            return t1 and t2
-
-        def write(self, f_out):
-            ret = '{:<20}'.format(self.Type)
-            ret += '{:>8}'.format(self.B1)
-            ret += '{:>2}'.format(self.F1)
-            ret += '{:>8}'.format(self.B1PriStart)
-            ret += '{:>8}'.format(self.B1PriEnd)
-            ret += '{:>8}'.format(self.B1SecStart)
-            ret += '{:>8}'.format(self.B1SecEnd)
-            ret += '{:>8}'.format(self.B2)
-            ret += '{:>2}'.format(self.F2)
-            ret += '{:>8}'.format(self.B2PriStart)
-            ret += '{:>8}'.format(self.B2PriEnd)
-            ret += '{:>8}'.format(self.B2SecStart)
-            ret += '{:>8}'.format(self.B2SecEnd)
+    def __repr__(self):
+        ret = '{:<20}'.format(self.Type)
+        ret += '{:^8}'.format(self.B1)
+        ret += '{:^2}'.format(self.F1)
+        ret += '{:^8}'.format(self.B1PriStart)
+        ret += '{:^8}'.format(self.B1PriEnd)
+        ret += '{:^8}'.format(self.B1SecStart)
+        ret += '{:^8}'.format(self.B1SecEnd)
+        if self.Type == NMFEntry.ONE_TO_ONE:
+            ret += '{:^8}'.format(self.B2)
+            ret += '{:^2}'.format(self.F2)
+            ret += '{:^8}'.format(self.B2PriStart)
+            ret += '{:^8}'.format(self.B2PriEnd)
+            ret += '{:^8}'.format(self.B2SecStart)
+            ret += '{:^8}'.format(self.B2SecEnd)
             ret += '{:>6}'.format('TRUE' if self.Swap else 'FALSE')
-            f_out.write(ret)
+        return ret
+
+    def write(self, f_out):
+        f_out.write(self.__repr__())
+
+    @property
+    def pri_node_num(self):
+        return self.B1PriEnd - self.B1PriStart + 1
+
+    @property
+    def sec_node_num(self):
+        return self.B1SecEnd - self.B1SecStart + 1
+
+    @property
+    def node_num(self):
+        t1 = self.pri_node_num
+        t2 = self.sec_node_num
+        return t1 if t2 == 0 else t1 * t2
+
+    @property
+    def face_num(self):
+        t1 = self.pri_node_num - 1
+        t2 = self.sec_node_num - 1
+        return t1 if t2 == 0 else t1 * t2
+
+    @property
+    def f1_inv_idx(self):
+        return face_invariant_idx(self.F1, self.B1Shape)
+
+    @property
+    def f2_inv_idx(self):
+        return face_invariant_idx(self.F2, self.B2Shape)
+
+    def invariant_idx(self, b):
+        if b == 1:
+            return self.f1_inv_idx
+        elif b == 2:
+            return self.f2_inv_idx
+        else:
+            raise ValueError('Invalid block indication.')
+
+    def b1_pri_idx(self, x1):
+        return self.B1PriStart + x1
+
+    def b1_sec_idx(self, x2):
+        return self.B1SecStart + x2
+
+    def b2_pri_idx(self, x1):
+        return self.B2PriStart + x1
+
+    def b2_sec_idx(self, x2):
+        return self.B2SecStart + x2
+
+    def logic2real(self, lp, b=1):
+        ret = np.empty(3, int)
+        x1, x2 = lp
+        if b == 1:
+            mp = NMFEntry.IDX_MAP[self.F1]
+            ret[mp[0]] = self.f1_inv_idx - 1
+            ret[mp[1]] = self.b1_pri_idx(x1) - 1
+            ret[mp[2]] = self.b1_sec_idx(x2) - 1
+        elif b == 2:
+            mp = NMFEntry.IDX_MAP[self.F2]
+            ret[mp[0]] = self.f2_inv_idx - 1
+            ret[mp[1]] = self.b2_pri_idx(x1) - 1
+            ret[mp[2]] = self.b1_sec_idx(x2) - 1
+        else:
+            raise ValueError('Invalid block indication.')
+
+        return ret
+
+    def real2logic(self, rp, b=1):
+        assert b in (1, 2)
+
+        f = self.F1 if b == 1 else self.F2
+        mp = NMFEntry.IDX_MAP[f]
+        x = [1 + rp[mp[i]] for i in range(3)]
+
+        if b == 1:
+            x[1] -= self.B1PriStart
+            x[2] -= self.B1SecStart
+        else:
+            x[1] -= self.B2PriStart
+            x[2] -= self.B2SecStart
+
+        assert x[0] == self.invariant_idx(b)
+        return np.array([x[1], x[2]])
+
+    def opposite(self, b, lp):
+        """
+        Calculate corresponding logic coordinate in the opposite block.
+        :param lp: Logic point.
+        :param side: Indicate in which side is 'lp' located in.
+                     1-B1, 2-B2
+        :type side: int
+        :return:
+        """
+
+        assert side in (1, 2)
+
+        x1, y1 = lp
+        x2 = self.pri_node_num + 1 - x1 if self.PriReverse else x1
+        y2 = self.sec_node_num + 1 - y1 if self.SecReverse else y1
+        if self.Swap:
+            x2, y2 = y2, x2
+
+        return x2, y2
+
+
+class NeutralMapFile(object):
+    FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
+    CELL_QUADRANT_ON_FACE = {1: 1, 2: 5, 3: 1, 4: 2, 5: 1, 6: 4}
 
     def __init__(self, str_grid):
         self.blk = str_grid
@@ -1697,36 +1814,6 @@ class NeutralMapFile(object):
         for i in range(len(self.desc)):
             self.desc[i].write(f_out)
         f_out.close()
-
-    def face_invariant_val(self, b, f):
-        u, v, w, _ = self.blk[b - 1].shape
-        if f == 1 or f == 3 or f == 5:
-            return 0
-        elif f == 2:
-            return w - 1
-        elif f == 4:
-            return u - 1
-        elif f == 6:
-            return v - 1
-        else:
-            raise ValueError('Invalid face number.')
-
-    def calc_real_pnt(self, entry, logic_pnt, side):
-        ret = np.empty(3, int)
-        x1 = logic_pnt[0]
-        x2 = logic_pnt[1]
-        if side == 1:
-            ri = [entry.B1PriStart + x1, entry.B1SecStart + x2, self.face_invariant_val(entry.B1, entry.F1)]
-            mp = NeutralMapFile.SUBSCRIPT_MAP[entry.F1]
-        elif side == 2:
-            ri = [entry.B2PriStart + x1, entry.B2SecStart + x2, self.face_invariant_val(entry.B2, entry.F2)]
-            mp = NeutralMapFile.SUBSCRIPT_MAP[entry.F1]
-        else:
-            raise ValueError('Invalid side number.')
-
-        for i in range(3):
-            ret[mp[i]] = ri[i]
-        return ret
 
     @property
     def grid(self):
