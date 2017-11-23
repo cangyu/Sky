@@ -9,6 +9,7 @@ from wing import Wing
 from iges import Model
 from nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
 from aircraft.Baseline import WingPlanform
+from misc import share
 
 
 class BWBPlanform1(WingPlanform):
@@ -394,8 +395,8 @@ def planform1():
 
 def planform2():
     spn = 21
-    cr = 16.667
-    ct = 1.38
+    cr = 17
+    ct = 1.4
     outer_taper_ratio = 2.5
     fl = np.array([2.1, 4, 2.9, 0])
     alpha = np.radians([32, 56, 37.5, 28])
@@ -415,7 +416,7 @@ def planform2():
         tmp += l
         u.append(tmp)
     u = np.unique(u) / spn
-    u_dist = chebshev_dist_multi([0, u[1], u[2], u[3], u[4], u[5], u[6]], [3, 2, 3, 3, 3, 5])
+    u_dist = chebshev_dist_multi(u, [3, 2, 3, 3, 3, 5])
     frm.show(u_dist)
 
     '''Profile details'''
@@ -424,16 +425,29 @@ def planform2():
     for i in range(sec_num):
         tg = frm.front_crv(u_dist[i], 1)
         front_swp[i] = math.degrees(math.atan2(tg[0], tg[2]))
+    print(front_swp)
 
-    tc_3d = np.array([22, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
-    cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
-    cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(28)) ** 2
-    print(cl_2d)
+    # tc_3d = np.array([22, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
+    # cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
+    # cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(28)) ** 2
+    # print(cl_2d)
 
-    foil = ['NACA14122', 'NACA14022', 'NACA63(4)-221', 'NACA63(3)-218', 'NLF(1)-0416', 'NLF(1)-0414F', 'SC(2)-0612',
-            'SC(2)-0610', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0410', 'NACA64A210', 'NACA64A010']
+    foil = ['NACA0016',
+            'NACA14022',
+            'NACA63(4)-221',
+            'NACA63(3)-218',
+            'NLF(1)-0416',
+            'NLF(1)-0414F',
+            'SC(2)-0612',
+            'SC(2)-0610',
+            'SC(2)-0710',
+            'SC(2)-0710',
+            'SC(2)-0610',
+            'SC(2)-0410',
+            'NACA64A210',
+            'NACA0008']
     z_offset = u_dist * spn
-    length = list(map(lambda _u: frm.chord_len(_u), u_dist))
+    length = list(map(frm.chord_len, u_dist))
     sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), u_dist))
     twist = np.zeros(sec_num)
     dihedral = np.zeros(sec_num)
@@ -442,23 +456,52 @@ def planform2():
     thickness_factor = np.ones(sec_num)
 
     '''Show distribution'''
-    f, ax_arr = plt.subplots(2, sharex=True)
-    ax_arr[0].plot(u_dist * spn, tc_3d / 100)
-    ax_arr[0].set_ylim([0, tc_3d[0] / 100 * 1.1])
-    ax_arr[0].set_title('t/c in span-wise')
-    ax_arr[1].plot(u_dist * spn, cl_3d)
-    ax_arr[1].set_title('Cl in span-wise')
-    plt.show()
+    # f, ax_arr = plt.subplots(2, sharex=True)
+    # ax_arr[0].plot(u_dist * spn, tc_3d / 100)
+    # ax_arr[0].set_ylim([0, tc_3d[0] / 100 * 1.1])
+    # ax_arr[0].set_title('t/c in span-wise')
+    # ax_arr[1].plot(u_dist * spn, cl_3d)
+    # ax_arr[1].set_title('Cl in span-wise')
+    # plt.show()
 
     '''Initial grid'''
     wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
-    model = Model()
     sf = wg.surf
+    model = Model()
     model.add(sf.to_iges())
-    model.save('HWB_Wing.igs')
-    # wg.gen_grid('HWB_Wing.msh')
+    model.save('BWB_Wing.igs')
+
+
+def simple_wing():
+    span = 42
+    # area = 220
+    # mac = 6.52
+    front_sweep = 28
+    cr = 9.73
+    ct = 0.75
+
+    foil = ['NACA0012', 'NACA0010', 'NACA0010', 'NACA0008', 'NACA0006']
+    u = np.array([0, 0.25, 0.5, 0.75, 1])
+    n = len(u)
+
+    z_offset = u * span
+    length = np.array([share(_u, cr, ct) for _u in u])
+    sweep_back = np.array([front_sweep] * n)
+    twist = np.zeros(n)
+    dihedral = np.zeros(n)
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
+
+    wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
+    model = Model()
+    model.add(wg.surf.to_iges())
+    model.add(wg.tailing_up.to_iges())
+    model.add(wg.tailing_down.to_iges())
+    model.save('StraightWing_{}_{}_{}_{}.igs'.format(span, front_sweep, cr, ct))
 
 
 if __name__ == '__main__':
     # planform1()
-    planform2()
+    # planform2()
+    simple_wing()
