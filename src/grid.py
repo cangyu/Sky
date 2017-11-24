@@ -1564,6 +1564,15 @@ class NMFEntry(object):
     ONE_TO_ONE = 'ONE_TO_ONE'
     NMF_LITERAL = '# {:<18}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^8}{:^2}{:^8}{:^8}{:^8}{:^8}{:^6}'.format('Type', 'B1', 'F1', 'S1', 'E1', 'S2', 'E2', 'B2', 'F2', 'S1', 'E1', 'S2', 'E2', 'Swap')
     IDX_MAP = {1: (2, 0, 1), 2: (2, 0, 1), 3: (0, 1, 2), 4: (0, 1, 2), 5: (1, 2, 0), 6: (1, 2, 0)}
+    # CornerIdx in b2, Pri_Rev, Sec_Rev, Swp
+    FACE_MAPPING = [[0, 1, 2, 3, False, False, False],
+                    [0, 3, 2, 1, False, False, True],
+                    [1, 0, 3, 2, True, False, False],
+                    [3, 0, 1, 2, True, False, True],
+                    [2, 3, 0, 1, True, True, False],
+                    [2, 1, 0, 3, True, True, True],
+                    [3, 2, 1, 0, False, True, False],
+                    [1, 2, 3, 0, False, True, True]]
 
     def __init__(self, *args, **kwargs):
         """
@@ -1598,16 +1607,14 @@ class NMFEntry(object):
             Orientation flag(Specified only for Type==ONE_TO_ONE).
                 False - The primary directions of the two faces are aligned
                 True - Otherwise
+            At this stage, this setting may be not correct, will be automatically configured later.
             '''
             self.Swap = kwargs['swap'] if 'swap' in kwargs else False
-            if self.Swap:
-                assert self.B1PriEnd - self.B1PriStart == self.B2SecEnd - self.B2SecStart
-                assert self.B1SecEnd - self.B1SecStart == self.B2PriEnd - self.B2PriStart
-            else:
-                assert self.B1PriEnd - self.B1PriStart == self.B2PriEnd - self.B2PriStart
-                assert self.B1SecEnd - self.B1SecStart == self.B2SecEnd - self.B2SecStart
 
-            '''Even directions are aligned, they may be opposite'''
+            '''
+            Even directions are aligned, they may be opposite.
+            At this stage, these settings may be not correct, will be automatically configured later.
+            '''
             self.PriReverse = False
             self.SecReverse = False
 
@@ -1617,13 +1624,38 @@ class NMFEntry(object):
         '''Points back to parent'''
         self.NMF = None
 
+    @property
+    def shape_of_blk1(self):
+        return self.B1Shape
+
+    @shape_of_blk1.setter
+    def shape_of_blk1(self, shape):
+        assert len(shape) == len(self.B1Shape)
+        self.B1Shape = np.copy(shape)
+
+    @property
+    def shape_of_blk2(self):
+        return self.B2Shape
+
+    @shape_of_blk2.setter
+    def shape_of_blk2(self, shape):
+        assert len(shape) == len(self.B2Shape)
+        self.B2Shape = np.copy(shape)
+
     @classmethod
     def single(cls, tp, b1, f1, s1, e1, s2, e2):
         return cls(tp, b1, f1, s1, e1, s2, e2)
 
     @classmethod
-    def one2one(cls, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swp):
-        return cls(NMFEntry.ONE_TO_ONE, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swap=swp)
+    def one2one(cls, *args):
+        if len(args) == 13:
+            b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swp = args
+            return cls(NMFEntry.ONE_TO_ONE, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2, swap=swp)
+        elif len(args) == 12:
+            b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2 = args
+            return cls(NMFEntry.ONE_TO_ONE, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2)
+        else:
+            raise ValueError('invalid arguments')
 
     def __repr__(self):
         ret = '{:<20}'.format(self.Type)
@@ -1646,24 +1678,32 @@ class NMFEntry(object):
     def write(self, f_out):
         f_out.write(self.__repr__())
 
-    @property
-    def pri_node_num(self):
-        return self.B1PriEnd - self.B1PriStart + 1
+    def pri_node_num(self, b=1):
+        if b == 1:
+            return self.B1PriEnd - self.B1PriStart + 1
+        elif b == 2:
+            return self.B2PriEnd - self.B2PriStart + 1
+        else:
+            raise ValueError('invalid block indication')
 
-    @property
-    def sec_node_num(self):
-        return self.B1SecEnd - self.B1SecStart + 1
+    def sec_node_num(self, b=1):
+        if b == 1:
+            return self.B1SecEnd - self.B1SecStart + 1
+        elif b == 2:
+            return self.B2SecEnd - self.B2SecStart + 1
+        else:
+            raise ValueError('invalid block indication')
 
     @property
     def node_num(self):
-        t1 = self.pri_node_num
-        t2 = self.sec_node_num
+        t1 = self.pri_node_num()
+        t2 = self.sec_node_num()
         return t1 if t2 == 0 else t1 * t2
 
     @property
     def face_num(self):
-        t1 = self.pri_node_num - 1
-        t2 = self.sec_node_num - 1
+        t1 = self.pri_node_num() - 1
+        t2 = self.sec_node_num() - 1
         return t1 if t2 == 0 else t1 * t2
 
     @property
@@ -1674,7 +1714,7 @@ class NMFEntry(object):
     def f2_inv_idx(self):
         return face_invariant_idx(self.F2, self.B2Shape)
 
-    def invariant_idx(self, b):
+    def invariant_idx(self, b=1):
         if b == 1:
             return self.f1_inv_idx
         elif b == 2:
@@ -1706,7 +1746,7 @@ class NMFEntry(object):
             mp = NMFEntry.IDX_MAP[self.F2]
             ret[mp[0]] = self.f2_inv_idx - 1
             ret[mp[1]] = self.b2_pri_idx(x1) - 1
-            ret[mp[2]] = self.b1_sec_idx(x2) - 1
+            ret[mp[2]] = self.b2_sec_idx(x2) - 1
         else:
             raise ValueError('Invalid block indication.')
 
@@ -1729,25 +1769,81 @@ class NMFEntry(object):
         assert x[0] == self.invariant_idx(b)
         return np.array([x[1], x[2]])
 
-    def opposite(self, b, lp):
+    def counterpart(self, lp, b):
         """
         Calculate corresponding logic coordinate in the opposite block.
         :param lp: Logic point.
-        :param side: Indicate in which side is 'lp' located in.
-                     1-B1, 2-B2
-        :type side: int
-        :return:
+        :param b: For block indication: 1-Blk1, 2-Blk2.
+        :type b: int
+        :return: Counterpart logic coordinate.
         """
 
-        assert side in (1, 2)
-
         x1, y1 = lp
-        x2 = self.pri_node_num + 1 - x1 if self.PriReverse else x1
-        y2 = self.sec_node_num + 1 - y1 if self.SecReverse else y1
+        x2 = self.pri_node_num(b) - 1 - x1 if self.PriReverse else x1
+        y2 = self.sec_node_num(b) - 1 - y1 if self.SecReverse else y1
         if self.Swap:
             x2, y2 = y2, x2
 
-        return x2, y2
+        return np.array([x2, y2])
+
+    def corners(self, b=1):
+        ret = np.empty((4, 3), int)
+
+        if b == 1:
+            pnt = [(self.B1PriStart, self.B1SecStart),
+                   (self.B1PriEnd, self.B1SecStart),
+                   (self.B1PriEnd, self.B1SecEnd),
+                   (self.B1PriStart, self.B1SecEnd)]
+            mp = NMFEntry.IDX_MAP[self.F1]
+            for i in range(4):
+                ret[i][mp[0]] = self.f1_inv_idx - 1
+                ret[i][mp[1]] = pnt[i][0] - 1
+                ret[i][mp[2]] = pnt[i][1] - 1
+        elif b == 2:
+            pnt = [(self.B2PriStart, self.B2SecStart),
+                   (self.B2PriEnd, self.B2SecStart),
+                   (self.B2PriEnd, self.B2SecEnd),
+                   (self.B2PriStart, self.B2SecEnd)]
+            mp = NMFEntry.IDX_MAP[self.F2]
+            for i in range(4):
+                ret[i][mp[0]] = self.f2_inv_idx - 1
+                ret[i][mp[1]] = pnt[i][0] - 1
+                ret[i][mp[2]] = pnt[i][1] - 1
+        else:
+            raise ValueError('invalid block indication')
+
+        return ret
+
+    def direction_auto_mapping(self):
+        c1 = self.corners(1)
+        c2 = self.corners(2)
+
+        ok = False
+        for dt in NMFEntry.FACE_MAPPING:
+            all_match = True
+            for k in range(4):
+                i1, j1, k1 = c1[k]
+                i2, j2, k2 = c2[dt[k]]
+                p1 = self.NMF.blk[self.B1 - 1][i1][j1][k1]
+                p2 = self.NMF.blk[self.B2 - 1][i2][j2][k2]
+                if not np.array_equal(p1, p2):
+                    all_match = False
+                    break
+            if all_match:
+                self.PriReverse = dt[4]
+                self.SecReverse = dt[5]
+                self.Swap = dt[6]
+                ok = True
+                break
+
+        if not ok:
+            raise ValueError('2 faces not match')
+
+        '''Checking'''
+        if self.Swap:
+            assert self.pri_node_num(1) == self.sec_node_num(2) and self.sec_node_num(1) == self.pri_node_num(2)
+        else:
+            assert self.pri_node_num(1) == self.pri_node_num(2) and self.sec_node_num(1) == self.sec_node_num(2)
 
 
 class NeutralMapFile(object):
@@ -1759,12 +1855,10 @@ class NeutralMapFile(object):
         self.desc = []
 
         self.internal_pnt_num = np.array([blk_internal_node_num(self.blk[i].shape) for i in range(self.blk_num)])
-        for i in range(1, self.blk_num):
-            self.internal_pnt_num[i] += self.internal_pnt_num[i - 1]
-
         self.boundary_pnt_num = np.array([blk_node_num(self.blk[i].shape) for i in range(self.blk_num)])
         self.boundary_pnt_num -= self.internal_pnt_num
         for i in range(1, self.blk_num):
+            self.internal_pnt_num[i] += self.internal_pnt_num[i - 1]
             self.boundary_pnt_num[i] += self.boundary_pnt_num[i - 1]
 
         self.boundary_pnt_idx = [np.zeros(self.boundary_pnt_num[i], int) for i in range(self.blk_num)]
