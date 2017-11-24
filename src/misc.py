@@ -40,13 +40,8 @@ def read_airfoil_pts(foil_name):
     :return: n x 3 array with 'z' dimension being 0.
     """
 
-    pts = []
-    fin = open(os.path.join(AIRFOIL_DIR, foil_name + '.dat'))
-    for line in fin:
-        x, y, z = line.split()
-        pts.append((float(x), float(y), float(z)))
-    fin.close()
-    return np.copy(pts)
+    fn = os.path.join(AIRFOIL_DIR, foil_name + '.dat')
+    return np.loadtxt(fn)
 
 
 def vector_square(u):
