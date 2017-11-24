@@ -3,6 +3,7 @@ import numpy as np
 import math
 from src.grid import NeutralMapFile, NMFEntry, uniform, LinearTFI2D
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class NMFTestCase(unittest.TestCase):

@@ -1414,6 +1414,8 @@ def blk_node_idx(pnt, shape):
     :rtype: int
     """
 
+    assert len(pnt) == len(shape) - 1
+
     if len(shape) == 3:
         u, v, _ = shape
         i, j = pnt
@@ -1434,6 +1436,8 @@ def blk_internal_node_idx(pnt, shape):
     :return: Internal index of the point with (I > J > K) preference, starting from 0.
     :rtype: int
     """
+
+    assert len(pnt) == len(shape) - 1
 
     if len(shape) == 3:
         u, v, _ = shape
@@ -1475,6 +1479,8 @@ def blk_cell_idx(pnt, shape):
     :rtype: int
     """
 
+    assert len(pnt) == len(shape) - 1
+
     if len(shape) == 4:
         u, v, w, _ = shape
         i, j, k = pnt
@@ -1500,6 +1506,8 @@ def blk_cell_idx_quadrant(pnt, shape, q):
              calculate the index of cell at specified quadrant(Starting from 0).
     :rtype: int
     """
+
+    assert len(pnt) == len(shape) - 1
 
     if len(shape) == 4:
         i, j, k = pnt
@@ -1624,6 +1632,11 @@ class NMFEntry(object):
         '''Points back to parent'''
         self.NMF = None
 
+    '''
+    Followings are some getters and setters
+    for easy use.
+    '''
+
     @property
     def shape_of_blk1(self):
         return self.B1Shape
@@ -1642,6 +1655,19 @@ class NMFEntry(object):
         assert len(shape) == len(self.B2Shape)
         self.B2Shape = np.copy(shape)
 
+    def shape_of_blk(self, b=1):
+        if b == 1:
+            return self.shape_of_blk1
+        elif b == 2:
+            return self.shape_of_blk2
+        else:
+            raise ValueError('invalid block indication')
+
+    '''
+    Followings class function are used
+    as constructors.
+    '''
+
     @classmethod
     def single(cls, tp, b1, f1, s1, e1, s2, e2):
         return cls(tp, b1, f1, s1, e1, s2, e2)
@@ -1656,6 +1682,11 @@ class NMFEntry(object):
             return cls(NMFEntry.ONE_TO_ONE, b1, f1, b1s1, b1e1, b1s2, b1e2, b2, f2, b2s1, b2e1, b2s2, b2e2)
         else:
             raise ValueError('invalid arguments')
+
+    '''
+    Following utilities are used for
+    ASCII output and representation.
+    '''
 
     def __repr__(self):
         ret = '{:<20}'.format(self.Type)
@@ -1677,6 +1708,11 @@ class NMFEntry(object):
 
     def write(self, f_out):
         f_out.write(self.__repr__())
+
+    '''
+    Following routines and properties
+    are used for basic counting.
+    '''
 
     def pri_node_num(self, b=1):
         if b == 1:
@@ -1706,6 +1742,12 @@ class NMFEntry(object):
         t2 = self.sec_node_num() - 1
         return t1 if t2 == 0 else t1 * t2
 
+    '''
+    Followings are utilities to calculate
+    the invariant index of each side.
+    Note that the result starting from 1.
+    '''
+
     @property
     def f1_inv_idx(self):
         return face_invariant_idx(self.F1, self.B1Shape)
@@ -1722,6 +1764,12 @@ class NMFEntry(object):
         else:
             raise ValueError('Invalid block indication.')
 
+    '''
+    Followings are routines to calculate
+    the physical index corresponding to
+    each logical axis.
+    '''
+
     def b1_pri_idx(self, x1):
         return self.B1PriStart + x1
 
@@ -1733,6 +1781,29 @@ class NMFEntry(object):
 
     def b2_sec_idx(self, x2):
         return self.B2SecStart + x2
+
+    def pri_idx(self, x1, b=1):
+        if b == 1:
+            return self.b1_pri_idx(x1)
+        elif b == 2:
+            return self.b2_pri_idx(x1)
+        else:
+            raise ValueError('invalid block indication')
+
+    def sec_idx(self, x2, b=1):
+        if b == 1:
+            return self.b1_sec_idx(x2)
+        elif b == 2:
+            return self.b2_sec_idx(x2)
+        else:
+            raise ValueError('invalid block indication')
+
+    '''
+    Followings are utilities for converting
+    logical index into real index and vice-versa.
+    Note that the primary axis on each face may be
+    swapped, so the input is block dependent.
+    '''
 
     def logic2real(self, lp, b=1):
         ret = np.empty(3, int)
@@ -1769,22 +1840,11 @@ class NMFEntry(object):
         assert x[0] == self.invariant_idx(b)
         return np.array([x[1], x[2]])
 
-    def counterpart(self, lp, b):
-        """
-        Calculate corresponding logic coordinate in the opposite block.
-        :param lp: Logic point.
-        :param b: For block indication: 1-Blk1, 2-Blk2.
-        :type b: int
-        :return: Counterpart logic coordinate.
-        """
-
-        x1, y1 = lp
-        x2 = self.pri_node_num(b) - 1 - x1 if self.PriReverse else x1
-        y2 = self.sec_node_num(b) - 1 - y1 if self.SecReverse else y1
-        if self.Swap:
-            x2, y2 = y2, x2
-
-        return np.array([x2, y2])
+    '''
+    Following routines are used to determine
+    the direction mapping relations between
+    the 2 faces automatically.
+    '''
 
     def corners(self, b=1):
         ret = np.empty((4, 3), int)
@@ -1794,23 +1854,19 @@ class NMFEntry(object):
                    (self.B1PriEnd, self.B1SecStart),
                    (self.B1PriEnd, self.B1SecEnd),
                    (self.B1PriStart, self.B1SecEnd)]
-            mp = NMFEntry.IDX_MAP[self.F1]
-            for i in range(4):
-                ret[i][mp[0]] = self.f1_inv_idx - 1
-                ret[i][mp[1]] = pnt[i][0] - 1
-                ret[i][mp[2]] = pnt[i][1] - 1
         elif b == 2:
             pnt = [(self.B2PriStart, self.B2SecStart),
                    (self.B2PriEnd, self.B2SecStart),
                    (self.B2PriEnd, self.B2SecEnd),
                    (self.B2PriStart, self.B2SecEnd)]
-            mp = NMFEntry.IDX_MAP[self.F2]
-            for i in range(4):
-                ret[i][mp[0]] = self.f2_inv_idx - 1
-                ret[i][mp[1]] = pnt[i][0] - 1
-                ret[i][mp[2]] = pnt[i][1] - 1
         else:
             raise ValueError('invalid block indication')
+
+        mp = NMFEntry.IDX_MAP[self.F1 if b == 1 else self.F2]
+        for i in range(4):
+            ret[i][mp[0]] = self.invariant_idx(b) - 1
+            ret[i][mp[1]] = pnt[i][0] - 1
+            ret[i][mp[2]] = pnt[i][1] - 1
 
         return ret
 
@@ -1844,6 +1900,36 @@ class NMFEntry(object):
             assert self.pri_node_num(1) == self.sec_node_num(2) and self.sec_node_num(1) == self.pri_node_num(2)
         else:
             assert self.pri_node_num(1) == self.pri_node_num(2) and self.sec_node_num(1) == self.sec_node_num(2)
+
+    '''
+    Following routine is used for finding the
+    counterpart logic index on the opposite side.
+    '''
+
+    def counterpart(self, lp, b):
+        """
+        Calculate corresponding logic coordinate in the opposite block.
+        :param lp: Logic point.
+        :param b: For block indication: 1-Blk1, 2-Blk2.
+        :type b: int
+        :return: Counterpart logic coordinate.
+        """
+
+        x1, y1 = lp
+        x2 = self.pri_node_num(b) - 1 - x1 if self.PriReverse else x1
+        y2 = self.sec_node_num(b) - 1 - y1 if self.SecReverse else y1
+        if self.Swap:
+            x2, y2 = y2, x2
+
+        return np.array([x2, y2])
+
+    '''
+    Used for calculating the cell index in
+    a much more convenient way.
+    '''
+
+    def boundary_cell(self, lp1, lp2, b):
+        pass
 
 
 class NeutralMapFile(object):
@@ -2483,8 +2569,8 @@ def xf_calc_boundary_info(entry, nmf):
     n = 0
     if dim == 3:
         if entry.Type == 'ONE_TO_ONE':
-            for x1 in range(entry.pri_node_num - 1):
-                for x2 in range(entry.sec_node_num - 1):
+            for x1 in range(entry.pri_node_num() - 1):
+                for x2 in range(entry.sec_node_num() - 1):
                     p1 = nmf.calc_real_pnt(entry, (x1, x2), 1)
                     p2 = nmf.calc_real_pnt(entry, (x1, x2), 2)
                     norm_dir = NeutralMapFile.FACE_INVARIANT[entry.F1]
