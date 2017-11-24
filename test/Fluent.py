@@ -237,7 +237,7 @@ def sect(r_min, r_max, theta_min, theta_max, h_min, h_max, nu, nv, nw):
     w_list = np.linspace(0, 1.0, nw + 1)
     msh.calc_grid(u_list, v_list, w_list)
 
-    return msh.get_grid()
+    return msh.grid
 
 
 class FluentMSHTestCase(unittest.TestCase):
