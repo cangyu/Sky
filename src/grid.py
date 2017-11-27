@@ -1923,14 +1923,6 @@ class NMFEntry(object):
 
         return np.array([x2, y2])
 
-    '''
-    Used for calculating the cell index in
-    a much more convenient way.
-    '''
-
-    def boundary_cell(self, lp1, lp2, b):
-        pass
-
 
 class NeutralMapFile(object):
     FACE_INVARIANT = {1: 2, 2: 2, 3: 0, 4: 0, 5: 1, 6: 1}
@@ -2172,10 +2164,13 @@ class NeutralMapFile(object):
 
         return np.array([i, j, k])
 
-    def calc_cell_idx(self, b, pnt, q):
+    def calc_cell_idx(self, b, pnt, quadrant):
         base = 0 if b == 0 else self.cell_start[b - 1]
-        off = blk_cell_idx_quadrant(pnt, self.blk[b].shape, q)
+        off = blk_cell_idx_quadrant(pnt, self.blk[b].shape, quadrant)
         return base + off
+
+    def cell_between_face(self, b, rp1, rp2):
+        pass
 
 
 """

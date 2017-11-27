@@ -394,15 +394,16 @@ def planform1():
 
 
 def planform2():
+    center_height = 4
     spn = 21
-    cr = 17
-    ct = 1.4
-    outer_taper_ratio = 2.5
+
+    cr = 16.67
+    ct = 1.35
     fl = np.array([2.1, 4, 2.9, 0])
     alpha = np.radians([32, 56, 37.5, 28])
     tl = np.array([1.5, 3.2, 0, 0])
     beta = np.radians([-26, -40, 0, 0])
-    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=outer_taper_ratio)
+    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.5)
     print(frm)
 
     '''Profile distribution'''
@@ -416,20 +417,23 @@ def planform2():
         tmp += l
         u.append(tmp)
     u = np.unique(u) / spn
-    u_dist = chebshev_dist_multi(u, [3, 2, 3, 3, 3, 5])
-    frm.show(u_dist)
+    eta = chebshev_dist_multi([u[0], u[1], u[-2], u[-1]], [4, 8, 7])
+    n = len(eta)  # num of profiles
 
     '''Profile details'''
-    sec_num = len(u_dist)
-    front_swp = np.zeros(sec_num)
-    for i in range(sec_num):
-        tg = frm.front_crv(u_dist[i], 1)
+    front_swp = np.zeros(n)
+    for i in range(n):
+        tg = frm.front_crv(eta[i], 1)
         front_swp[i] = math.degrees(math.atan2(tg[0], tg[2]))
-    print(front_swp)
+    print('\n{:^8}{:>8}{:>8}{:>12}\n'.format('Index', 'Pos', 'FSweep', 'ChordLen'))
+    for i in range(n):
+        print('{:^8}{:>8.3f}{:>8.2f}{:>12.3f}\n'.format(i, eta[i], front_swp[i], frm.chord_len(eta[i])))
 
-    # tc_3d = np.array([22, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
+    frm.show(eta)
+
+    tc = np.array([17, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
     # cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
-    # cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(28)) ** 2
+    # cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(front_swp[)) ** 2
     # print(cl_2d)
 
     foil = ['NACA0016',
@@ -446,14 +450,14 @@ def planform2():
             'SC(2)-0410',
             'NACA64A210',
             'NACA0008']
-    z_offset = u_dist * spn
-    length = list(map(frm.chord_len, u_dist))
-    sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), u_dist))
-    twist = np.zeros(sec_num)
-    dihedral = np.zeros(sec_num)
-    twist_pos = np.ones(sec_num)
-    y_ref = np.zeros(sec_num)
-    thickness_factor = np.ones(sec_num)
+    z_offset = eta * spn
+    length = list(map(frm.chord_len, eta))
+    sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), eta))
+    twist = np.zeros(n)
+    dihedral = np.zeros(n)
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
 
     '''Show distribution'''
     # f, ax_arr = plt.subplots(2, sharex=True)
@@ -503,5 +507,5 @@ def simple_wing():
 
 if __name__ == '__main__':
     # planform1()
-    # planform2()
-    simple_wing()
+    planform2()
+    # simple_wing()
