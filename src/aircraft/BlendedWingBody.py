@@ -1,10 +1,11 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
-from grid import chebshev_dist_multi
+from grid import chebshev_dist_multi, uniform
 from wing import Wing
 from iges import Model
 from nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
@@ -306,44 +307,6 @@ class BWBPlanform2(WingPlanform):
         ret += "Outer AR: {}\n".format(2 * self.fl[-1] / (self.Ct * (1 + self.OuterTaperRatio) / 2))
         return ret
 
-    def show(self, dist, n=1000):
-        u_dist = np.linspace(0, 1.0, n)
-        zf = np.empty(n, float)
-        zt = np.empty(n, float)
-        xf = np.empty(n, float)
-        xt = np.empty(n, float)
-        for k in range(n):
-            fp = self.front_crv(u_dist[k])
-            tp = self.tail_crv(u_dist[k])
-            xf[k] = fp[0]
-            zf[k] = fp[2]
-            xt[k] = tp[0]
-            zt[k] = tp[2]
-
-        spn = self.front_crv.end[2]
-        cdst = np.copy(dist) * spn
-        fu = np.copy(cdst)
-        tu = np.copy(cdst)
-        for k, u in enumerate(fu):
-            fu[k] = point_inverse(self.front_crv, u, 2)
-        for k, u in enumerate(tu):
-            tu[k] = point_inverse(self.tail_crv, u, 2)
-
-        plt.figure()
-        plt.plot(zf, xf, label='Leading Edge')
-        plt.plot(zt, xt, label='Trailing Edge')
-        plt.legend()
-        plt.gca().invert_yaxis()
-        plt.gca().set_aspect('equal')
-
-        for k, u in enumerate(cdst):
-            tfx = self.front_crv(fu[k])[0]
-            ttx = self.tail_crv(tu[k])[0]
-            plt.plot([u, u], [tfx, ttx], '--')
-            plt.text(u, (tfx + ttx) / 2, str(k))
-
-        plt.show()
-
 
 def planform1():
     c_root = 11
@@ -393,87 +356,99 @@ def planform1():
     model.save('BWB.igs')
 
 
-def planform2():
-    center_height = 4
-    spn = 21
+def tangent_on_crv(pos, crv):
+    tg = crv(pos, 1)
+    return math.degrees(math.atan2(tg[0], tg[2]))
 
-    cr = 16.67
-    ct = 1.35
-    fl = np.array([2.1, 4, 2.9, 0])
+
+def planform2():
+    """
+    Build a BWB with more detailed control.
+    :return: None
+    """
+
+    '''Planform parameters'''
+    spn = 21
+    cr = 28
+    ct = 2.578
+    fl = np.array([2.1, 4, 2.9, 0])  # 最后一个由程序自动计算
     alpha = np.radians([32, 56, 37.5, 28])
-    tl = np.array([1.5, 3.2, 0, 0])
-    beta = np.radians([-26, -40, 0, 0])
+    tl = np.array([1.5, 3.2, 0, 0])  # 后两个由程序自动计算
+    beta = np.radians([-26, -40, 0, 0])  # 后两个由程序自动计算
     frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.5)
-    print(frm)
+    # print(frm)
 
     '''Profile distribution'''
-    u = [0]
-    tmp = 0
-    for l in fl:
-        tmp += l
-        u.append(tmp)
-    tmp = 0
-    for l in tl:
-        tmp += l
-        u.append(tmp)
-    u = np.unique(u) / spn
-    eta = chebshev_dist_multi([u[0], u[1], u[-2], u[-1]], [4, 8, 7])
-    n = len(eta)  # num of profiles
+    seg = np.unique(np.concatenate(([0], np.cumsum(fl), np.cumsum(tl)))) / spn
+    u_pos = chebshev_dist_multi([seg[0], seg[1], seg[-2], seg[-1]], [4, 8, 7])  # Relative position of profiles
+    z_pos = np.array([u * spn for u in u_pos])  # Absolute position of profiles
+    n = len(u_pos)  # Num of profiles
 
     '''Profile details'''
-    front_swp = np.zeros(n)
-    for i in range(n):
-        tg = frm.front_crv(eta[i], 1)
-        front_swp[i] = math.degrees(math.atan2(tg[0], tg[2]))
-    print('\n{:^8}{:>8}{:>8}{:>12}\n'.format('Index', 'Pos', 'FSweep', 'ChordLen'))
-    for i in range(n):
-        print('{:^8}{:>8.3f}{:>8.2f}{:>12.3f}\n'.format(i, eta[i], front_swp[i], frm.chord_len(eta[i])))
+    front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
+    chord_len = np.array([frm.chord_len(u) for u in u_pos])
+    # tc = np.array([16, 17, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
+    # cl = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
+    # cl_airfoil = np.array([1.1 * cl[i] / math.cos(math.radians(front_sweep[i])) ** 2 for i in range(n)])
+    twist = np.linspace(2, -1.5, n)
 
-    frm.show(eta)
+    '''Plot profile info'''
+    fig = plt.figure()
+    gs = gridspec.GridSpec(2, 1, height_ratios=[6, 1])
+    ax0 = fig.add_subplot(gs[0])
+    ax1 = fig.add_subplot(gs[1], sharex=ax0)
 
-    tc = np.array([17, 22, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
-    # cl_3d = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
-    # cl_2d = 1.1 * np.copy(cl_3d) / math.cos(math.radians(front_swp[)) ** 2
-    # print(cl_2d)
+    # leading and trailing edges
+    fp = np.array([frm.front_crv(p) for p in uniform(1000)])
+    tp = np.array([frm.tail_crv(p) for p in uniform(1000)])
+    ax0.plot(fp[:, 2], fp[:, 0], label='Leading Edge')
+    ax0.plot(tp[:, 2], tp[:, 0], label='Trailing Edge')
+    ax0.legend()
+    ax0.invert_yaxis()
+    ax0.set_aspect('equal')
+    ax0.set_title('BWB Wing Planform')
 
-    foil = ['NACA0016',
-            'NACA14022',
-            'NACA63(4)-221',
-            'NACA63(3)-218',
-            'NLF(1)-0416',
-            'NLF(1)-0414F',
-            'SC(2)-0612',
-            'SC(2)-0610',
-            'SC(2)-0710',
-            'SC(2)-0710',
-            'SC(2)-0610',
-            'SC(2)-0410',
-            'NACA64A210',
-            'NACA0008']
-    z_offset = eta * spn
-    length = list(map(frm.chord_len, eta))
-    sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), eta))
-    twist = np.zeros(n)
-    dihedral = np.zeros(n)
-    twist_pos = np.ones(n)
-    y_ref = np.zeros(n)
-    thickness_factor = np.ones(n)
+    # add chord on each profile
+    fu = np.array([point_inverse(frm.front_crv, pos, 2) for pos in z_pos])
+    tu = np.array([point_inverse(frm.tail_crv, pos, 2) for pos in z_pos])
+    for k in range(n):
+        tfx = frm.front_crv(fu[k])[0]
+        ttx = frm.tail_crv(tu[k])[0]
+        z = z_pos[k]
+        ax0.plot([z, z], [tfx, ttx], '--')
+        ax0.text(z, (tfx + ttx) / 2, str(k))
 
-    '''Show distribution'''
+    # twist distribution
+    ax1.plot(z_pos, twist)
+    ax1.set_title('Twist distribution')
+    ax1.grid(True)
+
     # f, ax_arr = plt.subplots(2, sharex=True)
     # ax_arr[0].plot(u_dist * spn, tc_3d / 100)
     # ax_arr[0].set_ylim([0, tc_3d[0] / 100 * 1.1])
     # ax_arr[0].set_title('t/c in span-wise')
-    # ax_arr[1].plot(u_dist * spn, cl_3d)
-    # ax_arr[1].set_title('Cl in span-wise')
-    # plt.show()
+    plt.show()
 
-    '''Initial grid'''
-    wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
-    sf = wg.surf
-    model = Model()
-    model.add(sf.to_iges())
-    model.save('BWB_Wing.igs')
+    '''Aerodynamic design on each profile'''
+    # foil = ['NACA0016', 'NACA14022', 'NACA63(4)-221', 'NACA63(3)-218',
+    #         'NLF(1)-0416', 'NLF(1)-0414F', 'SC(2)-0612', 'SC(2)-0610',
+    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0410',
+    #         'NACA64A210', 'NACA0008']
+    # z_offset = eta * spn
+    # length = list(map(frm.chord_len, eta))
+    # sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), eta))
+    # twist = np.zeros(n)
+    # dihedral = np.zeros(n)
+    # twist_pos = np.ones(n)
+    # y_ref = np.zeros(n)
+    # thickness_factor = np.ones(n)
+    #
+    # '''CAD Geom'''
+    # wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
+    # sf = wg.surf
+    # model = Model()
+    # model.add(sf.to_iges())
+    # model.save('BWB_Wing.igs')
 
 
 def simple_wing():
