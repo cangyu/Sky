@@ -7,7 +7,7 @@ from numpy.linalg import norm
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from iges import Model, Entity116, Entity110
-from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf
+from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf, GlobalInterpolatedCrv
 from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential, FluentMSH, BCType
 from grid import LinearTFI2D, LinearTFI3D, Plot3D, Plot3DBlock, Laplace2D, ThomasMiddlecoff2D
 from misc import pnt_dist, read_airfoil_pts, pnt_pan
@@ -41,7 +41,8 @@ class Airfoil(object):
 
     @property
     def crv(self):
-        return Spline(self.pts)
+        # return Spline(self.pts)
+        return GlobalInterpolatedCrv(self.pts, 3)
 
     @property
     def tail_up(self):
@@ -378,7 +379,7 @@ class Wing(object):
         """
 
         profile_list = [self.profile[i].crv for i in range(self.size)]
-        return Skinned(profile_list, 3, 3)
+        return Skinned(profile_list, 5, 3)
 
     @property
     def leading(self):
@@ -411,23 +412,27 @@ class Wing(object):
         wing_model = Model()
 
         '''Leading edge'''
-        wing_model.add(self.leading.to_iges())
+        # wing_model.add(self.leading.to_iges())
+
+        '''Trailing edge'''
+        # wing_model.add(self.tailing_up.to_iges())
+        # wing_model.add(self.tailing_down.to_iges())
 
         '''Profiles'''
         for elem in self.profile:
             wing_model.add(elem.crv.to_iges())
 
         '''Skin'''
-        sk = self.surf
-        wing_model.add(sk.to_iges())
+        # sk = self.surf
+        # wing_model.add(sk.to_iges())
 
         '''Surf mirror'''
-        if mirror:
-            msk = deepcopy(sk)
-            for i in range(msk.n + 1):
-                for j in range(msk.m + 1):
-                    msk.Pw[i][j][2] *= -1
-            wing_model.add(msk.to_iges())
+        # if mirror:
+        #     msk = deepcopy(sk)
+        #     for i in range(msk.n + 1):
+        #         for j in range(msk.m + 1):
+        #             msk.Pw[i][j][2] *= -1
+        #     wing_model.add(msk.to_iges())
 
         return wing_model
 

@@ -370,43 +370,91 @@ def planform2():
     '''Planform parameters'''
     spn = 21
     cr = 28
-    ct = 2.578
-    fl = np.array([2.1, 4, 2.9, 0])  # 最后一个由程序自动计算
-    alpha = np.radians([32, 56, 37.5, 28])
-    tl = np.array([1.5, 3.2, 0, 0])  # 后两个由程序自动计算
-    beta = np.radians([-26, -40, 0, 0])  # 后两个由程序自动计算
-    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.5)
+    ct = 2.5
+    fl = np.array([1.48, 7.52, 1.5, 0])  # 最后一个由程序自动计算
+    alpha = np.radians([38, 57.8, 45, 37.6])
+    tl = np.array([3.76, 3.95, 0, 0])  # 后两个由程序自动计算
+    beta = np.radians([-14.5, -54, 0, 0])  # 后两个由程序自动计算
+    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.22)
     # print(frm)
 
+    w = 200 * 1e3 * 9.8
+    a = 299.5
+    rho = 0.4135
+    s = 452.1353
+    for Ma in [0.65, 0.7, 0.75, 0.8, 0.85]:
+        p_inf = 0.5 * rho * (Ma * a) ** 2
+        print('Design Cl when Ma = {:>4.2f}: {:>4.2f}'.format(Ma, w / (p_inf * s)))
+
     '''Profile distribution'''
-    seg = np.unique(np.concatenate(([0], np.cumsum(fl), np.cumsum(tl)))) / spn
-    u_pos = chebshev_dist_multi([seg[0], seg[1], seg[-2], seg[-1]], [4, 8, 7])  # Relative position of profiles
-    z_pos = np.array([u * spn for u in u_pos])  # Absolute position of profiles
+    # Relative position of profiles, [0, 6, 12, 21] in z
+    u_pos = np.array([0, 0.0418398, 0.14285, 0.2438602, 0.3157, 0.3775398, 0.42855, 0.4795602, 0.5414, 0.60011076, 0.67855, 0.7857, 0.89285, 0.97128924, 1])
+    # u_pos = chebshev_dist_multi([0, 0.2857, 0.5714, 1], [5, 5, 7])
+    # Absolute position of profiles
+    z_pos = np.array([u * spn for u in u_pos])
     n = len(u_pos)  # Num of profiles
 
     '''Profile details'''
     front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
     chord_len = np.array([frm.chord_len(u) for u in u_pos])
-    # tc = np.array([16, 17, 21, 19, 16, 14, 12, 11, 10, 8, 8, 8, 8, 8], float)
-    # cl = np.array([0.08, 0.10, 0.14, 0.18, 0.27, 0.38, 0.42, 0.45, 0.48, 0.47, 0.44, 0.29, 0.1, 0])
-    # cl_airfoil = np.array([1.1 * cl[i] / math.cos(math.radians(front_sweep[i])) ** 2 for i in range(n)])
-    twist = np.linspace(2, -1.5, n)
+    # tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 14.0, 12.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
+    tc = np.array([16.0] * n)
+    cl = np.array([0.100, 0.103, 0.115, 0.165, 0.200, 0.240, 0.335, 0.395, 0.400, 0.398, 0.391, 0.364, 0.280, 0.155, 0.000])
+    cl_airfoil = np.array([0.11, 0.26931306, 0.44548979, 0.639181, 0.77476485, 0.9, 1.09, 1.06, 0.87296875, 0.69744152, 0.68517496, 0.63786109, 0.49066238, 0.27161667, 0.])
+    twist = 8.33 * cl_airfoil - 3.33
+    # twist = np.array([-2.497, -2.472, -2.372, -1.956, -1.664, -1.331, -0.5395, -0.0397, 0.0, -0.0147, -0.073, -0.298, -0.998, -2.039, -3.33])
+    height = chord_len * tc / 100
+
+    print('\n{:^4}{:>8}{:>8}{:>14}{:>14}{:>12}{:>16}{:>12}'.format('idx', 'z/m', 'pos/%', 'chord len/m', 'max height/m', 'profile cl', 'front sweep/deg', 'airfoil cl'))
+    for i in range(n):
+        tmp = '{:^4}'.format(i)
+        tmp += '{:>8.3f}{:>8.2f}'.format(z_pos[i], 100 * u_pos[i])
+        tmp += '{:>10.3f}    {:>10.3f}    '.format(chord_len[i], height[i])
+        tmp += '{:>10.3f}  {:>12.2f}    {:>10.3f}  '.format(cl[i], front_sweep[i], cl_airfoil[i])
+        print(tmp)
+
+    '''Aerodynamic design on each profile'''
+    # foil = ['NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416',
+    #         'SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712',
+    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0610',
+    #         'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410']
+    # foil = ['SC(2)-0614'] * n
+    foil = ['NLF(1)-0416'] * n
+    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
+    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
+
+    '''CAD Geom'''
+    model = Model()
+    wg = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
+    # sf = wg.surf
+    # model.add(sf.to_iges())
+    for k, elem in enumerate(wg.profile):
+        crv = elem.crv
+        if k >= 6:
+            crv.pan([0, (z_pos[k] - z_pos[6]) * math.tan(math.radians(3)), 0])
+        model.add(crv.to_iges())
+
+    model.save('BWB_Wing.igs')
 
     '''Plot profile info'''
     fig = plt.figure()
-    gs = gridspec.GridSpec(2, 1, height_ratios=[6, 1])
-    ax0 = fig.add_subplot(gs[0])
-    ax1 = fig.add_subplot(gs[1], sharex=ax0)
+    gs = gridspec.GridSpec(4, 2)
+    planform_plt = fig.add_subplot(gs[:, 0])
+    tc_plt = fig.add_subplot(gs[0, 1])
+    cl_plt = fig.add_subplot(gs[1, 1])
+    twist_plt = fig.add_subplot(gs[2, 1])
+    # len_height_plt = fig.add_subplot(gs[3, 1])
 
     # leading and trailing edges
     fp = np.array([frm.front_crv(p) for p in uniform(1000)])
     tp = np.array([frm.tail_crv(p) for p in uniform(1000)])
-    ax0.plot(fp[:, 2], fp[:, 0], label='Leading Edge')
-    ax0.plot(tp[:, 2], tp[:, 0], label='Trailing Edge')
-    ax0.legend()
-    ax0.invert_yaxis()
-    ax0.set_aspect('equal')
-    ax0.set_title('BWB Wing Planform')
+    planform_plt.plot(fp[:, 2], fp[:, 0], label='Leading Edge')
+    planform_plt.plot(tp[:, 2], tp[:, 0], label='Trailing Edge')
+    planform_plt.invert_yaxis()
+    planform_plt.set_aspect('equal')
 
     # add chord on each profile
     fu = np.array([point_inverse(frm.front_crv, pos, 2) for pos in z_pos])
@@ -415,40 +463,44 @@ def planform2():
         tfx = frm.front_crv(fu[k])[0]
         ttx = frm.tail_crv(tu[k])[0]
         z = z_pos[k]
-        ax0.plot([z, z], [tfx, ttx], '--')
-        ax0.text(z, (tfx + ttx) / 2, str(k))
+        planform_plt.plot([z, z], [tfx, ttx], '--', label='Chord {:>2} at {:>6.2f}%'.format(k, 100 * u_pos[k]))
+        planform_plt.text(z, (tfx + ttx) / 2, str(k))
+
+    planform_plt.legend()
+    planform_plt.set_title('BWB Wing Planform')
+
+    # t/c distribution
+    tc_plt.plot(u_pos, tc)
+    tc_plt.set_title('Relative thickness distribution')
+    tc_plt.grid(True)
+    for i in range(n):
+        u = u_pos[i]
+        tc_plt.text(u, tc[i], str(tc[i]))
+        tc_plt.plot([u, u], [0, tc[i]], '--')
+
+    # cl distribution
+    cl_plt.plot(u_pos, cl, label='Wing Profile')
+    cl_plt.plot(u_pos, cl_airfoil, label='Airfoil Desired')
+    cl_plt.legend()
+    cl_plt.set_title('Lift coefficient distribution')
+    cl_plt.grid(True)
+    for i in range(n):
+        u = u_pos[i]
+        cl_plt.text(u, cl[i], '{:.2f}'.format(cl[i]))
+        cl_plt.text(u, cl_airfoil[i], '{:.2f}'.format(cl_airfoil[i]))
 
     # twist distribution
-    ax1.plot(z_pos, twist)
-    ax1.set_title('Twist distribution')
-    ax1.grid(True)
+    twist_plt.plot(u_pos, twist)
+    twist_plt.set_title('Twist distribution')
+    twist_plt.grid(True)
 
-    # f, ax_arr = plt.subplots(2, sharex=True)
-    # ax_arr[0].plot(u_dist * spn, tc_3d / 100)
-    # ax_arr[0].set_ylim([0, tc_3d[0] / 100 * 1.1])
-    # ax_arr[0].set_title('t/c in span-wise')
+    # chord length and height
+    # len_height_plt.bar([i + 1 for i in range(n)], chord_len)
+    # len_height_plt.set_title('Chord length')
+    # len_height_plt.grid(True)
+
+    fig.tight_layout()
     plt.show()
-
-    '''Aerodynamic design on each profile'''
-    # foil = ['NACA0016', 'NACA14022', 'NACA63(4)-221', 'NACA63(3)-218',
-    #         'NLF(1)-0416', 'NLF(1)-0414F', 'SC(2)-0612', 'SC(2)-0610',
-    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0410',
-    #         'NACA64A210', 'NACA0008']
-    # z_offset = eta * spn
-    # length = list(map(frm.chord_len, eta))
-    # sweep_back = list(map(lambda _u: math.degrees(math.atan2(frm.x_front(_u), frm.z(_u))), eta))
-    # twist = np.zeros(n)
-    # dihedral = np.zeros(n)
-    # twist_pos = np.ones(n)
-    # y_ref = np.zeros(n)
-    # thickness_factor = np.ones(n)
-    #
-    # '''CAD Geom'''
-    # wg = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
-    # sf = wg.surf
-    # model = Model()
-    # model.add(sf.to_iges())
-    # model.save('BWB_Wing.igs')
 
 
 def simple_wing():
