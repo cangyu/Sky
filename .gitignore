@@ -9,6 +9,5 @@ __pycache__
 *.fmt
 *.plt
 *.png
-airfoil/tool/XFOIL6.99/
 tmp/
 .vs/
