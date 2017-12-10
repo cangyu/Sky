@@ -649,8 +649,10 @@ class Wing(object):
             iges_model.add(Entity110(line.start, line.end))
         for crv in c:
             iges_model.add(crv.to_iges())
-        for surf in s:
-            iges_model.add(surf.to_iges())
+        # for surf in s:
+        #     iges_model.add(surf.to_iges())
+        for elem in self.profile:
+            iges_model.add(elem.crv.to_iges())
 
         '''Construct blocks'''
         blk = [LinearTFI3D.from_edges(l[1], l[26], l[0], l[35], l[5], l[29], l[4], l[37], c[0], l[13], l[12], l[20]),  # BLK0
@@ -762,14 +764,14 @@ class Wing(object):
         assert len(blk_node_param) == len(blk)
 
         '''Calculate grid'''
-        print('Calculating grid...')
-        for i in range(len(blk)):
-            print('Calculate blk{}...'.format(i))
-            nu, nv, nw = blk_node_param[i]
-            blk[i].calc_grid(node[nu], node[nv], node[nw])
-        tfi_grid = [blk[i].grid for i in range(len(blk))]
+        # print('Calculating grid...')
+        # for i in range(len(blk)):
+        #     print('Calculate blk{}...'.format(i))
+        #     nu, nv, nw = blk_node_param[i]
+        #     blk[i].calc_grid(node[nu], node[nv], node[nw])
+        # tfi_grid = [blk[i].grid for i in range(len(blk))]
 
-        # '''Smoothing'''
+        '''Smoothing'''
         # print('Smoothing...')
         # for i in (6, 7, 8, 12):
         #     print('Smoothing blk{}...'.format(i))
@@ -778,10 +780,11 @@ class Wing(object):
         #     tfi_grid[i] = np.copy(l3d.grid)
 
         '''Build Plot3D Output'''
-        for i in range(len(tfi_grid)):
-            p3d_grid.add(Plot3DBlock.construct_from_array(tfi_grid[i]))
+        # for i in range(len(tfi_grid)):
+        #     p3d_grid.add(Plot3DBlock.construct_from_array(tfi_grid[i]))
 
-        return iges_model, p3d_grid
+        # return iges_model, p3d_grid
+        return iges_model
 
 
 # class AirfoilTestCase(unittest.TestCase):
@@ -806,24 +809,57 @@ class Wing(object):
 #         self.assertTrue(True)
 #
 
+def helper():
+    """
+    Generate topology wire-frame for grid generation.
+    :return: None.
+    """
+    from src.aircraft.BlendedWingBody import BWBPlanform2, tangent_on_crv
+
+    '''Planform parameters'''
+    spn = 21
+    cr = 28
+    ct = 2.5
+    fl = np.array([1.48, 7.52, 1.5, 0])  # 最后一个由程序自动计算
+    alpha = np.radians([38, 57.8, 45, 37.6])
+    tl = np.array([3.76, 3.95, 0, 0])  # 后两个由程序自动计算
+    beta = np.radians([-14.5, -54, 0, 0])  # 后两个由程序自动计算
+    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.22)
+
+    '''Profile distribution'''
+    u_pos = np.array([0, 0.0418398, 0.14285, 0.2438602, 0.3157, 0.3775398, 0.42855, 0.4795602, 0.5414, 0.60011076, 0.67855, 0.7857, 0.89285, 0.97128924, 1])
+    z_pos = np.array([u * spn for u in u_pos])
+    n = len(u_pos)  # Num of profiles
+
+    '''Profile details'''
+    # front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
+    chord_len = np.array([frm.chord_len(u) for u in u_pos])
+    # tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 14.0, 12.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
+    tc = np.array([16.0] * n)
+    # cl = np.array([0.100, 0.103, 0.115, 0.165, 0.200, 0.240, 0.335, 0.395, 0.400, 0.398, 0.391, 0.364, 0.280, 0.155, 0.000])
+    # cl_airfoil = np.array([0.11, 0.26931306, 0.44548979, 0.639181, 0.77476485, 0.9, 1.09, 1.06, 0.87296875, 0.69744152, 0.68517496, 0.63786109, 0.49066238, 0.27161667, 0.])
+    # twist = 8.33 * cl_airfoil - 3.33
+    twist = np.zeros(n)
+    # twist = np.array([-2.497, -2.472, -2.372, -1.956, -1.664, -1.331, -0.5395, -0.0397, 0.0, -0.0147, -0.073, -0.298, -0.998, -2.039, -3.33])
+    height = chord_len * tc / 100
+
+    '''Aerodynamic design on each profile'''
+    # foil = ['NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416',
+    #         'SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712',
+    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0610',
+    #         'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410']
+    # foil = ['SC(2)-0614'] * n
+    foil = ['NLF(1)-0416'] * n
+    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
+    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
+
+    wing = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
+    bunch = wing.gen_grid(200, 200, 300, 300, (60, 40, 200, 100, 90, 80, 40, 10))
+    bunch.save('test.igs')
+
+
 if __name__ == '__main__':
-    t_begin = time.time()
-    # suite = unittest.TestSuite()
-    # suite.addTest(AirfoilTestCase('test_3d_grid'))
-    # runner = unittest.TextTestRunner()
-    # runner.run(suite)
-    foil = ['SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0710', 'SC(2)-1010', 'SC(2)-1010', 'SC(2)-1006', 'SC(2)-0706', 'SC(2)-0706', 'SC(2)-0606', 'SC(2)-0406']
-    length = np.linspace(4.0, 1.0, len(foil))
-    thickness_factor = np.ones(len(foil))
-    z_offset = np.linspace(0, 20, len(foil))
-    sweep_back = np.full(len(foil), 25.0)
-    twist = np.zeros(len(foil))
-    dihedral = np.zeros(len(foil))
-    twist_pos = np.full(len(foil), 1.0)
-    y_ref = np.zeros(len(foil))
-    wing = Wing.from_geom_desc(foil, length, thickness_factor, z_offset, sweep_back, twist, twist_pos, dihedral, y_ref)
-    bunch = wing.gen_grid(60, 20, 100, 200, (60, 40, 200, 100, 90, 80, 40, 10))
-    bunch[0].save('test.igs')
-    bunch[1].save('test.xyz')
-    t_end = time.time()
-    print('{}s'.format(t_end - t_begin))
+    helper()

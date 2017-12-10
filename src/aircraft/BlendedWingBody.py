@@ -7,7 +7,7 @@ from scipy.integrate import romberg
 from scipy.optimize import root
 from grid import chebshev_dist_multi, uniform
 from wing import Wing
-from iges import Model
+from iges import Model, Entity110, Entity116
 from nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
 from aircraft.Baseline import WingPlanform
 from misc import share
@@ -370,40 +370,44 @@ def planform2():
     '''Planform parameters'''
     spn = 21
     cr = 28
-    ct = 2.5
-    fl = np.array([1.48, 7.52, 1.5, 0])  # 最后一个由程序自动计算
-    alpha = np.radians([38, 57.8, 45, 37.6])
-    tl = np.array([3.76, 3.95, 0, 0])  # 后两个由程序自动计算
-    beta = np.radians([-14.5, -54, 0, 0])  # 后两个由程序自动计算
-    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.22)
+    ct = 1.5
+    fl = np.array([1.2, 2.9, 3.9, 0])  # 最后一个由程序自动计算
+    alpha = np.radians([60.0, 71.0, 59.8, 26])
+    tl = np.array([4.9, 0.92, 0, 0])  # 后两个由程序自动计算
+    beta = np.radians([-23.8, -65.0, 0, 0])  # 后两个由程序自动计算
+    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=4.0)
     # print(frm)
 
-    w = 200 * 1e3 * 9.8
+    w = 120 * 1e3 * 9.8
     a = 299.5
     rho = 0.4135
-    s = 452.1353
+    s = 360.31
     for Ma in [0.65, 0.7, 0.75, 0.8, 0.85]:
         p_inf = 0.5 * rho * (Ma * a) ** 2
         print('Design Cl when Ma = {:>4.2f}: {:>4.2f}'.format(Ma, w / (p_inf * s)))
 
     '''Profile distribution'''
-    # Relative position of profiles, [0, 6, 12, 21] in z
-    u_pos = np.array([0, 0.0418398, 0.14285, 0.2438602, 0.3157, 0.3775398, 0.42855, 0.4795602, 0.5414, 0.60011076, 0.67855, 0.7857, 0.89285, 0.97128924, 1])
-    # u_pos = chebshev_dist_multi([0, 0.2857, 0.5714, 1], [5, 5, 7])
-    # Absolute position of profiles
-    z_pos = np.array([u * spn for u in u_pos])
-    n = len(u_pos)  # Num of profiles
+    z_pos = np.array([0, 0.21, 1.5, 3, 5, 6.5, 8, 10, 13, 17, 20, 21])
+    u_pos = np.array([z / spn for z in z_pos])
+    n = len(u_pos)
 
     '''Profile details'''
     front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
     chord_len = np.array([frm.chord_len(u) for u in u_pos])
-    # tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 14.0, 12.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
-    tc = np.array([16.0] * n)
-    cl = np.array([0.100, 0.103, 0.115, 0.165, 0.200, 0.240, 0.335, 0.395, 0.400, 0.398, 0.391, 0.364, 0.280, 0.155, 0.000])
-    cl_airfoil = np.array([0.11, 0.26931306, 0.44548979, 0.639181, 0.77476485, 0.9, 1.09, 1.06, 0.87296875, 0.69744152, 0.68517496, 0.63786109, 0.49066238, 0.27161667, 0.])
-    twist = 8.33 * cl_airfoil - 3.33
-    # twist = np.array([-2.497, -2.472, -2.372, -1.956, -1.664, -1.331, -0.5395, -0.0397, 0.0, -0.0147, -0.073, -0.298, -0.998, -2.039, -3.33])
+    tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
     height = chord_len * tc / 100
+    cl = np.array([0.100, 0.101, 0.15, 0.21, 0.30, 0.35, 0.40, 0.39, 0.37, 0.28, 0.13, 0.0])  # for airfoil
+    cl_airfoil = np.array([1.1 * cl[i] / math.cos(math.radians(front_sweep[i])) ** 2 for i in range(n)])
+    foil = ['NACA05116', 'NACA05116', 'NACA15116', 'NACA15116', 'NACA15114', 'BL0', 'BL1256',
+            'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0010']
+    twist = np.array([-0.028, -0.018, -0.025, 0.271, 0.790, 1.155, 0.495,
+                      0.160, 0.068, -0.362, -1.091, 0])
+
+    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
+    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
 
     print('\n{:^4}{:>8}{:>8}{:>14}{:>14}{:>12}{:>16}{:>12}'.format('idx', 'z/m', 'pos/%', 'chord len/m', 'max height/m', 'profile cl', 'front sweep/deg', 'airfoil cl'))
     for i in range(n):
@@ -413,29 +417,30 @@ def planform2():
         tmp += '{:>10.3f}  {:>12.2f}    {:>10.3f}  '.format(cl[i], front_sweep[i], cl_airfoil[i])
         print(tmp)
 
-    '''Aerodynamic design on each profile'''
-    # foil = ['NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416',
-    #         'SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712',
-    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0610',
-    #         'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410']
-    # foil = ['SC(2)-0614'] * n
-    foil = ['NLF(1)-0416'] * n
-    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
-    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
-    twist_pos = np.ones(n)
-    y_ref = np.zeros(n)
-    thickness_factor = np.ones(n)
-
     '''CAD Geom'''
     model = Model()
     wg = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
-    # sf = wg.surf
-    # model.add(sf.to_iges())
     for k, elem in enumerate(wg.profile):
         crv = elem.crv
-        if k >= 6:
-            crv.pan([0, (z_pos[k] - z_pos[6]) * math.tan(math.radians(3)), 0])
+        if k == 4:
+            crv.pan([0, -0.02, 0])
+        if k >= 5:
+            crv.pan([0, 0.08 + (z_pos[k] - z_pos[4]) * math.tan(math.radians(1)), 0])
         model.add(crv.to_iges())
+
+    # ll = 1200
+    # hh = 300
+    # ww = 1000
+    # far_pnt = np.array([[-ll, hh, 0], [ll, hh, 0], [ll, -hh, 0], [-ll, -hh, 0],
+    #                     [-ll, hh, ww], [ll, hh, ww], [ll, -hh, ww], [-ll, -hh, ww]])
+    # far_wire = np.array([[0, 4], [4, 7], [7, 3], [3, 0],
+    #                      [0, 1], [4, 5], [7, 6], [3, 2],
+    #                      [1, 5], [5, 6], [6, 2], [2, 1]])
+    #
+    # for pnt in far_pnt:
+    #     model.add(Entity116(pnt))
+    # for line in far_wire:
+    #     model.add(Entity110(far_pnt[line[0]], far_pnt[line[1]]))
 
     model.save('BWB_Wing.igs')
 
@@ -446,7 +451,7 @@ def planform2():
     tc_plt = fig.add_subplot(gs[0, 1])
     cl_plt = fig.add_subplot(gs[1, 1])
     twist_plt = fig.add_subplot(gs[2, 1])
-    # len_height_plt = fig.add_subplot(gs[3, 1])
+    len_height_plt = fig.add_subplot(gs[3, 1])
 
     # leading and trailing edges
     fp = np.array([frm.front_crv(p) for p in uniform(1000)])
@@ -463,20 +468,23 @@ def planform2():
         tfx = frm.front_crv(fu[k])[0]
         ttx = frm.tail_crv(tu[k])[0]
         z = z_pos[k]
-        planform_plt.plot([z, z], [tfx, ttx], '--', label='Chord {:>2} at {:>6.2f}%'.format(k, 100 * u_pos[k]))
+        planform_plt.plot([z, z], [tfx, ttx], '--', label='Chord {} {} at {:.2f}%'.format(k, foil[k], 100 * u_pos[k]))
         planform_plt.text(z, (tfx + ttx) / 2, str(k))
 
     planform_plt.legend()
     planform_plt.set_title('BWB Wing Planform')
 
-    # t/c distribution
-    tc_plt.plot(u_pos, tc)
-    tc_plt.set_title('Relative thickness distribution')
+    # t/c and height distribution
+    tc_plt.plot(u_pos, tc, label='t/c')
+    tc_plt.plot(u_pos, height, label='camber height')
+    tc_plt.set_title('Thickness and height distribution')
     tc_plt.grid(True)
+    tc_plt.legend()
     for i in range(n):
         u = u_pos[i]
-        tc_plt.text(u, tc[i], str(tc[i]))
+        tc_plt.text(u, tc[i], '{:.1f}'.format(tc[i]))
         tc_plt.plot([u, u], [0, tc[i]], '--')
+        tc_plt.text(u, height[i], '{:.1f}'.format(height[i]))
 
     # cl distribution
     cl_plt.plot(u_pos, cl, label='Wing Profile')
@@ -490,14 +498,19 @@ def planform2():
         cl_plt.text(u, cl_airfoil[i], '{:.2f}'.format(cl_airfoil[i]))
 
     # twist distribution
-    twist_plt.plot(u_pos, twist)
+    twist_plt.plot(u_pos, twist, '-^')
     twist_plt.set_title('Twist distribution')
     twist_plt.grid(True)
+    for i in range(n):
+        u = u_pos[i]
+        twist_plt.text(u, twist[i], '{:.2f}'.format(twist[i]))
 
     # chord length and height
-    # len_height_plt.bar([i + 1 for i in range(n)], chord_len)
-    # len_height_plt.set_title('Chord length')
-    # len_height_plt.grid(True)
+    len_height_plt.bar([i + 1 for i in range(n)], chord_len)
+    len_height_plt.set_title('Chord length')
+    len_height_plt.grid(True)
+    for i in range(n):
+        len_height_plt.text(i + 1, chord_len[i], '{:.1f}'.format(chord_len[i]))
 
     fig.tight_layout()
     plt.show()

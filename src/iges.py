@@ -947,25 +947,46 @@ class Entity114(Entity):
 
 
 class Entity116(Entity):
-    def __init__(self, _x, _y, _z, _ptr=0):
+    def __init__(self, *args, **kwargs):
         """
         Point Entity
-        :param _x: X-Coordinate.
-        :type _x: float
-        :param _y: Y-Coordinate.
-        :type _y: float
-        :param _z: Z-Coordinate.
-        :type _z: float
-        :param _ptr: Pointer to the DE of the Sub-figure Definition Entity specifying the display symbol or zero.
-                     If zero, no display symbol is specified.
-        :type _ptr: int
+        :param args: Coordinates in separated or array form.
+        :param kwargs: Indicate 'ptr' and 'z' attributes.
         """
 
         super(Entity116, self).__init__(116)
-        self.X = float(_x)
-        self.Y = float(_y)
-        self.Z = float(_z)
-        self.PTR = int(_ptr)
+
+        '''
+        Pointer to the DE of the Sub-figure Definition Entity specifying the display symbol or zero.
+        If zero, no display symbol is specified.
+        '''
+        self.PTR = int(kwargs['ptr'] if 'ptr' in kwargs else 0)
+
+        '''
+        Get X/Y/Z coordinates
+        '''
+        if len(args) == 3:
+            self.X = float(args[0])
+            self.Y = float(args[1])
+            self.Z = float(args[2])
+        elif len(args) == 2:
+            self.X = float(args[0])
+            self.Y = float(args[1])
+            self.Z = float(kwargs['z'] if 'z' in kwargs else 0)
+        elif len(args) == 1:
+            p = args[0]
+            if len(p) == 3:
+                self.X = float(p[0])
+                self.Y = float(p[1])
+                self.Z = float(p[2])
+            elif len(p) == 2:
+                self.X = float(p[0])
+                self.Y = float(p[1])
+                self.Z = float(kwargs['z'] if 'z' in kwargs else 0)
+            else:
+                raise ValueError('invalid pnt array')
+        else:
+            raise ValueError('invalid input coordinates')
 
     def __repr__(self):
         """
