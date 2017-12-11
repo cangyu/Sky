@@ -1203,3 +1203,8 @@ class Entity128(Entity):
         param += "{},{},{},{};".format(self.U[0], self.U[1], self.V[0], self.V[1])
 
         return self.to_formatted(param)
+
+
+IGES_Pnt = Entity116
+IGES_Line = Entity110
+IGES_Model = Model

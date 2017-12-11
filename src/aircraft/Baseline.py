@@ -1,7 +1,6 @@
-import unittest
+import numpy as np
 import math
 from copy import deepcopy
-import numpy as np
 from abc import ABCMeta, abstractmethod
 from scipy.integrate import romberg
 from nurbs import Crv, ConicArc, to_homogeneous, to_cartesian, Line, Circle, Skinned, RuledSurf, Coons
@@ -281,7 +280,7 @@ class HorizontalStablizer(object):
         crv_list = []
         for k in range(n):
             wp = WingProfile.from_geom_param(foil[k], zoff[k], cl[k], swp_bk[k], tws[k], dih[k], ptws[k], rfy[k], tkf[k])
-            crv_list.append(wp.nurbs_rep())
+            crv_list.append(wp.crv)
 
         ret = HorizontalStablizer()
         ret.surf = RuledSurf(crv_list[0], crv_list[1]) if len(crv_list) == 2 else Skinned(crv_list, 5, 3)
@@ -324,7 +323,7 @@ class VerticalStablizer(object):
         crv_list = []
         for k in range(n):
             wp = WingProfile.from_geom_param(foil[k], zoff[k], cl[k], swp_bk[k], tws[k], dih[k], ptws[k], rfy[k], tkf[k])
-            crv_list.append(wp.nurbs_rep())
+            crv_list.append(wp.crv)
 
         ret = VerticalStablizer()
         ret.surf = RuledSurf(crv_list[0], crv_list[1]) if len(crv_list) == 2 else Skinned(crv_list, 5, 3)
@@ -333,7 +332,3 @@ class VerticalStablizer(object):
         ret.tail = Coons(ret.surf.extract('U', 0), ret.surf.extract('U', 1), Line(ret.surf(0, 0), ret.surf(1, 0)), Line(ret.surf(0, 1), ret.surf(1, 1)))
 
         return ret
-
-
-if __name__ == '__main__':
-    unittest.main()

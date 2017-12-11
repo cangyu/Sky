@@ -19,15 +19,19 @@ All the node distribute through [0, 1] by default.
 """
 
 
-def uniform(n):
+def uniform(*args):
     """
-    Uniform distribution on [0,1].
-    :param n: Number of nodes.
-    :type n: int
+    Uniform distribution on [0,1]/[a,b].
+    :param args: Num of nodes/(Starting, Ending, Num of nodes).
     :return: Uniform distribution on [0, 1] in numpy array form.
     """
 
-    return np.linspace(0.0, 1.0, n)
+    if len(args) == 1:
+        n = args[0]
+        return np.linspace(0.0, 1.0, n)
+    else:
+        a, b, n = args
+        return np.linspace(a, b, n)
 
 
 def chebshev_dist(start, end, n):

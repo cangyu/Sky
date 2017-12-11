@@ -387,20 +387,20 @@ def planform2():
         print('Design Cl when Ma = {:>4.2f}: {:>4.2f}'.format(Ma, w / (p_inf * s)))
 
     '''Profile distribution'''
-    z_pos = np.array([0, 0.21, 1.5, 3, 5, 6.5, 8, 10, 13, 17, 20, 21])
+    z_pos = np.array([0, 1.5, 3, 5, 6.5, 8, 10, 13, 17, 20, 21])
     u_pos = np.array([z / spn for z in z_pos])
     n = len(u_pos)
 
     '''Profile details'''
     front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
     chord_len = np.array([frm.chord_len(u) for u in u_pos])
-    tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
+    tc = np.array([16.0, 16.0, 16.0, 14.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
     height = chord_len * tc / 100
-    cl = np.array([0.100, 0.101, 0.15, 0.21, 0.30, 0.35, 0.40, 0.39, 0.37, 0.28, 0.13, 0.0])  # for airfoil
+    cl = np.array([0.100, 0.15, 0.21, 0.30, 0.35, 0.40, 0.39, 0.37, 0.28, 0.13, 0.0])  # for airfoil
     cl_airfoil = np.array([1.1 * cl[i] / math.cos(math.radians(front_sweep[i])) ** 2 for i in range(n)])
-    foil = ['NACA05116', 'NACA05116', 'NACA15116', 'NACA15116', 'NACA15114', 'BL0', 'BL1256',
+    foil = ['NACA05116', 'NACA15116', 'NACA15116', 'NACA15114', 'BL0', 'BL1256',
             'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0010']
-    twist = np.array([-0.028, -0.018, -0.025, 0.271, 0.790, 1.155, 0.495,
+    twist = np.array([-0.028, -0.025, 0.271, 0.790, 1.155, 0.495,
                       0.160, 0.068, -0.362, -1.091, 0])
 
     sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
