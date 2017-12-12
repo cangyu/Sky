@@ -7,15 +7,8 @@ from src.nurbs import ConicArc, LocalCubicInterpolatedCrv, point_inverse
 from src.misc import pnt_pan
 from src.grid import uniform
 from src.wing import Wing
-from src.aircraft.Baseline import WingPlanform
-
-origin = np.array([0., 0., 0.])
-x_axis_positive = np.array([1., 0, 0])
-x_axis_negative = np.array([-1., 0, 0])
-y_axis_positive = np.array([0, 1, 0])
-y_axis_negative = np.array([0, -1., 0])
-z_axis_positive = np.array([0, 0, 1.])
-z_axis_negative = np.array([0, 0, -1.])
+from src.aircraft.Baseline import global_origin, z_axis_positive, z_axis_negative
+from src.aircraft.Baseline import WingPlanform, VerticalStablizerPlanform, construct_vertical_stabilizer_profiles
 
 
 class HWBOuterWingPlanform(WingPlanform):
@@ -88,20 +81,20 @@ def construct_hwb_frame():
     span = 42.0
     span2 = span / 2
 
-    fuselage_height = 3.5
-    fuselage_width = fuselage_height * 1.5
+    fuselage_height = 4
+    fuselage_width = fuselage_height * 1.2
 
-    nose_len = fuselage_height * 1.6
-    tail_len = fuselage_height * 2.2
+    nose_len = 4.8
+    tail_len = 7.5
     body_len = fuselage_len - (tail_len + nose_len)
     print('Length:\nNose: {:.3f}, Body: {:.3f}, Tail: {:.3f}'.format(nose_len, body_len, tail_len))
 
-    theta_fc = math.radians(12)
+    theta_fc = math.radians(15)
 
     nose_front_downward = 0.8
     nose_front_height = 0.2
     nose_front_width = 0.3
-    nose_front_center = pnt_pan(origin, (-nose_len, -nose_front_downward, 0))
+    nose_front_center = pnt_pan(global_origin, (-nose_len, -nose_front_downward, 0))
     nose_front_up = pnt_pan(nose_front_center, (0, nose_front_height / 2, 0))
     nose_front_down = pnt_pan(nose_front_center, (0, -nose_front_height / 2, 0))
     nose_front_mid = pnt_pan(nose_front_center, (0, 0, nose_front_width / 2))
@@ -144,30 +137,22 @@ def construct_hwb_frame():
     model.add(IGES_Line(nose_front_center, nose_front_down))
     model.add(IGES_Line(nose_front_center, nose_front_mid))
 
-    outer_wing_root_len = body_len * 1.05
-    outer_wing_spn2 = 18
+    fusion_width = 1.6
+    outer_wing_spn2 = span2 - fuselage_width / 2 - fusion_width
+    outer_wing_root_len = 0.9 * body_len + 0.1 * nose_len
     planform = HWBOuterWingPlanform(outer_wing_root_len, outer_wing_spn2,
                                     (65, 52, 28), (0.6, 1.6),
-                                    (-72, -45, 15), (1.6, 3.5), ct=1.6)
+                                    (-64, -45, 15), (1.3, 3.5), ct=1.2)
     # print(planform.area)
+    # print(planform.mean_aerodynamic_chord)
 
     u_pos = np.array([0.00, 3.33, 6.11, 12.22, 19.44, 28.33, 46.11, 82.22, 100.00]) / 100
     z_pos = u_pos * outer_wing_spn2
     n = len(u_pos)
 
-    u = uniform(100)
-    z = np.array([planform.z(t) for t in u])
-    leading_x = np.array([planform.x_front(t) for t in u])
-    trailing_x = np.array([planform.x_tail(t) for t in u])
-    plt.plot(z, leading_x, label='Leading')
-    plt.plot(z, trailing_x, label='Trailing')
-    for lu in u_pos:
-        zp = lu * outer_wing_spn2
-        plt.plot([zp, zp], [planform.x_front(lu), planform.x_tail(lu)], '--')
-    plt.gca().invert_yaxis()
-    plt.gca().set_aspect('equal')
-    plt.legend()
-    plt.show()
+    fig = plt.figure()
+    ax1 = fig.add_subplot(121)
+    planform.pic(ax1, u=u_pos)
 
     tc = np.array([10.0] * n) / 100
     foil = ['SC(2)-0610'] * n
@@ -184,9 +169,37 @@ def construct_hwb_frame():
     wg = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
     for k, elem in enumerate(wg.profile):
         crv = elem.crv
-        crv.pan((-1, 0, span2 - outer_wing_spn2))
+        crv.pan((-1, -0.2, span2 - outer_wing_spn2))
         model.add(crv.to_iges())
 
+    vs_root_chord = 12.5
+    vs_tip_chord = 5.5
+    vs_spn2 = 6.5
+    vs_planform = VerticalStablizerPlanform(vs_root_chord, vs_tip_chord, vs_spn2, [1.0, 3.0], [76, 54, 36])
+    vs_u = np.array([0.00, 6.67, 13.33, 27.50, 55.00, 85.00, 100.00]) / 100
+    vs_n = len(vs_u)
+    vs_z = np.array([vs_planform.z(_u) for _u in vs_u])
+
+    # print(vs_planform.area / 2)
+    # print(vs_planform.mean_aerodynamic_chord)
+
+    ax2 = fig.add_subplot(122)
+    vs_planform.pic(ax2, u=vs_u)
+
+    vs_foil = ['NACA0012'] * vs_n
+    vs_cl = [vs_planform.chord_len(vs_u[i]) for i in range(vs_n)]
+    vs_swp = [math.degrees(math.atan2(vs_planform.x_front(vs_u[i]), vs_z[i])) for i in range(vs_n)]
+
+    vs_delta_tail_back = 0.8
+    vs_delta_body_up = -0.2
+    vs_delta_x = body_len + tail_len - (vs_root_chord + vs_delta_tail_back)
+    vs_delta_y = fuselage_height / 2 + vs_delta_body_up
+    vs_origin = (vs_delta_x, vs_delta_y, 0)
+    vs_profile = construct_vertical_stabilizer_profiles(vs_foil, vs_cl, vs_z, vs_swp, origin=vs_origin)
+    for crv in vs_profile:
+        model.add(crv.to_iges())
+
+    plt.show()
     model.save('HWB2.igs')
 
 
