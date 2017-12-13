@@ -7,7 +7,7 @@ from scipy.integrate import romberg
 from nurbs import to_homogeneous, to_cartesian, point_inverse
 from nurbs import Skinned, RuledSurf, Coons
 from nurbs import Crv, ConicArc, Line, Circle, LocalCubicInterpolatedCrv
-from misc import sqrt2, pnt_pan
+from misc import sqrt2, pnt_pan, share
 from grid import uniform
 from wing import WingProfile, Wing
 
@@ -99,26 +99,43 @@ class WingPlanform(metaclass=ABCMeta):
     def pic(self, *args, **kwargs):
         ax = args[0]
         n = args[1] if len(args) == 2 else 100
+
         u = uniform(n)
+        spn2 = self.span / 2
 
         z = np.array([self.z(t) for t in u])
         leading_x = np.array([self.x_front(t) for t in u])
         trailing_x = np.array([self.x_tail(t) for t in u])
-        ax.plot(z, leading_x, label='Leading')
-        ax.plot(z, trailing_x, label='Trailing')
 
-        if 'u' in kwargs:
-            u_pos = np.copy(kwargs['u'])
-            spn2 = self.span / 2
-            for lu in u_pos:
-                zp = lu * spn2
-                plt.plot([zp, zp], [self.x_front(lu), self.x_tail(lu)], '--')
-        ax.invert_yaxis()
+        if 'direction' in kwargs and kwargs['direction'] == 'vertical':
+            ax.plot(leading_x, z, label='Leading')
+            ax.plot(trailing_x, z, label='Trailing')
+            if 'u' in kwargs:
+                u_pos = np.copy(kwargs['u'])
+                for lu in u_pos:
+                    zp = lu * spn2
+                    plt.plot([self.x_front(lu), self.x_tail(lu)], [zp, zp], '--')
+        elif 'direction' not in kwargs or kwargs['direction'] == 'horizontal':
+            ax.plot(z, leading_x, label='Leading')
+            ax.plot(z, trailing_x, label='Trailing')
+            if 'u' in kwargs:
+                u_pos = np.copy(kwargs['u'])
+                for lu in u_pos:
+                    zp = lu * spn2
+                    plt.plot([zp, zp], [self.x_front(lu), self.x_tail(lu)], '--')
+            ax.invert_yaxis()
+        else:
+            raise AttributeError('invalid direction')
+
         ax.set_aspect('equal')
         ax.legend()
 
 
-class Nose(object):
+class FuselagePart(metaclass=ABCMeta):
+    pass
+
+
+class Nose(FuselagePart):
     def __init__(self, nl, nfr, dh, h2, w2):
         """
         Simplified nose of a 'Wing-Tube' configuration aircraft.
@@ -183,7 +200,7 @@ class Nose(object):
         self.frame_back_down = deepcopy(arc4_2)
 
 
-class Fuselage(object):
+class Body(FuselagePart):
     def __init__(self, l1, l2, fl):
         """
         Simplified fuselage of a 'Wing-Tube' configuration aircraft.
@@ -219,7 +236,7 @@ class Fuselage(object):
         self.surf_down = deepcopy(fuselage_surf_down)
 
 
-class Tail(object):
+class Tail(FuselagePart):
     def __init__(self, fu, fd, tl, dh, ttr):
         """
         Simplified tail of a 'Wing-Tube' configuration aircraft.
@@ -282,49 +299,90 @@ class Tail(object):
         self.frame_mid = deepcopy(arc9)
 
 
-class HorizontalStablizer(object):
-    def __init__(self):
-        self.surf = None
-        self.tail = None
-
-    @classmethod
-    def from_section_param(cls, foil, zoff, cl, swp_bk, tws, dih, ptws, rfy, tkf, pan_dir):
+class HSPlanform(WingPlanform):
+    def __init__(self, cr, ct, spn2, leading_swp):
         """
-        Construct the vertical stablizer from profile geometrical parameters.
-        :param foil: Section airfoil list.
-        :param zoff: Section 'z'-dim offset list when constructing from wing.
-        :param cl: Section chord length list.
-        :param swp_bk: Section sweep back angle list.
-        :param tws:  Section twist angle list.
-        :param dih: Section dihedral angle list.
-        :param ptws: Section twist relative position list.
-        :param rfy: Section 'y'-dim ref list when constructing from wing.
-        :param tkf: Section thickness factor list.
-        :param pan_dir: Panning direction.
-        :return: The vertical stablizer.
-        :rtype: HorizontalStablizer
+        Horizontal Stabilizer Planform.
+        :param cr: Root chord.
+        :param ct: Tip chord.
+        :param spn2: Half of span.
+        :param leading_swp: Sweep of leading edge.
         """
 
-        '''Defensive check'''
-        n = len(foil)
-        if n < 2:
-            raise ValueError("Insufficient input.")
+        self.Spn2 = spn2
+        self.LeadingPnt = np.empty((2, 3))
+        self.TrailingPnt = np.empty((2, 3))
 
-        crv_list = []
-        for k in range(n):
-            wp = WingProfile.from_geom_param(foil[k], zoff[k], cl[k], swp_bk[k], tws[k], dih[k], ptws[k], rfy[k], tkf[k])
-            crv_list.append(wp.crv)
+        self.LeadingPnt[0] = (0, 0, 0)
+        self.LeadingPnt[1] = (math.tan(math.radians(leading_swp)) * self.Spn2, 0, self.Spn2)
+        self.TrailingPnt[0] = pnt_pan(self.LeadingPnt[0], (cr, 0, 0))
+        self.TrailingPnt[1] = pnt_pan(self.LeadingPnt[1], (ct, 0, 0))
 
-        ret = HorizontalStablizer()
-        ret.surf = RuledSurf(crv_list[0], crv_list[1]) if len(crv_list) == 2 else Skinned(crv_list, 5, 3)
-        ret.surf.pan(pan_dir)
-        ret.tail = Coons(ret.surf.extract('U', 0), ret.surf.extract('U', 1), Line(ret.surf(0, 0), ret.surf(1, 0)), Line(ret.surf(0, 1), ret.surf(1, 1)))
+    def __repr__(self):
+        return 'Horizontal Stabilizer Planform'
 
-        return ret
+    def z(self, u):
+        return u * self.Spn2
+
+    def x_front(self, u):
+        return share(u, self.LeadingPnt[0][0], self.LeadingPnt[1][0])
+
+    def x_tail(self, u):
+        return share(u, self.TrailingPnt[0][0], self.TrailingPnt[1][0])
 
 
-class VerticalStablizerPlanform(WingPlanform):
+def construct_hs_profiles(*args, **kwargs):
+    """
+    Construct the horizontal stabilizer from profile geometric parameters.
+    :param args: Critical description.
+    :param kwargs: Optional settings.
+    :return: Curves on each profile in a list.
+    """
+
+    '''airfoils'''
+    foil = args[0]
+
+    '''chord length'''
+    chord = np.copy(args[1])
+
+    '''offset in span-wise direction'''
+    offset = np.copy(args[2])
+
+    '''angle of sweep-back'''
+    sweep_back = np.copy(args[3])  # deg
+
+    n = len(foil)
+    assert n >= 2
+
+    thickness = np.ones(n, float) if 'thickness' not in kwargs else np.copy(kwargs['thickness'])
+    twist = np.zeros(n, float) if 'twist' not in kwargs else np.radians(kwargs['twist'])
+    twist_ref = np.ones(n, float) if 'twist_ref' not in kwargs else np.copy(kwargs['twist_ref'])
+    dihedral = np.zeros(n, float) if 'dihedral' not in kwargs else np.radians(kwargs['dihedral'])
+    dihedral_ref = np.zeros(n, float) if 'dihedral_ref' not in kwargs else np.copy(kwargs['dihedral_ref'])
+    origin = global_origin if 'origin' not in kwargs else np.copy(kwargs['origin'])
+
+    hs = Wing.from_geom_desc(foil, chord, thickness, offset, sweep_back, twist, twist_ref, dihedral, dihedral_ref)
+
+    ret = []
+    for k, elem in enumerate(hs.profile):
+        crv = elem.crv
+        crv.pan(origin)
+        ret.append(crv)
+
+    return ret
+
+
+class VSKinkPlanform(WingPlanform):
     def __init__(self, cr, ct, spn2, seg, theta):
+        """
+        Vertical Stablizer Planform.
+        :param cr: Root chord.
+        :param ct: Tip chord.
+        :param spn2: Half of span.
+        :param seg: Length of segments.
+        :param theta: Sweep of segments.
+        """
+
         self.Cr = cr
         self.Ct = ct
         self.Spn2 = spn2
@@ -367,12 +425,39 @@ class VerticalStablizerPlanform(WingPlanform):
         return (1 - u) * self.trailing_pnt[0][0] + u * self.trailing_pnt[-1][0]
 
     def __repr__(self):
-        return 'Planform of the Vertical-Stabilizer'
+        return 'Planform of the Vertical-Stabilizer(With Kink)'
 
 
-def construct_vertical_stabilizer_profiles(*args, **kwargs):
+class VSPlanform(WingPlanform):
+    def __init__(self, cr, ct, spn2, leading_swp):
+        """
+        Vertical Stabilizer Planform without Kink.
+        :param cr: Root chord.
+        :param ct: Tip chord.
+        :param spn2: Half of span.
+        :param leading_swp: Sweep of leading edge.
+        """
+
+        self.Spn2 = spn2
+        self.LeadingPnt = np.array([global_origin, [math.tan(math.radians(leading_swp)) * self.Spn2, 0, self.Spn2]])
+        self.TrailingPnt = np.array([pnt_pan(self.LeadingPnt[0], (cr, 0, 0)), pnt_pan(self.LeadingPnt[1], (ct, 0, 0))])
+
+    def __repr__(self):
+        return 'Horizontal Stabilizer Planform'
+
+    def z(self, u):
+        return u * self.Spn2
+
+    def x_front(self, u):
+        return share(u, self.LeadingPnt[0][0], self.LeadingPnt[1][0])
+
+    def x_tail(self, u):
+        return share(u, self.TrailingPnt[0][0], self.TrailingPnt[1][0])
+
+
+def construct_vs_profiles(*args, **kwargs):
     """
-    Construct the vertical stablizer from profile geometrical parameters.
+    Construct the vertical stabilizer from profile geometric parameters.
     :param args: Critical description.
     :param kwargs: Optional settings.
     :return: Curves on each profile in a list.
@@ -388,24 +473,25 @@ def construct_vertical_stabilizer_profiles(*args, **kwargs):
     offset = np.copy(args[2])
 
     '''angle of sweep-back'''
-    sweep_back = np.copy(args[3])
+    sweep_back = np.copy(args[3])  # deg
 
     n = len(foil)
     assert n >= 2
 
-    origin = global_origin if 'origin' not in kwargs else np.copy(kwargs['origin'])
     thickness = np.ones(n, float) if 'thickness' not in kwargs else np.copy(kwargs['thickness'])
     twist = np.zeros(n, float) if 'twist' not in kwargs else np.radians(kwargs['twist'])
     twist_ref = np.ones(n, float) if 'twist_ref' not in kwargs else np.copy(kwargs['twist_ref'])
     dihedral = np.zeros(n, float) if 'dihedral' not in kwargs else np.radians(kwargs['dihedral'])
     dihedral_ref = np.zeros(n, float) if 'dihedral_ref' not in kwargs else np.copy(kwargs['dihedral_ref'])
+    origin = global_origin if 'origin' not in kwargs else np.copy(kwargs['origin'])
 
     vs = Wing.from_geom_desc(foil, chord, thickness, offset, sweep_back, twist, twist_ref, dihedral, dihedral_ref)
-    crv_list = []
+
+    ret = []
     for k, elem in enumerate(vs.profile):
         crv = elem.crv
         crv.rotate(global_origin, x_axis_negative, 90)
         crv.pan(origin)
-        crv_list.append(crv)
+        ret.append(crv)
 
-    return crv_list
+    return ret
