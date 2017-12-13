@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 import sys
+import os
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -8,7 +9,10 @@ if __name__ == '__main__':
 
     fn = sys.argv[1]
     pts = []
-    fin = open(fn)
+    if fn.endswith('.dat'):
+        fin = open(fn)
+    else:
+        fin = open(os.path.join('..', fn + '.dat'))
     for line in fin:
         x, y, z = line.split()
         pts.append((float(x), float(y), float(z)))

@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 from src.iges import IGES_Model, IGES_Pnt, IGES_Line
 from src.nurbs import ConicArc, LocalCubicInterpolatedCrv, point_inverse
 from src.misc import pnt_pan
-from src.grid import uniform
 from src.wing import Wing
 from src.aircraft.Baseline import global_origin, z_axis_positive, z_axis_negative
 from src.aircraft.Baseline import WingPlanform, VSPlanform, construct_vs_profiles
@@ -119,28 +118,42 @@ def construct_hwb_wing_profiles(*args, **kwargs):
     '''angle of dihedral'''
     dihedral = np.copy(args[5])  # deg
 
+    '''num of profiles'''
     n = len(foil)
     assert n >= 2
 
+    '''other default settings'''
     thickness = np.ones(n, float) if 'thickness' not in kwargs else np.copy(kwargs['thickness'])
     twist_ref = np.ones(n, float) if 'twist_ref' not in kwargs else np.copy(kwargs['twist_ref'])
     dihedral_ref = np.zeros(n, float) if 'dihedral_ref' not in kwargs else np.copy(kwargs['dihedral_ref'])
-    wing = Wing.from_geom_desc(foil, chord, thickness, offset, sweep_back, twist, twist_ref, dihedral, dihedral_ref)
 
+    '''wing model and profiles'''
     ret = []
+    wing = Wing.from_geom_desc(foil, chord, thickness, offset, sweep_back, twist, twist_ref, dihedral, dihedral_ref)
     for elem in wing.profile:
         ret.append(elem.crv)
 
-    if 'origin' in kwargs:
-        origin = np.copy(kwargs['origin'])
+    '''adjustment'''
+    if 'init_origin' in kwargs:
+        origin = np.copy(kwargs['init_origin'])
         for i in range(n):
             ret[i].pan(origin)
 
     if 'incidence' in kwargs:
         incidence_ref = np.copy(kwargs['incidence'][0])
-        incidence_ang = np.copy(kwargs['incidence'][1])
-        for i in range(n):
-            ret[i].rotate(incidence_ref, z_axis_negative, incidence_ang)
+        incidence_ang = kwargs['incidence'][1]
+        if not math.isclose(incidence_ang, 0):
+            for i in range(n):
+                ret[i].rotate(incidence_ref, z_axis_negative, incidence_ang)
+
+    final_delta = [0., 0., 0.]
+    if 'downward' in kwargs:
+        final_delta[1] -= kwargs['downward']
+    if 'forward' in kwargs:
+        final_delta[0] -= kwargs['forward']
+
+    for i in range(n):
+        ret[i].pan(final_delta)
 
     return ret
 
@@ -239,21 +252,39 @@ def construct_hwb_frame():
     ax1 = fig.add_subplot(221)
     wing_planform.pic(ax1, u=wing_u)
 
-    wing_tc = np.array([10.0] * wing_n) / 100
-    wing_foil = ['SC(2)-0610'] * wing_n
-    wing_chord = np.array([wing_planform.chord_len(u) for u in wing_u])
-    wing_height = wing_chord * wing_tc
-    wing_swp = np.array([math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u])
-    wing_twist = np.zeros(wing_n)
-    wing_dihedral = np.array([math.degrees(math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i])) for i in range(wing_n)])
-
-    wing_forward_marching = body_len - wing_root_len - 1.2
-    wing_downward_marching = 0
-    wing_origin = (wing_forward_marching, wing_downward_marching, span2 - wing_spn2)
+    wing_ref_origin = (body_len - wing_root_len, 0, span2 - wing_spn2)
     wing_incidence_ref = (body_len, 0, fuselage_width / 2)
-    wing_incidence_ang = 2
-    wing_crv = construct_hwb_wing_profiles(wing_foil, wing_chord, wing_z, wing_swp, wing_twist, wing_dihedral, origin=wing_origin,
-                                           incidence=[wing_incidence_ref, wing_incidence_ang])
+    wing_incidence_ang = 1.5
+    wing_forward_marching = 1.2
+    wing_downward_marching = 0.8
+    wing_lower_dihedral = 2.5
+
+    wing_inner_profile_num = 3
+    wing_middle_profile_num = 2
+    wing_outer_profile_num = wing_n - (wing_inner_profile_num + wing_middle_profile_num)
+
+    wing_cl = [0.11, 0.13, 0.15, 0.20, 0.28, 0.35, 0.4, 0.25, 0.00]
+
+    ax3 = fig.add_subplot(223, sharex=ax1)
+    ax3.plot(wing_z, wing_cl, label='Cl')
+    ax3.legend()
+
+    wing_tc = np.array([12.0] * wing_inner_profile_num + [10.0] * wing_middle_profile_num + [10.0] * wing_outer_profile_num) / 100
+    wing_foil = ['NACA15112'] * wing_inner_profile_num + ['NACA64A410'] * wing_middle_profile_num + ['SC(2)-0410'] * (wing_outer_profile_num - 1) + ['SC(2)-0010']
+    wing_chord = [wing_planform.chord_len(u) for u in wing_u]
+    wing_height = [wing_chord[i] * wing_tc[i] for i in range(wing_n)]
+    wing_swp = [math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u]
+    wing_twist = np.array([-0.1, -0.02, 0.1, 0.4, 0.6, 0.23, 0.23, -0.01, 0.]) - wing_incidence_ang
+    wing_dihedral = [math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i]) for i in range(wing_n)]
+    for i in range(wing_n):
+        wing_dihedral[i] = math.degrees(wing_dihedral[i]) + wing_lower_dihedral
+    for i in range(wing_inner_profile_num + wing_outer_profile_num, wing_n):
+        wing_dihedral[i] += 1
+
+    wing_crv = construct_hwb_wing_profiles(wing_foil, wing_chord, wing_z, wing_swp, wing_twist, wing_dihedral,
+                                           init_origin=wing_ref_origin,
+                                           incidence=[wing_incidence_ref, wing_incidence_ang],
+                                           forward=wing_forward_marching, downward=wing_downward_marching)
     for _c in wing_crv:
         model.add(_c.to_iges())
 
@@ -301,8 +332,8 @@ def construct_hwb_frame():
     print('Area: {:.2f}'.format(hs_planform.area))
     print('MAC: {:.3f}'.format(hs_planform.mean_aerodynamic_chord))
 
-    ax3 = fig.add_subplot(223)
-    hs_planform.pic(ax3, u=hs_u)
+    ax4 = fig.add_subplot(224)
+    hs_planform.pic(ax4, u=hs_u)
 
     hs_foil = ['NACA0006'] * hs_n
     hs_cl = [hs_planform.chord_len(hs_u[i]) for i in range(hs_n)]
@@ -316,6 +347,7 @@ def construct_hwb_frame():
         model.add(crv.to_iges())
 
     '''Final generation'''
+    fig.tight_layout()
     plt.show()
     model.save('HWB2.igs')
 
