@@ -269,12 +269,12 @@ def construct_hwb_frame():
     ax3.plot(wing_z, wing_cl, label='Cl')
     ax3.legend()
 
-    wing_tc = np.array([12.0] * wing_inner_profile_num + [10.0] * wing_middle_profile_num + [10.0] * wing_outer_profile_num) / 100
-    wing_foil = ['NACA15112'] * wing_inner_profile_num + ['NACA64A410'] * wing_middle_profile_num + ['SC(2)-0410'] * (wing_outer_profile_num - 1) + ['SC(2)-0010']
+    wing_tc = np.array([10.0] * wing_inner_profile_num + [10.0] * wing_middle_profile_num + [10.0] * wing_outer_profile_num) / 100
+    wing_foil = ['NACA15110'] * wing_inner_profile_num + ['NACA64A410'] * wing_middle_profile_num + ['SC(2)-0410'] * (wing_outer_profile_num - 1) + ['SC(2)-0010']
     wing_chord = [wing_planform.chord_len(u) for u in wing_u]
     wing_height = [wing_chord[i] * wing_tc[i] for i in range(wing_n)]
     wing_swp = [math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u]
-    wing_twist = np.array([-0.1, -0.02, 0.1, 0.4, 0.6, 0.23, 0.23, -0.01, 0.]) - wing_incidence_ang
+    wing_twist = np.array([-0.05, -0.15, 0.25, 0.4, 0.6, 0.23, 0.23, -0.01, 0.]) - wing_incidence_ang
     wing_dihedral = [math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i]) for i in range(wing_n)]
     for i in range(wing_n):
         wing_dihedral[i] = math.degrees(wing_dihedral[i]) + wing_lower_dihedral
@@ -339,7 +339,7 @@ def construct_hwb_frame():
     hs_cl = [hs_planform.chord_len(hs_u[i]) for i in range(hs_n)]
     hs_swp = [math.degrees(math.atan2(hs_planform.x_front(hs_u[i]), hs_z[i])) for i in range(hs_n)]
 
-    hs_delta_x = vs_origin[0] + vs_planform.x_front(1) - 0.4
+    hs_delta_x = vs_origin[0] + vs_planform.x_front(1) - 0.6
     hs_delta_y = vs_origin[1] + vs_spn2
     hs_origin = (hs_delta_x, hs_delta_y, 0)
     hs_profile = construct_hs_profiles(hs_foil, hs_cl, hs_z, hs_swp, origin=hs_origin)
