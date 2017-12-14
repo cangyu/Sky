@@ -159,21 +159,23 @@ def construct_hwb_wing_profiles(*args, **kwargs):
 
 
 def construct_hwb_frame():
-    model = IGES_Model()
-    fig = plt.figure()
+    """
+    Generate the Hybrid-Wing-Body model parametrically.
+    :return: None.
+    """
 
     '''Fuselage'''
     fuselage_len = 28.0
     span = 42.0
     span2 = span / 2
 
-    fuselage_height = 4.0
-    fuselage_width = 4.5
+    fuselage_height = 3.5
+    fuselage_width = 5.25
 
-    nose_len = 4.8
-    tail_len = 8.5
+    nose_len = 5.6
+    tail_len = 7.8
     body_len = fuselage_len - (tail_len + nose_len)
-    print('\nFuselage component length:')
+    print('\nLength of fuselage components:')
     print('Nose: {:.3f}\nBody: {:.3f}\nTail: {:.3f}'.format(nose_len, body_len, tail_len))
 
     theta_fc = math.radians(15)
@@ -206,7 +208,124 @@ def construct_hwb_frame():
     tail_back_mid = pnt_pan(tail_back_center, (0, 0, tail_back_width / 2))
     tail_back_crv = ConicArc(tail_back_up, z_axis_positive, tail_back_down, z_axis_negative, tail_back_mid)
 
-    # model.add(IGES_Pnt(origin))
+    '''Wing'''
+    fusion_width = 0.35
+    wing_spn2 = span2 - fuselage_width / 2 - fusion_width
+    wing_root_len = 16.2
+    wing_tip_len = 1.5
+    wing_leading_inner_delta = (0.8, 1.5)
+    wing_leading_middle_delta = (1.25, 1.7)
+    wing_leading_outer_sweep = 28
+    wing_trailing_inner_delta = (0.7, -2.3)
+    wing_trailing_outer_spn = 13.5
+    wing_trailing_outer_sweep = 12
+    wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
+                                    wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
+                                    wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
+
+    wing_u = np.array([0.00, 3.33, 6.11, 12.22, 19.44, 28.33, 46.11, 82.22, 100.00]) / 100
+    wing_z = wing_u * wing_spn2
+    wing_n = len(wing_u)
+    wing_ref_origin = (body_len - wing_root_len, 0, span2 - wing_spn2)
+    wing_incidence_ref = (body_len + tail_len, 0, fuselage_width / 2)
+    wing_incidence_ang = 1.5
+    wing_forward_marching = 0.3
+    wing_downward_marching = 0.2
+    wing_inner_profile_num = 3
+    wing_middle_profile_num = 2
+    wing_outer_profile_num = wing_n - (wing_inner_profile_num + wing_middle_profile_num)
+    wing_foil = ['SC(2)-0710', 'SC(2)-0710', 'SC(2)-0710',
+                 'SC(2)-0610', 'SC(2)-0610',
+                 'SC(2)-0610', 'SC(2)-0610', 'SC(2)-0410', 'SC(2)-0410']
+    wing_tc = np.array([0.01 * float(_f[-2:]) for _f in wing_foil])
+    wing_chord = [wing_planform.chord_len(u) for u in wing_u]
+    wing_height = [wing_chord[i] * wing_tc[i] for i in range(wing_n)]
+    wing_swp = [math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u]
+    wing_cl = [0.11, 0.13, 0.15,
+               0.70, 0.60,
+               0.52, 0.45, 0.30, 0.00]
+    wing_twist = [0, -0.1, -0.2,
+                  -0.45, -0.95,
+                  -2.2, -2.544, -1.765, -3.220]
+    # wing_dihedral = [math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i]) for i in range(wing_n)]
+    wing_dihedral = np.array([2.5, 2.5, 2.5, 3.0, 3.0, 3.5, 3.5, 3.0, 3.0])
+    wing_profile = construct_hwb_wing_profiles(wing_foil, wing_chord, wing_z, wing_swp, wing_twist, wing_dihedral,
+                                               init_origin=wing_ref_origin,
+                                               incidence=[wing_incidence_ref, wing_incidence_ang],
+                                               forward=wing_forward_marching, downward=wing_downward_marching)
+
+    print('\nWing:')
+    print('Root chord: {:.3f}'.format(wing_root_len))
+    print('Half span: {:.3f}'.format(wing_spn2))
+    print('Area: {:.2f}'.format(wing_planform.area))
+    print('MAC: {:.3f}'.format(wing_planform.mean_aerodynamic_chord))
+    print('Dihedral: {}'.format(wing_dihedral))
+
+    '''Vertical-Stabilizer'''
+    vs_root_chord = 5.5
+    vs_tip_chord = 3.5
+    vs_spn2 = 4.2
+    vs_leading_swp = 45
+    vs_planform = VSPlanform(vs_root_chord, vs_tip_chord, vs_spn2, vs_leading_swp)
+    vs_u = np.array([0.00, 6.67, 13.33, 27.50, 55.00, 85.00, 100.00]) / 100
+    vs_n = len(vs_u)
+    vs_z = np.array([vs_planform.z(_u) for _u in vs_u])
+
+    print('\nVertical-Stabilizer:')
+    print('Area: {:.2f}'.format(vs_planform.area / 2))
+    print('MAC: {:.3f}'.format(vs_planform.mean_aerodynamic_chord))
+
+    vs_foil = ['NACA0010'] * vs_n
+    vs_cl = [vs_planform.chord_len(vs_u[i]) for i in range(vs_n)]
+    vs_swp = [math.degrees(math.atan2(vs_planform.x_front(vs_u[i]), vs_z[i])) for i in range(vs_n)]
+
+    vs_delta_tail_back = 0.8
+    vs_delta_body_up = 0
+    vs_delta_x = body_len + tail_len - (vs_root_chord + vs_delta_tail_back)
+    vs_delta_y = fuselage_height / 2 + vs_delta_body_up
+    vs_origin = (vs_delta_x, vs_delta_y, 0)
+    vs_profile = construct_vs_profiles(vs_foil, vs_cl, vs_z, vs_swp, origin=vs_origin)
+
+    '''Horizontal-Stabilizer'''
+    hs_root_chord = 3.5
+    hs_tip_chord = 1.7
+    hs_spn2 = 6.5
+    hs_leading_swp = 25
+    hs_planform = HSPlanform(hs_root_chord, hs_tip_chord, hs_spn2, hs_leading_swp)
+    hs_u = np.array([0.00, 50.00, 100.00]) / 100
+    hs_z = hs_u * hs_spn2
+    hs_n = len(hs_u)
+
+    print('\nHorizontal-Stabilizer:')
+    print('Area: {:.2f}'.format(hs_planform.area))
+    print('MAC: {:.3f}'.format(hs_planform.mean_aerodynamic_chord))
+
+    hs_foil = ['NACA0008'] * hs_n
+    hs_cl = [hs_planform.chord_len(hs_u[i]) for i in range(hs_n)]
+    hs_swp = [math.degrees(math.atan2(hs_planform.x_front(hs_u[i]), hs_z[i])) for i in range(hs_n)]
+
+    hs_forward_marching_ratio = 0
+    hs_delta_x = vs_origin[0] + vs_planform.x_front(1) - hs_forward_marching_ratio * vs_tip_chord
+    hs_delta_y = vs_origin[1] + vs_spn2
+    hs_origin = (hs_delta_x, hs_delta_y, 0)
+    hs_profile = construct_hs_profiles(hs_foil, hs_cl, hs_z, hs_swp, origin=hs_origin)
+
+    '''Graphic representation'''
+    fig = plt.figure()
+    ax1 = fig.add_subplot(221)
+    wing_planform.pic(ax1, u=wing_u)
+    ax2 = fig.add_subplot(222)
+    vs_planform.pic(ax2, u=vs_u, direction='vertical')
+    # ax3 = fig.add_subplot(223, sharex=ax1)
+    # ax3.plot(wing_z, wing_cl, label='Cl')
+    # ax3.legend()
+    ax4 = fig.add_subplot(224)
+    hs_planform.pic(ax4, u=hs_u)
+    fig.tight_layout()
+    plt.show()
+
+    '''CAD model'''
+    model = IGES_Model()
     # model.add(IGES_Pnt(body_front_up))
     # model.add(IGES_Pnt(body_front_down))
     # model.add(IGES_Pnt(body_front_mid))
@@ -223,133 +342,13 @@ def construct_hwb_frame():
     model.add(IGES_Line(nose_front_center, nose_front_up))
     model.add(IGES_Line(nose_front_center, nose_front_down))
     model.add(IGES_Line(nose_front_center, nose_front_mid))
-
-    '''Wing'''
-    fusion_width = 0.3
-    wing_spn2 = span2 - fuselage_width / 2 - fusion_width
-    wing_root_len = 15.5
-    wing_tip_len = 1.4
-    wing_leading_inner_delta = (0.6, 1.5)
-    wing_leading_middle_delta = (1.2, 1.55)
-    wing_leading_outer_sweep = 28
-    wing_trailing_inner_delta = (0.6, -2.4)
-    wing_trailing_outer_spn = 14.5
-    wing_trailing_outer_sweep = 12
-    wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
-                                    wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
-                                    wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
-
-    print('\nWing:')
-    print('Root chord: {:.3f}'.format(wing_root_len))
-    print('Half span: {:.3f}'.format(wing_spn2))
-    print('Area: {:.2f}'.format(wing_planform.area))
-    print('MAC: {:.3f}'.format(wing_planform.mean_aerodynamic_chord))
-
-    wing_u = np.array([0.00, 3.33, 6.11, 12.22, 19.44, 28.33, 46.11, 82.22, 100.00]) / 100
-    wing_z = wing_u * wing_spn2
-    wing_n = len(wing_u)
-
-    ax1 = fig.add_subplot(221)
-    wing_planform.pic(ax1, u=wing_u)
-
-    wing_ref_origin = (body_len - wing_root_len, 0, span2 - wing_spn2)
-    wing_incidence_ref = (body_len, 0, fuselage_width / 2)
-    wing_incidence_ang = 1.5
-    wing_forward_marching = 1.2
-    wing_downward_marching = 0.8
-    wing_lower_dihedral = 2.5
-
-    wing_inner_profile_num = 3
-    wing_middle_profile_num = 2
-    wing_outer_profile_num = wing_n - (wing_inner_profile_num + wing_middle_profile_num)
-
-    wing_cl = [0.11, 0.13, 0.15, 0.20, 0.28, 0.35, 0.4, 0.25, 0.00]
-
-    ax3 = fig.add_subplot(223, sharex=ax1)
-    ax3.plot(wing_z, wing_cl, label='Cl')
-    ax3.legend()
-
-    wing_tc = np.array([10.0] * wing_inner_profile_num + [10.0] * wing_middle_profile_num + [10.0] * wing_outer_profile_num) / 100
-    wing_foil = ['NACA15110'] * wing_inner_profile_num + ['NACA64A410'] * wing_middle_profile_num + ['SC(2)-0410'] * (wing_outer_profile_num - 1) + ['SC(2)-0010']
-    wing_chord = [wing_planform.chord_len(u) for u in wing_u]
-    wing_height = [wing_chord[i] * wing_tc[i] for i in range(wing_n)]
-    wing_swp = [math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u]
-    wing_twist = np.array([-0.05, -0.15, 0.25, 0.4, 0.6, 0.23, 0.23, -0.01, 0.]) - wing_incidence_ang
-    wing_dihedral = [math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i]) for i in range(wing_n)]
-    for i in range(wing_n):
-        wing_dihedral[i] = math.degrees(wing_dihedral[i]) + wing_lower_dihedral
-    for i in range(wing_inner_profile_num + wing_outer_profile_num, wing_n):
-        wing_dihedral[i] += 1
-
-    wing_crv = construct_hwb_wing_profiles(wing_foil, wing_chord, wing_z, wing_swp, wing_twist, wing_dihedral,
-                                           init_origin=wing_ref_origin,
-                                           incidence=[wing_incidence_ref, wing_incidence_ang],
-                                           forward=wing_forward_marching, downward=wing_downward_marching)
-    for _c in wing_crv:
+    for _c in wing_profile:
         model.add(_c.to_iges())
-
-    '''VerticalStabilizer'''
-    vs_root_chord = 6.2
-    vs_tip_chord = 2.2
-    vs_spn2 = 6
-    vs_leading_swp = 45
-    vs_planform = VSPlanform(vs_root_chord, vs_tip_chord, vs_spn2, vs_leading_swp)
-    vs_u = np.array([0.00, 6.67, 13.33, 27.50, 55.00, 85.00, 100.00]) / 100
-    vs_n = len(vs_u)
-    vs_z = np.array([vs_planform.z(_u) for _u in vs_u])
-
-    print('\nVerticalStabilizer:')
-    print('Area: {:.2f}'.format(vs_planform.area / 2))
-    print('MAC: {:.3f}'.format(vs_planform.mean_aerodynamic_chord))
-
-    ax2 = fig.add_subplot(222)
-    vs_planform.pic(ax2, u=vs_u, direction='vertical')
-
-    vs_foil = ['NACA0008'] * vs_n
-    vs_cl = [vs_planform.chord_len(vs_u[i]) for i in range(vs_n)]
-    vs_swp = [math.degrees(math.atan2(vs_planform.x_front(vs_u[i]), vs_z[i])) for i in range(vs_n)]
-
-    vs_delta_tail_back = 0.8
-    vs_delta_body_up = 0
-    vs_delta_x = body_len + tail_len - (vs_root_chord + vs_delta_tail_back)
-    vs_delta_y = fuselage_height / 2 + vs_delta_body_up
-    vs_origin = (vs_delta_x, vs_delta_y, 0)
-    vs_profile = construct_vs_profiles(vs_foil, vs_cl, vs_z, vs_swp, origin=vs_origin)
-    for crv in vs_profile:
-        model.add(crv.to_iges())
-
-    '''HorizontalStabilizer'''
-    hs_root_chord = 3.5
-    hs_tip_chord = 1.6
-    hs_spn2 = 7.0
-    hs_leading_swp = 25
-    hs_planform = HSPlanform(hs_root_chord, hs_tip_chord, hs_spn2, hs_leading_swp)
-    hs_u = np.array([0.00, 50.00, 100.00]) / 100
-    hs_z = hs_u * hs_spn2
-    hs_n = len(hs_u)
-
-    print('\nHorizontalStabilizer:')
-    print('Area: {:.2f}'.format(hs_planform.area))
-    print('MAC: {:.3f}'.format(hs_planform.mean_aerodynamic_chord))
-
-    ax4 = fig.add_subplot(224)
-    hs_planform.pic(ax4, u=hs_u)
-
-    hs_foil = ['NACA0006'] * hs_n
-    hs_cl = [hs_planform.chord_len(hs_u[i]) for i in range(hs_n)]
-    hs_swp = [math.degrees(math.atan2(hs_planform.x_front(hs_u[i]), hs_z[i])) for i in range(hs_n)]
-
-    hs_delta_x = vs_origin[0] + vs_planform.x_front(1) - 0.6
-    hs_delta_y = vs_origin[1] + vs_spn2
-    hs_origin = (hs_delta_x, hs_delta_y, 0)
-    hs_profile = construct_hs_profiles(hs_foil, hs_cl, hs_z, hs_swp, origin=hs_origin)
-    for crv in hs_profile:
-        model.add(crv.to_iges())
-
-    '''Final generation'''
-    fig.tight_layout()
-    plt.show()
-    model.save('HWB2.igs')
+    for _c in vs_profile:
+        model.add(_c.to_iges())
+    for _c in hs_profile:
+        model.add(_c.to_iges())
+    model.save('HWB.igs')
 
 
 if __name__ == '__main__':
