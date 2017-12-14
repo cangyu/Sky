@@ -170,7 +170,7 @@ def construct_hwb_frame():
     span2 = span / 2
 
     fuselage_height = 3.5
-    fuselage_width = 5.25
+    fuselage_width = 5.2
 
     nose_len = 5.6
     tail_len = 7.8
@@ -209,16 +209,16 @@ def construct_hwb_frame():
     tail_back_crv = ConicArc(tail_back_up, z_axis_positive, tail_back_down, z_axis_negative, tail_back_mid)
 
     '''Wing'''
-    fusion_width = 0.35
+    fusion_width = 0.4
     wing_spn2 = span2 - fuselage_width / 2 - fusion_width
-    wing_root_len = 16.2
+    wing_root_len = 15.6
     wing_tip_len = 1.5
     wing_leading_inner_delta = (0.8, 1.5)
     wing_leading_middle_delta = (1.25, 1.7)
     wing_leading_outer_sweep = 28
     wing_trailing_inner_delta = (0.7, -2.3)
     wing_trailing_outer_spn = 13.5
-    wing_trailing_outer_sweep = 12
+    wing_trailing_outer_sweep = 12.5
     wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
                                     wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
                                     wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
@@ -229,8 +229,8 @@ def construct_hwb_frame():
     wing_ref_origin = (body_len - wing_root_len, 0, span2 - wing_spn2)
     wing_incidence_ref = (body_len + tail_len, 0, fuselage_width / 2)
     wing_incidence_ang = 1.5
-    wing_forward_marching = 0.3
-    wing_downward_marching = 0.2
+    wing_forward_marching = 0.2
+    wing_downward_marching = 0.4
     wing_inner_profile_num = 3
     wing_middle_profile_num = 2
     wing_outer_profile_num = wing_n - (wing_inner_profile_num + wing_middle_profile_num)
@@ -326,9 +326,9 @@ def construct_hwb_frame():
 
     '''CAD model'''
     model = IGES_Model()
-    # model.add(IGES_Pnt(body_front_up))
-    # model.add(IGES_Pnt(body_front_down))
-    # model.add(IGES_Pnt(body_front_mid))
+    model.add(IGES_Pnt(body_front_up))
+    model.add(IGES_Pnt(body_front_down))
+    model.add(IGES_Pnt(body_front_mid))
     model.add(IGES_Line(body_front_up, body_back_up))
     model.add(IGES_Line(body_front_down, body_back_down))
     model.add(IGES_Line(body_front_mid, body_back_mid))
