@@ -114,15 +114,19 @@ class WingPlanform(metaclass=ABCMeta):
                 u_pos = np.copy(kwargs['u'])
                 for lu in u_pos:
                     zp = lu * spn2
-                    plt.plot([self.x_front(lu), self.x_tail(lu)], [zp, zp], '--')
+                    ax.plot([self.x_front(lu), self.x_tail(lu)], [zp, zp], '--')
         elif 'direction' not in kwargs or kwargs['direction'] == 'horizontal':
             ax.plot(z, leading_x, label='Leading')
             ax.plot(z, trailing_x, label='Trailing')
             if 'u' in kwargs:
                 u_pos = np.copy(kwargs['u'])
-                for lu in u_pos:
+                for k, lu in enumerate(u_pos):
                     zp = lu * spn2
-                    plt.plot([zp, zp], [self.x_front(lu), self.x_tail(lu)], '--')
+                    xf = self.x_front(lu)
+                    xt = self.x_tail(lu)
+                    ax.plot([zp, zp], [xf, xt], '--')
+                    ax.text(zp, share(0.5, xf, xt), str(k))
+
             ax.invert_yaxis()
         else:
             raise AttributeError('invalid direction')
@@ -495,3 +499,36 @@ def construct_vs_profiles(*args, **kwargs):
         ret.append(crv)
 
     return ret
+
+
+class EllipseLiftDist(object):
+    def __init__(self, w, spn, rho_inf, vel_inf):
+        self.payload = w * 1000 * 9.8 / 2
+        self.span2 = spn / 2
+        self.rho = rho_inf
+        self.v = vel_inf
+        self.p_inf = 0.5 * self.rho * self.v ** 2
+        self.root_lift = self.payload / (0.25 * math.pi * self.span2)
+
+    def lift_at(self, rel_pos):
+        return self.root_lift * math.sqrt(1 - rel_pos ** 2)
+
+    def calc_ellipse_dist(self, rel_pos, chord_len):
+        assert len(rel_pos) == len(chord_len)
+        n = len(rel_pos)
+
+        cl = np.array([self.lift_at(rel_pos[i]) / self.p_inf / chord_len[i] for i in range(n)])
+        pl = np.array([self.lift_at(rel_pos[i]) / (self.rho * self.v) for i in range(n)])
+
+        fig, cl_ax = plt.subplots()
+        cl_ax.plot(rel_pos, cl, 'b.-')
+        cl_ax.set_xlabel('Span-wise relative position')
+        cl_ax.set_ylabel('Lift coefficient')
+
+        pl_ax = cl_ax.twinx()
+        pl_ax.plot(rel_pos, pl, 'r.-')
+        pl_ax.set_ylabel('Velocity Circulation/({})'.format(r'$\frac{m^2}{s}$'))
+
+        fig.tight_layout()
+        plt.show()
+        return cl

@@ -10,6 +10,7 @@ from src.wing import Wing
 from src.aircraft.Baseline import global_origin, z_axis_positive, z_axis_negative
 from src.aircraft.Baseline import WingPlanform, VSPlanform, construct_vs_profiles
 from src.aircraft.Baseline import HSPlanform, construct_hs_profiles
+from src.aircraft.Baseline import EllipseLiftDist
 
 
 class HWBWingPlanform(WingPlanform):
@@ -171,7 +172,7 @@ def construct_hwb_frame():
     span2 = span / 2
 
     fuselage_height = 3.5
-    fuselage_width = 5.2
+    fuselage_width = 4.5
 
     nose_len = 5.6
     tail_len = 7.8
@@ -207,12 +208,12 @@ def construct_hwb_frame():
     tail_back_crv = ConicArc(tail_back_up, z_axis_positive, tail_back_down, z_axis_negative, tail_back_mid)
 
     '''Wing'''
-    fusion_width = 0.4
+    fusion_width = 0.65
     wing_spn2 = span2 - fuselage_width / 2 - fusion_width
-    wing_root_len = 15.6
+    wing_root_len = 15.4
     wing_tip_len = 1.5
-    wing_leading_inner_delta = (0.8, 1.5)
-    wing_leading_middle_delta = (1.25, 1.7)
+    wing_leading_inner_delta = (1.0, 1.55)
+    wing_leading_middle_delta = (1.3, 1.75)
     wing_leading_outer_sweep = 28
     wing_trailing_inner_delta = (0.7, -2.3)
     wing_trailing_outer_spn = 13.5
@@ -221,32 +222,34 @@ def construct_hwb_frame():
                                     wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
                                     wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
 
-    wing_u = np.array([0.00, 3.33, 6.11, 12.22, 19.44, 28.33, 46.11, 82.22, 100.00]) / 100
+    wing_u = np.array([0.00, 2.80, 6.10, 11.20, 19.45, 28.30, 40.00, 62.00, 85.00, 100.00]) / 100
     wing_z = wing_u * wing_spn2
     wing_n = len(wing_u)
     wing_ref_origin = (body_len - wing_root_len, 0, span2 - wing_spn2)
     wing_incidence_ref = (body_len + tail_len, 0, fuselage_width / 2)
-    wing_incidence_ang = 1.5
+    wing_incidence_ang = 2.0
     wing_forward_marching = 0.2
-    wing_downward_marching = 0.4
+    wing_downward_marching = 0.8
     wing_inner_profile_num = 3
     wing_middle_profile_num = 2
     wing_outer_profile_num = wing_n - (wing_inner_profile_num + wing_middle_profile_num)
-    wing_foil = ['SC(2)-0710', 'SC(2)-0710', 'SC(2)-0710',
-                 'SC(2)-0610', 'SC(2)-0610',
-                 'SC(2)-0610', 'SC(2)-0610', 'SC(2)-0410', 'SC(2)-0410']
+    wing_foil = ['NACA63(2)A-015', 'NACA63(2)A-015', 'NACA63(2)A-015',
+                 'NACA63(2)A-015', 'SC(2)-0614',
+                 'SC(2)-0612', 'SC(2)-0610', 'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0010']
     wing_tc = np.array([0.01 * float(_f[-2:]) for _f in wing_foil])
     wing_chord = [wing_planform.chord_len(u) for u in wing_u]
     wing_height = [wing_chord[i] * wing_tc[i] for i in range(wing_n)]
     wing_swp = [math.degrees(math.atan2(wing_planform.x_front(u), wing_planform.z(u))) for u in wing_u]
-    wing_cl = [0.11, 0.13, 0.15,
-               0.70, 0.60,
-               0.52, 0.45, 0.30, 0.00]
-    wing_twist = [0, -0.1, -0.2,
-                  -0.45, -0.95,
-                  -2.2, -2.544, -1.765, -3.220]
+
+    lift_dist = EllipseLiftDist(120, 42, 0.4135, 0.75 * 299.5)
+    wing_cl3 = lift_dist.calc_ellipse_dist(wing_u, wing_chord)
+    wing_cl2 = wing_cl3 * 1.15
+    print(wing_cl2)
+    wing_twist = [0, -0.25, -0.5,
+                  -0.75, -1.2,
+                  -1.6, -1.4, -1.312, -1.793, -2.0]
     # wing_dihedral = [math.atan2((wing_height[i] - wing_height[0]) / 2, wing_z[i]) for i in range(wing_n)]
-    wing_dihedral = np.array([2.5, 2.5, 2.5, 3.0, 3.0, 3.5, 3.5, 3.0, 3.0])
+    wing_dihedral = np.array([2.5, 2.5, 2.5, 3.0, 3.0, 3.5, 3.5, 3.0, 3.0, 3.0])
     wing_profile = construct_hwb_wing_profiles(wing_foil, wing_chord, wing_z, wing_swp, wing_twist, wing_dihedral,
                                                init_origin=wing_ref_origin,
                                                incidence=[wing_incidence_ref, wing_incidence_ang],
@@ -258,7 +261,7 @@ def construct_hwb_frame():
     vs_spn2 = 4.2
     vs_leading_swp = 45
     vs_planform = VSPlanform(vs_root_chord, vs_tip_chord, vs_spn2, vs_leading_swp)
-    vs_u = np.array([0.00, 6.67, 13.33, 27.50, 55.00, 85.00, 100.00]) / 100
+    vs_u = np.array([0.00, 27.50, 55.00, 85.00, 100.00]) / 100
     vs_n = len(vs_u)
     vs_z = np.array([vs_planform.z(_u) for _u in vs_u])
 
@@ -294,116 +297,116 @@ def construct_hwb_frame():
     hs_profile = construct_hs_profiles(hs_foil, hs_cl, hs_z, hs_swp, origin=hs_origin)
 
     '''Text report'''
-    # print('\nLength of fuselage components:')
-    # print('Nose: {:.3f}\nBody: {:.3f}\nTail: {:.3f}'.format(nose_len, body_len, tail_len))
-    # print('\nWing:')
-    # print('Root chord: {:.3f}'.format(wing_root_len))
-    # print('Half span: {:.3f}'.format(wing_spn2))
-    # print('Area: {:.2f}'.format(wing_planform.area))
-    # print('MAC: {:.3f}'.format(wing_planform.mean_aerodynamic_chord))
-    # print('Dihedral: {}'.format(wing_dihedral))
-    # print('\nVertical-Stabilizer:')
-    # print('Area: {:.2f}'.format(vs_planform.area / 2))
-    # print('MAC: {:.3f}'.format(vs_planform.mean_aerodynamic_chord))
-    # print('\nHorizontal-Stabilizer:')
-    # print('Area: {:.2f}'.format(hs_planform.area))
-    # print('MAC: {:.3f}'.format(hs_planform.mean_aerodynamic_chord))
+    print('\nLength of fuselage components:')
+    print('Nose: {:.3f}\nBody: {:.3f}\nTail: {:.3f}'.format(nose_len, body_len, tail_len))
+    print('\nWing:')
+    print('Root chord: {:.3f}'.format(wing_root_len))
+    print('Half span: {:.3f}'.format(wing_spn2))
+    print('Area: {:.2f}'.format(wing_planform.area))
+    print('MAC: {:.3f}'.format(wing_planform.mean_aerodynamic_chord))
+    print('Dihedral: {}'.format(wing_dihedral))
+    print('\nVertical-Stabilizer:')
+    print('Area: {:.2f}'.format(vs_planform.area / 2))
+    print('MAC: {:.3f}'.format(vs_planform.mean_aerodynamic_chord))
+    print('\nHorizontal-Stabilizer:')
+    print('Area: {:.2f}'.format(hs_planform.area))
+    print('MAC: {:.3f}'.format(hs_planform.mean_aerodynamic_chord))
 
     '''Graphic representation'''
-    # fig = plt.figure()
-    # ax1 = fig.add_subplot(221)
+    fig = plt.figure()
+    # ax1 = fig.add_subplot(211)
     # wing_planform.pic(ax1, u=wing_u)
-    # ax2 = fig.add_subplot(222)
+    # ax2 = fig.add_subplot(111)
     # vs_planform.pic(ax2, u=vs_u, direction='vertical')
-    # ax3 = fig.add_subplot(223, sharex=ax1)
-    # ax3.plot(wing_z, wing_cl, label='Cl')
+    # ax3 = fig.add_subplot(212)
+    # ax3.plot(wing_u, wing_cl, label='Cl')
     # ax3.legend()
-    # ax4 = fig.add_subplot(224)
-    # hs_planform.pic(ax4, u=hs_u)
-    # fig.tight_layout()
-    # plt.show()
+    ax4 = fig.add_subplot(111)
+    hs_planform.pic(ax4, u=hs_u)
+    fig.tight_layout()
+    plt.show()
 
     '''CAD model'''
-    if platform.system() == 'Windows':
-        from win32com import client
-        catia = client.Dispatch('CATIA.Application')
-        catia.Visible = True
-
-        model_doc = catia.Documents
-        model_part_doc = model_doc.Add('Part')
-        model_part = model_part_doc.Part
-        model_bodies = model_part.HybridBodies
-        model_body = model_bodies.Add()
-        model_body.Name = 'HWBSurfGeom'
-        model_sf = model_part.HybridShapeFactory
-
-        def add_geom(p):
-            model_body.AppendHybridShape(p)
-
-        def build_catia_pnt(p):
-            return model_sf.AddNewPointCoord(p[0], p[1], p[2])
-
-        pts = {'model_origin': build_catia_pnt(global_origin),
-               'body_front_mid': build_catia_pnt(body_front_mid),
-               'body_front_up': build_catia_pnt(body_front_up),
-               'body_front_down': build_catia_pnt(body_front_down),
-               'body_back_mid': build_catia_pnt(body_back_mid),
-               'body_back_up': build_catia_pnt(body_back_up),
-               'body_back_down': build_catia_pnt(body_back_down),
-               'tail_back_center': build_catia_pnt(tail_back_center),
-               'tail_back_mid': build_catia_pnt(tail_back_mid),
-               'tail_back_up': build_catia_pnt(tail_back_up),
-               'tail_back_down': build_catia_pnt(tail_back_down),
-               'nose_front_center': build_catia_pnt(nose_front_center),
-               'nose_front_mid': build_catia_pnt(nose_front_mid),
-               'nose_front_up': build_catia_pnt(nose_front_up),
-               'nose_front_down': build_catia_pnt(nose_front_down)}
-
-        for _p in pts.values():
-            add_geom(_p)
-        model_part.Update()
-
-        def build_catia_line(start, end):
-            return model_sf.AddNewLinePtPt(start, end)
-
-        ln = {'body_mid': build_catia_line(pts['body_front_mid'], pts['body_back_mid']),
-              'body_up': build_catia_line(pts['body_front_up'], pts['body_back_up']),
-              'body_down': build_catia_line(pts['body_front_down'], pts['body_back_down']),
-              'tail_upward': build_catia_line(pts['tail_back_center'], pts['tail_back_up']),
-              'tail_downward': build_catia_line(pts['tail_back_center'], pts['tail_back_down']),
-              'tail_horizontal': build_catia_line(pts['tail_back_center'], pts['tail_back_mid']),
-              'nose_upward': build_catia_line(pts['nose_front_center'], pts['nose_front_up']),
-              'nose_downward': build_catia_line(pts['nose_front_center'], pts['nose_front_down']),
-              'nose_horizontal': build_catia_line(pts['nose_front_center'], pts['nose_front_mid'])}
-
-        for _ln in ln.values():
-            add_geom(_ln)
-        model_part.Update()
-    else:
-        model = IGES_Model()
-        model.add(IGES_Pnt(body_front_up))
-        model.add(IGES_Pnt(body_front_down))
-        model.add(IGES_Pnt(body_front_mid))
-        model.add(IGES_Line(body_front_up, body_back_up))
-        model.add(IGES_Line(body_front_down, body_back_down))
-        model.add(IGES_Line(body_front_mid, body_back_mid))
-        model.add(body_front_crv.to_iges())
-        model.add(body_back_crv.to_iges())
-        model.add(tail_back_crv.to_iges())
-        model.add(IGES_Line(tail_back_center, tail_back_up))
-        model.add(IGES_Line(tail_back_center, tail_back_down))
-        model.add(IGES_Line(tail_back_center, tail_back_mid))
-        model.add(nose_front_crv.to_iges())
-        model.add(IGES_Line(nose_front_center, nose_front_up))
-        model.add(IGES_Line(nose_front_center, nose_front_down))
-        model.add(IGES_Line(nose_front_center, nose_front_mid))
-        for _c in wing_profile:
-            model.add(_c.to_iges())
-        for _c in vs_profile:
-            model.add(_c.to_iges())
-        for _c in hs_profile:
-            model.add(_c.to_iges())
-        model.save('HWB.igs')
+    # if platform.system() == 'Windows':
+    #     from win32com import client
+    #     catia = client.Dispatch('CATIA.Application')
+    #     catia.Visible = True
+    #
+    #     model_doc = catia.Documents
+    #     model_part_doc = model_doc.Add('Part')
+    #     model_part = model_part_doc.Part
+    #     model_bodies = model_part.HybridBodies
+    #     model_body = model_bodies.Add()
+    #     model_body.Name = 'HWBSurfGeom'
+    #     model_sf = model_part.HybridShapeFactory
+    #
+    #     def add_geom(p):
+    #         model_body.AppendHybridShape(p)
+    #
+    #     def build_catia_pnt(p):
+    #         return model_sf.AddNewPointCoord(p[0], p[1], p[2])
+    #
+    #     pts = {'model_origin': build_catia_pnt(global_origin),
+    #            'body_front_mid': build_catia_pnt(body_front_mid),
+    #            'body_front_up': build_catia_pnt(body_front_up),
+    #            'body_front_down': build_catia_pnt(body_front_down),
+    #            'body_back_mid': build_catia_pnt(body_back_mid),
+    #            'body_back_up': build_catia_pnt(body_back_up),
+    #            'body_back_down': build_catia_pnt(body_back_down),
+    #            'tail_back_center': build_catia_pnt(tail_back_center),
+    #            'tail_back_mid': build_catia_pnt(tail_back_mid),
+    #            'tail_back_up': build_catia_pnt(tail_back_up),
+    #            'tail_back_down': build_catia_pnt(tail_back_down),
+    #            'nose_front_center': build_catia_pnt(nose_front_center),
+    #            'nose_front_mid': build_catia_pnt(nose_front_mid),
+    #            'nose_front_up': build_catia_pnt(nose_front_up),
+    #            'nose_front_down': build_catia_pnt(nose_front_down)}
+    #
+    #     for _p in pts.values():
+    #         add_geom(_p)
+    #     model_part.Update()
+    #
+    #     def build_catia_line(start, end):
+    #         return model_sf.AddNewLinePtPt(start, end)
+    #
+    #     ln = {'body_mid': build_catia_line(pts['body_front_mid'], pts['body_back_mid']),
+    #           'body_up': build_catia_line(pts['body_front_up'], pts['body_back_up']),
+    #           'body_down': build_catia_line(pts['body_front_down'], pts['body_back_down']),
+    #           'tail_upward': build_catia_line(pts['tail_back_center'], pts['tail_back_up']),
+    #           'tail_downward': build_catia_line(pts['tail_back_center'], pts['tail_back_down']),
+    #           'tail_horizontal': build_catia_line(pts['tail_back_center'], pts['tail_back_mid']),
+    #           'nose_upward': build_catia_line(pts['nose_front_center'], pts['nose_front_up']),
+    #           'nose_downward': build_catia_line(pts['nose_front_center'], pts['nose_front_down']),
+    #           'nose_horizontal': build_catia_line(pts['nose_front_center'], pts['nose_front_mid'])}
+    #
+    #     for _ln in ln.values():
+    #         add_geom(_ln)
+    #     model_part.Update()
+    # else:
+    model = IGES_Model()
+    model.add(IGES_Pnt(body_front_up))
+    model.add(IGES_Pnt(body_front_down))
+    model.add(IGES_Pnt(body_front_mid))
+    model.add(IGES_Line(body_front_up, body_back_up))
+    model.add(IGES_Line(body_front_down, body_back_down))
+    model.add(IGES_Line(body_front_mid, body_back_mid))
+    model.add(body_front_crv.to_iges())
+    model.add(body_back_crv.to_iges())
+    model.add(tail_back_crv.to_iges())
+    model.add(IGES_Line(tail_back_center, tail_back_up))
+    model.add(IGES_Line(tail_back_center, tail_back_down))
+    model.add(IGES_Line(tail_back_center, tail_back_mid))
+    model.add(nose_front_crv.to_iges())
+    model.add(IGES_Line(nose_front_center, nose_front_up))
+    model.add(IGES_Line(nose_front_center, nose_front_down))
+    model.add(IGES_Line(nose_front_center, nose_front_mid))
+    for _c in wing_profile:
+        model.add(_c.to_iges())
+    for _c in vs_profile:
+        model.add(_c.to_iges())
+    for _c in hs_profile:
+        model.add(_c.to_iges())
+    model.save('HWB.igs')
 
 
 if __name__ == '__main__':
