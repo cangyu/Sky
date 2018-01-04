@@ -34,6 +34,17 @@ class LHSTestCase(unittest.TestCase):
         for i in range(len(sp)):
             print('\n {}'.format(sp[i]))
 
+    def test_twist(self):
+        n = 50
+        rg = np.linspace(-0.5, 0.5, n)
+        theta_a = theta_b = theta_c = rg
+        lhs = LHS([theta_a, theta_b, theta_c])
+        self.assertEqual(lhs.sample_num, n)
+
+        sp = lhs.sample()
+        for case in sp:
+            print('{:.2f} {:.2f} {:.2f}'.format(case[0], case[1], case[2]))
+
 
 if __name__ == '__main__':
     unittest.main()
