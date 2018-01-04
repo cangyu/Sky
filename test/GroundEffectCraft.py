@@ -8,7 +8,6 @@ from iges import Model
 from wing import WingProfile
 from misc import sqrt2
 
-
 '''Area and ratio'''
 s = 38.88
 sir = 0.68
