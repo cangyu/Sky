@@ -164,9 +164,6 @@ class Kriging(object):
 
         return ans
 
-    def show(self):
-        pass
-
 
 class Chromosome(object):
     def __init__(self):
@@ -272,11 +269,15 @@ class RealCodedGA(GeneticAlgorithm):
         gen_digits = int(math.log10(rd)) + 1
 
         def report(_gen):
-            if sys.flags.debug:
-                _cur_best = self.cur_generation[0]
-                _param = self.param_transform(_cur_best.param)
-                _val = _cur_best.value
-                print("Generation {0:{1}}: Best individual: {2} Value: {3}".format(_gen, gen_digits, _param, _val))
+            _cur_best = self.cur_generation[0]
+            _param = self.param_transform(_cur_best.param)
+            _val = _cur_best.value
+            # print("Generation {0:{1}}: Best individual: {2} Value: {3}".format(_gen, gen_digits, _param, _val))
+            rep = str(_gen)
+            for t in _param:
+                rep += ' ' + str(t)
+            rep += ' ' + str(_val)
+            # print(rep)
 
         '''Init'''
         self.cur_generation = []
