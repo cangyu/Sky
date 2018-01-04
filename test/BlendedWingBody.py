@@ -6,10 +6,9 @@ from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
 from grid import chebshev_dist_multi, uniform
-from wing import Wing
+from wing import Wing, WingPlanform
 from iges import Model, Entity110, Entity116
 from nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
-from aircraft.Baseline import WingPlanform
 from misc import share
 
 
@@ -381,7 +380,7 @@ def planform2():
     w = 120 * 1e3 * 9.8
     a = 299.5
     rho = 0.4135
-    s = 360.31
+    s = 280
     for Ma in [0.65, 0.7, 0.75, 0.8, 0.85]:
         p_inf = 0.5 * rho * (Ma * a) ** 2
         print('Design Cl when Ma = {:>4.2f}: {:>4.2f}'.format(Ma, w / (p_inf * s)))
@@ -543,6 +542,57 @@ def simple_wing():
     model.add(wg.tailing_up.to_iges())
     model.add(wg.tailing_down.to_iges())
     model.save('StraightWing_{}_{}_{}_{}.igs'.format(span, front_sweep, cr, ct))
+
+
+def helper():
+    """
+    Generate topology wire-frame for grid generation.
+    :return: None.
+    """
+
+    '''Planform parameters'''
+    spn = 21
+    cr = 28
+    ct = 2.5
+    fl = np.array([1.48, 7.52, 1.5, 0])  # 最后一个由程序自动计算
+    alpha = np.radians([38, 57.8, 45, 37.6])
+    tl = np.array([3.76, 3.95, 0, 0])  # 后两个由程序自动计算
+    beta = np.radians([-14.5, -54, 0, 0])  # 后两个由程序自动计算
+    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.22)
+
+    '''Profile distribution'''
+    u_pos = np.array([0, 0.0418398, 0.14285, 0.2438602, 0.3157, 0.3775398, 0.42855, 0.4795602, 0.5414, 0.60011076, 0.67855, 0.7857, 0.89285, 0.97128924, 1])
+    z_pos = np.array([u * spn for u in u_pos])
+    n = len(u_pos)  # Num of profiles
+
+    '''Profile details'''
+    # front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
+    chord_len = np.array([frm.chord_len(u) for u in u_pos])
+    # tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 14.0, 12.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
+    tc = np.array([16.0] * n)
+    # cl = np.array([0.100, 0.103, 0.115, 0.165, 0.200, 0.240, 0.335, 0.395, 0.400, 0.398, 0.391, 0.364, 0.280, 0.155, 0.000])
+    # cl_airfoil = np.array([0.11, 0.26931306, 0.44548979, 0.639181, 0.77476485, 0.9, 1.09, 1.06, 0.87296875, 0.69744152, 0.68517496, 0.63786109, 0.49066238, 0.27161667, 0.])
+    # twist = 8.33 * cl_airfoil - 3.33
+    twist = np.zeros(n)
+    # twist = np.array([-2.497, -2.472, -2.372, -1.956, -1.664, -1.331, -0.5395, -0.0397, 0.0, -0.0147, -0.073, -0.298, -0.998, -2.039, -3.33])
+    height = chord_len * tc / 100
+
+    '''Aerodynamic design on each profile'''
+    # foil = ['NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416',
+    #         'SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712',
+    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0610',
+    #         'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410']
+    # foil = ['SC(2)-0614'] * n
+    foil = ['NLF(1)-0416'] * n
+    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
+    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
+    twist_pos = np.ones(n)
+    y_ref = np.zeros(n)
+    thickness_factor = np.ones(n)
+
+    wing = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
+    bunch = wing.gen_grid(200, 200, 300, 300, (60, 40, 200, 100, 90, 80, 40, 10))
+    bunch.save('test.igs')
 
 
 if __name__ == '__main__':
