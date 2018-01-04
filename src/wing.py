@@ -1,14 +1,18 @@
-import math
+from matplotlib import pyplot as plt
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
+import math
 import numpy as np
 from numpy.linalg import norm
 from scipy.integrate import romberg
-from grid import LinearTFI2D, LinearTFI3D, Plot3D, Plot3DBlock, Laplace2D, ThomasMiddlecoff2D
+from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
+from grid import Plot3D, Plot3DBlock
 from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential
 from iges import Model, Entity116, Entity110
 from misc import pnt_dist, read_airfoil_pts, pnt_pan, share
-from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf, GlobalInterpolatedCrv
+from nurbs import Crv, Line, Spline, ConicArc
+from nurbs import GlobalInterpolatedCrv, LocalCubicInterpolatedCrv
+from nurbs import Surf, Skinned, RuledSurf, point_inverse
 from settings import AIRFOIL_LIST
 
 global_origin = np.array([0., 0., 0.])
@@ -175,6 +179,93 @@ class WingPlanform(metaclass=ABCMeta):
         ax.legend()
 
 
+class HWBWingPlanform(WingPlanform):
+    def __init__(self, *args, **kwargs):
+        """
+        Wing Planform for aircraft under Hybrid-Wing-Body configuration.
+        :param args: Geometric parameters describing the shape.
+                        wing_root_len, wing_tip_len, wing_spn2,
+                        wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
+                        wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep
+        :param kwargs: Options.
+        """
+
+        cr, ct, spn2 = args[0:3]
+        leading_inner_delta, leading_middle_delta, leading_outer_swp = args[3:6]
+        trailing_inner_delta, trailing_outer_spn, trailing_outer_swp = args[6:9]
+
+        leading_seg_length = np.empty(3)
+        leading_seg_length[0] = leading_inner_delta[0]
+        leading_seg_length[1] = leading_middle_delta[0]
+        leading_seg_length[2] = spn2 - (leading_seg_length[0] + leading_seg_length[1])
+
+        trailing_seg_length = np.empty(3)
+        trailing_seg_length[0] = trailing_inner_delta[0]
+        trailing_seg_length[2] = trailing_outer_spn
+        trailing_seg_length[1] = spn2 - (trailing_seg_length[0] + trailing_seg_length[2])
+
+        leading_seg_theta = np.empty(3)
+        leading_seg_theta[0] = math.atan2(leading_inner_delta[1], leading_inner_delta[0])
+        leading_seg_theta[1] = math.atan2(leading_middle_delta[1], leading_middle_delta[0])
+        leading_seg_theta[2] = math.radians(leading_outer_swp)
+
+        trailing_seg_theta = np.empty(3)
+        trailing_seg_theta[0] = math.atan2(trailing_inner_delta[1], trailing_inner_delta[0])
+        trailing_seg_theta[2] = math.radians(trailing_outer_swp)
+        leading_dx = sum([leading_seg_length[i] * math.tan(leading_seg_theta[i]) for i in range(3)])
+        dx = leading_dx + ct - math.tan(trailing_seg_theta[2]) * trailing_seg_length[2] - (cr + trailing_inner_delta[1])
+        dz = trailing_seg_length[1]
+        trailing_seg_theta[1] = math.atan2(dx, dz)
+
+        desc_shape = (4, 3)
+        leading_pnt = np.empty(desc_shape, float)
+        leading_tangent = np.empty(desc_shape, float)
+        trailing_pnt = np.empty(desc_shape, float)
+        trailing_tangent = np.empty(desc_shape, float)
+
+        leading_pnt[0] = (0, 0, 0) if 'origin' not in kwargs else kwargs['origin']
+        for i in range(1, 4):
+            delta = (math.tan(leading_seg_theta[i - 1]) * leading_seg_length[i - 1], 0, leading_seg_length[i - 1])
+            leading_pnt[i] = pnt_pan(leading_pnt[i - 1], delta)
+
+        trailing_pnt[0] = pnt_pan(leading_pnt[0], (cr, 0, 0))
+        for i in range(1, 4):
+            delta = (math.tan(trailing_seg_theta[i - 1]) * trailing_seg_length[i - 1], 0, trailing_seg_length[i - 1])
+            trailing_pnt[i] = pnt_pan(trailing_pnt[i - 1], delta)
+
+        leading_tangent[0] = leading_tangent[1] = (math.sin(leading_seg_theta[0]), 0, math.cos(leading_seg_theta[0]))
+        leading_tangent[2] = leading_tangent[3] = (math.sin(leading_seg_theta[2]), 0, math.cos(leading_seg_theta[2]))
+
+        trailing_tangent[0] = trailing_tangent[1] = (math.sin(trailing_seg_theta[0]), 0, math.cos(trailing_seg_theta[0]))
+        trailing_tangent[2] = trailing_tangent[3] = (math.sin(trailing_seg_theta[2]), 0, math.cos(trailing_seg_theta[2]))
+
+        self.Span2 = spn2
+        self.LeadingCrv = LocalCubicInterpolatedCrv(leading_pnt, leading_tangent)
+        self.TrailingCrv = LocalCubicInterpolatedCrv(trailing_pnt, trailing_tangent)
+
+    def z(self, u):
+        return u * self.Span2
+
+    def x_front(self, u):
+        zp = self.z(u)
+        lu = point_inverse(self.LeadingCrv, zp, 2)
+        return self.LeadingCrv(lu)[0]
+
+    def x_tail(self, u):
+        zp = self.z(u)
+        lu = point_inverse(self.TrailingCrv, zp, 2)
+        return self.TrailingCrv(lu)[0]
+
+    def y_front(self, u):
+        return 0
+
+    def y_tail(self, u):
+        return 0
+
+    def __repr__(self):
+        return 'Hybrid-Wing-Body Outer Wing Planform'
+
+
 class Airfoil(object):
     def __init__(self, foil):
         """
@@ -188,7 +279,6 @@ class Airfoil(object):
 
         self.name = foil
         self.pts = read_airfoil_pts(foil)
-        self.curve = self._build_crv_from_pts()
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.pnt_num)
@@ -201,16 +291,10 @@ class Airfoil(object):
     def pnt_num(self):
         return len(self.pts)
 
-    def _build_crv_from_pts(self):
-        # return Spline(self.pts)
-        return GlobalInterpolatedCrv(self.pts, 3)
-
-    def _update_crv(self):
-        self.curve = self._build_crv_from_pts()
-
     @property
     def crv(self):
-        return self.curve
+        # return Spline(self.pts)
+        return GlobalInterpolatedCrv(self.pts, 3)
 
     @property
     def tail_up(self):
@@ -399,7 +483,7 @@ class WingProfileParam(object):
         # Spatial position of the center for twisting, also indicates the position of the profile
         # Twist position along the chord
 
-        if len(args) >= 1:
+        if len(args) == 1:
             self.airfoil = args[0]
             self.chord_len = 1.0
             self.twist_ang = 0.0
@@ -609,14 +693,14 @@ class WingProfileList(object):
             # Construct the wing with given planform
             for i in range(n):
                 cu = rel_pos[i]
-                cz = planform(cu)
+                cz = planform.z(cu)
                 leading = np.array([planform.x_front(cu), planform.y_front(cu), cz])
                 trailing = np.array([planform.x_tail(cu), planform.y_tail(cu), cz])
                 tst_ref = twist_ref[i]
                 tst_center = share(tst_ref, leading, trailing)
                 tst_ang = twist_ang[i]
                 cur_twist = math.radians(tst_ang)
-                actual_len = planform.chord_len(u[i]) / math.cos(cur_twist)
+                actual_len = planform.chord_len(cu) / math.cos(cur_twist)
                 wpp = WingProfileParam(airfoil[i], actual_len, tst_ang, tst_center, tst_ref)
                 wp = WingProfile.from_profile_param(wpp)
                 self.pf.append(wp)
