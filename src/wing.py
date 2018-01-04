@@ -1,17 +1,178 @@
-import unittest
-import os
-import time
 import math
+from abc import abstractmethod, ABCMeta
+from copy import deepcopy
 import numpy as np
 from numpy.linalg import norm
-from copy import deepcopy
-import matplotlib.pyplot as plt
-from iges import Model, Entity116, Entity110
-from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf, GlobalInterpolatedCrv
-from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential, FluentMSH, BCType
+from scipy.integrate import romberg
 from grid import LinearTFI2D, LinearTFI3D, Plot3D, Plot3DBlock, Laplace2D, ThomasMiddlecoff2D
-from misc import pnt_dist, read_airfoil_pts, pnt_pan
+from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential
+from iges import Model, Entity116, Entity110
+from misc import pnt_dist, read_airfoil_pts, pnt_pan, share
+from nurbs import Crv, Line, Spline, ConicArc, Surf, Skinned, RuledSurf, GlobalInterpolatedCrv
 from settings import AIRFOIL_LIST
+
+global_origin = np.array([0., 0., 0.])
+x_axis_positive = np.array([1., 0, 0])
+x_axis_negative = np.array([-1., 0, 0])
+y_axis_positive = np.array([0, 1., 0])
+y_axis_negative = np.array([0, -1., 0])
+z_axis_positive = np.array([0, 0, 1.])
+z_axis_negative = np.array([0, 0, -1.])
+
+
+class EllipticLiftDist(object):
+    def __init__(self, w, spn, rho_inf, vel_inf):
+        """
+        Elliptic Lift distribution in span-wise direction.
+        This is the ideal distribution for reducing induced drag.
+        :param w: Weight of the aircraft in cruise, in tons.
+        :type w: float
+        :param spn: Span of the aircraft, in meters.
+        :type spn: float
+        :param rho_inf: Density of the free-stream.
+        :type rho_inf: float
+        :param vel_inf: Velocity of the free-stream.
+        :type vel_inf: float
+        """
+
+        self.payload = w * 1000 * 9.8 / 2
+        self.span2 = spn / 2
+        self.rho = rho_inf
+        self.v = vel_inf
+        self.p_inf = 0.5 * self.rho * self.v ** 2
+        self.root_lift = self.payload / (0.25 * math.pi * self.span2)
+
+    def lift_at(self, rel_pos):
+        return self.root_lift * math.sqrt(1 - rel_pos ** 2)
+
+    def velocity_circulation_at(self, rel_pos):
+        return self.lift_at(rel_pos) / (self.rho * self.v)
+
+    def cl_at(self, rel_pos, chord_len):
+        return self.lift_at(rel_pos) / (self.p_inf * chord_len)
+
+
+class WingPlanform(metaclass=ABCMeta):
+    @abstractmethod
+    def x_front(self, u):
+        """
+        Calculate the X-coordinate on leading edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on leading edge.
+        :rtype: float
+        """
+
+        pass
+
+    @abstractmethod
+    def y_front(self, u):
+        pass
+
+    @abstractmethod
+    def x_tail(self, u):
+        """
+        Calculate the X-coordinate on trailing edge.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: X-coordinate on trailing edge.
+        :rtype: float
+        """
+
+        pass
+
+    @abstractmethod
+    def y_tail(self, u):
+        pass
+
+    @abstractmethod
+    def z(self, u):
+        """
+        Calculate the Z-coordinate in span-wise direction.
+        :param u: Relative position parameter.
+        :type u: float
+        :return: Z-coordinate in span-wise direction.
+        :rtype: float
+        """
+
+        pass
+
+    def chord_len(self, u):
+        return self.x_tail(u) - self.x_front(u)
+
+    @property
+    def area(self):
+        """
+        Total area of the planar wing. (Not a half)
+        :return: The area.
+        :rtype: float
+        """
+
+        return 2 * math.fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
+
+    @property
+    def mean_aerodynamic_chord(self):
+        """
+        Get the mean aerodynamic chord length of the wing.
+        :return: The MAC.
+        :rtype: float
+        """
+
+        return math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area) * self.z(1)
+
+    @property
+    def span(self):
+        return 2 * (self.z(1) - self.z(0))
+
+    @property
+    def root_chord_len(self):
+        return self.chord_len(0)
+
+    @property
+    def tip_chord_len(self):
+        return self.chord_len(1)
+
+    @abstractmethod
+    def __repr__(self):
+        pass
+
+    def pic(self, *args, **kwargs):
+        ax = args[0]
+        n = args[1] if len(args) == 2 else 100
+
+        u = uniform(n)
+        spn2 = self.span / 2
+
+        z = np.array([self.z(t) for t in u])
+        leading_x = np.array([self.x_front(t) for t in u])
+        trailing_x = np.array([self.x_tail(t) for t in u])
+
+        if 'direction' in kwargs and kwargs['direction'] == 'vertical':
+            ax.plot(leading_x, z, label='Leading')
+            ax.plot(trailing_x, z, label='Trailing')
+            if 'u' in kwargs:
+                u_pos = np.copy(kwargs['u'])
+                for lu in u_pos:
+                    zp = lu * spn2
+                    ax.plot([self.x_front(lu), self.x_tail(lu)], [zp, zp], '--')
+        elif 'direction' not in kwargs or kwargs['direction'] == 'horizontal':
+            ax.plot(z, leading_x, label='Leading')
+            ax.plot(z, trailing_x, label='Trailing')
+            if 'u' in kwargs:
+                u_pos = np.copy(kwargs['u'])
+                for k, lu in enumerate(u_pos):
+                    zp = lu * spn2
+                    xf = self.x_front(lu)
+                    xt = self.x_tail(lu)
+                    ax.plot([zp, zp], [xf, xt], '--')
+                    ax.text(zp, share(0.5, xf, xt), str(k))
+
+            ax.invert_yaxis()
+        else:
+            raise AttributeError('invalid direction')
+
+        ax.set_aspect('equal')
+        ax.legend()
 
 
 class Airfoil(object):
@@ -27,6 +188,7 @@ class Airfoil(object):
 
         self.name = foil
         self.pts = read_airfoil_pts(foil)
+        self.curve = self._build_crv_from_pts()
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.pnt_num)
@@ -39,10 +201,16 @@ class Airfoil(object):
     def pnt_num(self):
         return len(self.pts)
 
-    @property
-    def crv(self):
+    def _build_crv_from_pts(self):
         # return Spline(self.pts)
         return GlobalInterpolatedCrv(self.pts, 3)
+
+    def _update_crv(self):
+        self.curve = self._build_crv_from_pts()
+
+    @property
+    def crv(self):
+        return self.curve
 
     @property
     def tail_up(self):
@@ -101,33 +269,21 @@ class Airfoil(object):
             f_out.write('{:10.6f}\t{:10.6f}\t{:10.6f}\n'.format(p[0], p[1], p[2]))
         f_out.close()
 
-    def show(self):
+    def plot(self, ax):
         (px, py, pz) = zip(*self.pts)
-        plt.plot(px, py)
-        plt.gca().set_aspect('equal')
-        plt.show()
+        ax.plot(px, py)
+        ax.set_aspect('equal')
 
-    def plot_curvature(self, n=2000):
+    def curvature_at(self, rel_pos):
         """
-        Plot the curvature along the airfoil from tail-up to tail_down, anti-clockwise.
-        By default, the interpolated curve is cubic
-        :param n: Number of sampling points.
-        :type n: int
-        :return: None
+        Calculate the curvature at given position.
+        :param rel_pos: Relative position.
+        :type rel_pos: float
+        :return: Curvature.
+        :rtype: float
         """
 
-        '''Build curve and calculate curvature'''
-        crv = self.crv
-        ul = np.linspace(crv.U[0], crv.U[-1], n)
-        kappa = list(map(lambda u: crv.curvature(u), ul))
-
-        '''Plot'''
-        plt.figure()
-        plt.plot(ul, kappa)
-        plt.xlabel('Parameter along curve')
-        plt.ylabel('Curvature')
-        plt.title(self.name)
-        plt.show()
+        return self.curve.curvature(rel_pos)
 
     def gen_grid(self, *args, **kwargs):
         """
@@ -229,18 +385,112 @@ class Airfoil(object):
         return wire_frame, p3d_grid
 
 
-class WingProfile(Airfoil):
-    INTRINSIC_PARAM = ['Airfoil', 'Z(m)', 'X_front(m)', 'Y_front(m)', 'X_tail(m)', 'Y_tail(m)', 'Thickness Ratio']
-    GEOM_PARAM = ['Airfoil', 'Z(m)', 'Length(m)', 'SweepBack(deg)', 'Twist(deg)', 'Dihedral(deg)', 'TwistPos', 'Thickness Ratio']
+class WingProfileParam(object):
+    def __init__(self, *args, **kwargs):
+        """
+        Intrinsic descriptions for profile in span-wise direction.
+        :param args: Elementary parameters.
+        :param kwargs: Optional parameters.
+        """
 
-    def __init__(self, foil, ends, thickness_factor=1.0):
+        # Name of the airfoil, input in str
+        # Chord length, input in meters
+        # Angle of twist, input in degrees
+        # Spatial position of the center for twisting, also indicates the position of the profile
+        # Twist position along the chord
+
+        if len(args) >= 1:
+            self.airfoil = args[0]
+            self.chord_len = 1.0
+            self.twist_ang = 0.0
+            self.twist_center = np.array([self.chord_len, 0, 0])
+            self.twist_ref = 1.0
+        elif len(args) == 2:
+            self.airfoil = args[0]
+            self.chord_len = args[1]
+            self.twist_ang = 0.0
+            self.twist_center = np.array([self.chord_len, 0, 0])
+            self.twist_ref = 1.0
+        elif len(args) == 3:
+            self.airfoil = args[0]
+            self.chord_len = args[1]
+            self.twist_ang = args[2]
+            self.twist_center = np.array([self.chord_len, 0, 0])
+            self.twist_ref = 1.0
+        elif len(args) == 4:
+            raise ValueError('incomplete twist info')
+        elif len(args) == 5:
+            self.airfoil = args[0]
+            self.chord_len = args[1]
+            self.twist_ang = args[2]
+            self.twist_center = args[3]
+            assert len(self.twist_center) == 3
+            self.twist_ref = args[4]
+            assert 0.0 <= self.twist_ref <= 1.0
+        else:
+            raise ValueError('invalid input')
+
+        # Relative thickness, input in percentage [0, 100]
+        self.tc = kwargs['thickness'] if 'thickness' in kwargs else float(self.airfoil[-2:])
+        self.tc *= 0.01
+        assert 0.0 <= self.tc <= 1.0
+
+        # Maximum height
+        self.height = self.tc * self.chord_len
+
+        # Aerodynamic properties
+        self.cl = 0.0 if 'cl' not in kwargs else kwargs['cl']
+        self.cd = 0.0 if 'cd' not in kwargs else kwargs['cd']
+        self.cm = 0.0 if 'cm' not in kwargs else kwargs['cm']
+
+    def __repr__(self):
+        ret = 'A {:>6.3f}m-long wing-profile'.format(self.chord_len)
+        ret += ' based on {:>16},'.format(self.airfoil)
+        ret += ' with{:>6.2f} degrees of twist'.format(self.twist_ang)
+        ret += ' referring at the {:>5.1f}% of chord.'.format(self.twist_ref)
+        return ret
+
+    @classmethod
+    def from_geom_param(cls, *args, **kwargs):
+        """
+        Construct the profile from geometric descriptions.
+        :return: Target profile param representation.
+        :rtype: WingProfileParam
+        """
+
+        foil = args[0]  # Name of the airfoil
+        length = args[1]  # Chord length
+        z_offset = args[2]  # Offset in span-wise direction
+        swp_back = args[3]  # Angle of sweep-back
+        twist = args[4]  # Angle of twist
+        dihedral = args[5]  # Angle of dihedral
+
+        '''Referring coordinates'''
+        x_ref = kwargs['x_ref'] if 'x_ref' in kwargs else 0.0
+        y_ref = kwargs['y_ref'] if 'y_ref' in kwargs else 0.0
+        z_ref = kwargs['z_ref'] if 'z_ref' in kwargs else 0.0
+
+        '''Initial endings'''
+        front = np.array([x_ref + z_offset * math.tan(math.radians(swp_back)),
+                          y_ref + z_offset * math.tan(math.radians(dihedral)),
+                          z_ref + z_offset])
+        tail = pnt_pan(front, (length, 0, 0))
+
+        '''Center of twist'''
+        twist_ref = kwargs['twist_ref'] if 'twist_ref' in kwargs else 1.0
+        assert 0.0 <= twist_ref <= 1.0
+        twist_center = share(twist_ref, front, tail)
+
+        return cls(foil, length, twist, twist_center, twist_ref)
+
+
+class WingProfile(Airfoil):
+    def __init__(self, foil, ends):
         """
         3D profile at certain position.
         :param foil: Airfoil name.
         :type foil: str
         :param ends: Starting and ending points of the profile.
-        :param thickness_factor: Vertical stretching factor.
-        :type thickness_factor: float
         """
 
         super(WingProfile, self).__init__(foil)
@@ -248,10 +498,10 @@ class WingProfile(Airfoil):
         '''Inspect endings'''
         self.ending = np.copy(ends)
         if not math.isclose(ends[0][2], ends[1][2]):
-            raise AssertionError("Invalid ending coordinates in Z direction!")
+            raise AssertionError("Inconsistent ending coordinates in Z direction!")
 
         cl = self.chord_len
-        if math.isclose(cl, 0.0):
+        if math.isclose(cl, 0):
             raise ZeroDivisionError("Invalid ending coordinates in XY direction!")
 
         rotation = complex((ends[1][0] - ends[0][0]) / cl, (ends[1][1] - ends[0][1]) / cl)
@@ -262,7 +512,7 @@ class WingProfile(Airfoil):
         for i in range(self.pnt_num):
             '''Stretch, Z offset and Thickness'''
             self.pts[i][0] *= cl
-            self.pts[i][1] *= (cl * thickness_factor)
+            self.pts[i][1] *= cl
             self.pts[i][2] = ends[0][2]
 
             '''Rotate around ends[0]'''
@@ -284,71 +534,148 @@ class WingProfile(Airfoil):
         return self.ending[-1]
 
     @classmethod
-    def from_geom_param(cls, foil, z_offset, length, sweep_back, twist, dihedral, twist_pos=0.25, y_ref=0, thickness_factor=1.0):
+    def from_profile_param(cls, wpp):
         """
-        从几何描述参数构建机翼剖面
-        :param foil: 翼型名称
-        :type foil: str
-        :param z_offset: Z方向偏移量
-        :type z_offset: float
-        :param length: 剖面长度
-        :type length: float
-        :param sweep_back: 后掠角
-        :type sweep_back: float
-        :param twist: 相对翼根弦线的扭转角(默认在1/4弦长处扭转)
-        :type twist: float
-        :param dihedral: 相对翼根的上反角
-        :type dihedral: float
-        :param twist_pos: 扭转中心
-        :type twist_pos: float
-        :param y_ref: 翼根处Y方向基准坐标
-        :type y_ref: float
-        :param thickness_factor: 纵向厚度拉伸系数
-        :type thickness_factor: float
-        :return: 机翼剖面
+        Construct the profile from parameters in higher level.
+        :param wpp: Wing profile description object.
+        :type wpp: WingProfileParam
+        :return: Target profile.
         :rtype: WingProfile
         """
 
-        x_offset = z_offset * math.tan(math.radians(sweep_back))
-        y_offset = y_ref + z_offset * math.tan(math.radians(dihedral))
-        front = np.array([x_offset, y_offset, z_offset], float)
-        tail = np.array([x_offset + length, y_offset, z_offset], float)
-        center = (1 - twist_pos) * front + twist_pos * tail
-        theta = math.radians(-twist)
-        rot = complex(math.cos(theta), math.sin(theta))
-        d1 = front - center
-        d2 = tail - center
-        c1 = complex(d1[0], d1[1]) * rot
-        c2 = complex(d2[0], d2[1]) * rot
-        front[0] = center[0] + c1.real
-        front[1] = center[1] + c1.imag
-        tail[0] = center[0] + c2.real
-        tail[1] = center[1] + c2.imag
-        ending = np.array([front, tail])
-        return cls(foil, ending, thickness_factor)
+        theta = math.radians(wpp.twist_ang)
+        pan_dir1 = np.array([-math.cos(theta), math.sin(theta), 0])
+        pan_dir2 = -pan_dir1
+        len1 = wpp.chord_len * wpp.twist_ref
+        len2 = wpp.chord_len - len1
+
+        ending = np.empty((2, 3), float)
+        ending[0] = pnt_pan(wpp.twist_center, pan_dir1 * len1)
+        ending[1] = pnt_pan(wpp.twist_center, pan_dir2 * len2)
+
+        return cls(wpp.airfoil, ending)
+
+
+class WingProfileList(object):
+    def __init__(self, *args):
+        """
+        Construct several wing profiles in one pass.
+        :param args: Geom parameters.
+        """
+
+        self.pf = []
+
+        if len(args) == 6:
+            '''from intrinsic parameters'''
+            # check params
+            n = len(args[0])
+            for i in range(1, 6):
+                assert len(args[i]) == n
+            # separate params
+            airfoil, z, xf, yf, xt, yt = args
+            # construct wing profile
+            for k in range(n):
+                ending = np.array([[xf[k], yf[k], z[k]], [xt[k], yt[k], z[k]]])
+                wp = WingProfile(airfoil[k], ending)
+                self.pf.append(wp)
+        elif len(args) == 2:
+            '''from final parameters'''
+            assert len(args[0]) == len(args[1])
+            n = len(args[0])
+            airfoil, ending = args
+            for k in range(n):
+                self.pf.append(WingProfile(airfoil[k], ending[k]))
+        elif len(args) == 10:
+            '''from initial geometric parameters'''
+            # check params
+            n = len(args[0])
+            for i in range(1, 10):
+                assert len(args[i]) == n
+            # separate params
+            airfoil, length, z_off, sweep, twist, dihedral, twist_ref, x_ref, y_ref, z_ref = args
+            # construct wing profile
+            for k in range(n):
+                wpp = WingProfileParam.from_geom_param(airfoil[k], length[k], z_off[k], sweep[k], twist[k], dihedral[k], twist_ref=twist_ref[k], x_ref=x_ref[k], y_ref=y_ref[k], z_ref=z_ref[k])
+                wp = WingProfile.from_profile_param(wpp)
+                self.pf.append(wp)
+        elif len(args) == 5:
+            '''from planform'''
+            # check params
+            n = len(args[1])
+            for i in range(2, 5):
+                assert len(args[i]) == n
+            # separate params
+            planform, airfoil, twist_ang, twist_ref, rel_pos = args
+            # Construct the wing with given planform
+            for i in range(n):
+                cu = rel_pos[i]
+                cz = planform(cu)
+                leading = np.array([planform.x_front(cu), planform.y_front(cu), cz])
+                trailing = np.array([planform.x_tail(cu), planform.y_tail(cu), cz])
+                tst_ref = twist_ref[i]
+                tst_center = share(tst_ref, leading, trailing)
+                tst_ang = twist_ang[i]
+                cur_twist = math.radians(tst_ang)
+                actual_len = planform.chord_len(u[i]) / math.cos(cur_twist)
+                wpp = WingProfileParam(airfoil[i], actual_len, tst_ang, tst_center, tst_ref)
+                wp = WingProfile.from_profile_param(wpp)
+                self.pf.append(wp)
+        else:
+            raise ValueError('unknown input')
+
+    @property
+    def size(self):
+        return len(self.pf)
+
+    def add(self, p):
+        self.pf.append(p)
+
+    def clear(self):
+        self.pf.clear()
+
+    def at(self, idx):
+        """
+        Refer to an element.
+        :param idx: Index of the element.
+        :type idx: int
+        :return: Profile at given index.
+        :rtype: WingProfile
+        """
+
+        return self.pf[idx]
+
+    def crv_list_in_nurbs(self):
+        return [elem.crv for elem in self.pf]
 
 
 class Wing(object):
-    def __init__(self, profiles):
+    def __init__(self, wpl):
         """
-        从剖面序列构造机翼
-        :param profiles: 机翼剖面序列
+        Wing constructed from profiles in span-wise direction.
+        :param wpl: List of wing profiles.
+        :type wpl: WingProfileList
         """
 
-        self.profile = deepcopy(profiles)
+        self.profile = wpl
+        self.surf = self._construct_surf()
 
     def __repr__(self):
         return "Wing with {} sections".format(self.size)
 
     @property
     def size(self):
+        return self.profile.size
+
+    def at(self, idx):
         """
-        Number of profiles within this wing.
-        :return: Num of profiles.
-        :rtype: int
+        Referring wing profile.
+        :param idx: Target index.
+        :type idx: int
+        :return: Target wing profile.
+        :rtype: WingProfile
         """
 
-        return len(self.profile)
+        return self.profile.at(idx)
 
     @property
     def root(self):
@@ -358,7 +685,7 @@ class Wing(object):
         :rtype: WingProfile
         """
 
-        return self.profile[0]
+        return self.at(0)
 
     @property
     def tip(self):
@@ -368,18 +695,13 @@ class Wing(object):
         :rtype: WingProfile
         """
 
-        return self.profile[-1]
+        return self.at(-1)
 
-    @property
-    def surf(self):
-        """
-        构建机翼轮廓曲线、曲面
-        :return: 机翼蒙皮曲面
-        :rtype: Skinned
-        """
+    def _construct_surf(self):
+        return Skinned([self.at(i).crv for i in range(self.size)], 3, 3)
 
-        profile_list = [self.profile[i].crv for i in range(self.size)]
-        return Skinned(profile_list, 5, 3)
+    def _update_surf(self):
+        self.surf = self._construct_surf()
 
     @property
     def leading(self):
@@ -389,7 +711,7 @@ class Wing(object):
         :rtype: Crv
         """
 
-        pts = [self.profile[i].front for i in range(self.size)]
+        pts = [self.at(i).front for i in range(self.size)]
         return Spline(pts, method='chord')
 
     @property
@@ -399,85 +721,6 @@ class Wing(object):
     @property
     def tailing_down(self):
         return self.surf.extract('U', 1)
-
-    def iges_model(self, mirror=True):
-        """
-        生成机翼相应的IGES模型
-        :param mirror: 是否生成对称部分
-        :type mirror: bool
-        :return: 可用于后续生成IGS文件的IGES_Model对象
-        :rtype: Model
-        """
-
-        wing_model = Model()
-
-        '''Leading edge'''
-        # wing_model.add(self.leading.to_iges())
-
-        '''Trailing edge'''
-        # wing_model.add(self.tailing_up.to_iges())
-        # wing_model.add(self.tailing_down.to_iges())
-
-        '''Profiles'''
-        for elem in self.profile:
-            wing_model.add(elem.crv.to_iges())
-
-        '''Skin'''
-        # sk = self.surf
-        # wing_model.add(sk.to_iges())
-
-        '''Surf mirror'''
-        # if mirror:
-        #     msk = deepcopy(sk)
-        #     for i in range(msk.n + 1):
-        #         for j in range(msk.m + 1):
-        #             msk.Pw[i][j][2] *= -1
-        #     wing_model.add(msk.to_iges())
-
-        return wing_model
-
-    @classmethod
-    def from_intrinsic_desc(cls, airfoil, thickness, z, xf, yf, xt, yt):
-        n = len(airfoil)
-        section_list = []
-        for k in range(n):
-            ends = np.empty((2, 3), float)
-            ends[0][2] = ends[1][2] = z[k]
-            ends[0][0] = xf[k]
-            ends[0][1] = yf[k]
-            ends[1][0] = xt[k]
-            ends[1][1] = yt[k]
-            section_list.append(WingProfile(airfoil[k], ends, thickness[k]))
-
-        return cls(section_list)
-
-    @classmethod
-    def from_geom_desc(cls, airfoil, length, thickness, z, sweep, twist, twist_pos, dihedral, y_ref):
-        n = len(airfoil)
-        section_list = []
-        for k in range(n):
-            section_list.append(WingProfile.from_geom_param(airfoil[k], z[k], length[k], sweep[k], twist[k], dihedral[k], twist_pos[k], y_ref[k], thickness[k]))
-
-        return cls(section_list)
-
-    @classmethod
-    def from_frame(cls, airfoil, thickness, u, frm):
-        """
-        根据给定的参数化模型生成机翼
-        :param airfoil: 剖面翼型序列
-        :param thickness: 剖面厚度拉伸系数
-        :param u: 剖面位置分布参数
-        :param frm: 参数化模型
-        :type frm: WingFrame
-        :return:
-        """
-
-        z = list(map(frm.z, u))
-        xf = list(map(frm.x_front, u))
-        yf = list(map(frm.y_front, u))
-        xt = list(map(frm.x_tail, u))
-        yt = list(map(frm.y_tail, u))
-        return cls.from_intrinsic_desc(airfoil, thickness, z, xf, yf, xt, yt)
 
     def gen_grid(self, *args, **kwargs):
         """
@@ -785,81 +1028,3 @@ class Wing(object):
 
         # return iges_model, p3d_grid
         return iges_model
-
-
-# class AirfoilTestCase(unittest.TestCase):
-#     def test_2d_grid(self):
-#         # airfoil, A, B, C, N0, N1, N2, N3
-#         data = [('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'none'),
-#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'none'),
-#                 ('SC(2)-0406', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
-#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'laplace'),
-#                 ('NLF(1)-0414F', 30, 20, 50, 91, 61, 80, 3, 'thomas-middlecoff'),
-#                 ('RAE2822', 30, 20, 50, 90, 60, 80, 3, 'thomas-middlecoff')]
-#
-#         for k in range(len(data)):
-#             fn, la, lb, lc, n0, n1, n2, n3, smt = data[k]
-#             foil = Airfoil(fn)
-#             bunch = foil.gen_grid(la, lb, lc, n0, n1, n2, n3, leading_smooth=smt)
-#             p3d = bunch[1]
-#             p3d.save(fn + '_flowfield_grid-smooth={}.xyz'.format(smt))
-#         self.assertTrue(True)
-#
-#     def test_3d_grid(self):
-#         self.assertTrue(True)
-#
-
-def helper():
-    """
-    Generate topology wire-frame for grid generation.
-    :return: None.
-    """
-    from src.aircraft.BlendedWingBody import BWBPlanform2, tangent_on_crv
-
-    '''Planform parameters'''
-    spn = 21
-    cr = 28
-    ct = 2.5
-    fl = np.array([1.48, 7.52, 1.5, 0])  # 最后一个由程序自动计算
-    alpha = np.radians([38, 57.8, 45, 37.6])
-    tl = np.array([3.76, 3.95, 0, 0])  # 后两个由程序自动计算
-    beta = np.radians([-14.5, -54, 0, 0])  # 后两个由程序自动计算
-    frm = BWBPlanform2(spn, cr, ct, fl, alpha, tl, beta, outer_taper=2.22)
-
-    '''Profile distribution'''
-    u_pos = np.array([0, 0.0418398, 0.14285, 0.2438602, 0.3157, 0.3775398, 0.42855, 0.4795602, 0.5414, 0.60011076, 0.67855, 0.7857, 0.89285, 0.97128924, 1])
-    z_pos = np.array([u * spn for u in u_pos])
-    n = len(u_pos)  # Num of profiles
-
-    '''Profile details'''
-    # front_sweep = np.array([tangent_on_crv(u, frm.front_crv) for u in u_pos])
-    chord_len = np.array([frm.chord_len(u) for u in u_pos])
-    # tc = np.array([16.0, 16.0, 16.0, 16.0, 14.0, 14.0, 12.0, 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0])
-    tc = np.array([16.0] * n)
-    # cl = np.array([0.100, 0.103, 0.115, 0.165, 0.200, 0.240, 0.335, 0.395, 0.400, 0.398, 0.391, 0.364, 0.280, 0.155, 0.000])
-    # cl_airfoil = np.array([0.11, 0.26931306, 0.44548979, 0.639181, 0.77476485, 0.9, 1.09, 1.06, 0.87296875, 0.69744152, 0.68517496, 0.63786109, 0.49066238, 0.27161667, 0.])
-    # twist = 8.33 * cl_airfoil - 3.33
-    twist = np.zeros(n)
-    # twist = np.array([-2.497, -2.472, -2.372, -1.956, -1.664, -1.331, -0.5395, -0.0397, 0.0, -0.0147, -0.073, -0.298, -0.998, -2.039, -3.33])
-    height = chord_len * tc / 100
-
-    '''Aerodynamic design on each profile'''
-    # foil = ['NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416', 'NLF(1)-0416',
-    #         'SC(2)-0414', 'SC(2)-0414', 'SC(2)-0612', 'SC(2)-0712',
-    #         'SC(2)-0710', 'SC(2)-0710', 'SC(2)-0610', 'SC(2)-0610',
-    #         'SC(2)-0410', 'SC(2)-0410', 'SC(2)-0410']
-    # foil = ['SC(2)-0614'] * n
-    foil = ['NLF(1)-0416'] * n
-    sweep_back = np.array([math.degrees(math.atan2(frm.x_front(u), frm.z(u))) for u in u_pos])
-    dihedral = np.array([math.degrees(math.atan2((height[0] - height[i]) / 2, z_pos[i])) for i in range(n)])
-    twist_pos = np.ones(n)
-    y_ref = np.zeros(n)
-    thickness_factor = np.ones(n)
-
-    wing = Wing.from_geom_desc(foil, chord_len, thickness_factor, z_pos, sweep_back, twist, twist_pos, dihedral, y_ref)
-    bunch = wing.gen_grid(200, 200, 300, 300, (60, 40, 200, 100, 90, 80, 40, 10))
-    bunch.save('test.igs')
-
-
-if __name__ == '__main__':
-    helper()
