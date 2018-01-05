@@ -701,6 +701,9 @@ class Crv(object):
 
         return ck[d]
 
+    def scatter(self, rel_pos):
+        return np.array([to_cartesian(self.spl(u)) for u in rel_pos])
+
     @property
     def length(self):
         """

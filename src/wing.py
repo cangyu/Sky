@@ -7,7 +7,8 @@ from numpy.linalg import norm
 from scipy.integrate import romberg
 from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
 from grid import Plot3D, Plot3DBlock
-from grid import hyperbolic_tangent, uniform, single_exponential, double_exponential
+from grid import hyperbolic_tangent, single_exponential, double_exponential
+from grid import uniform, chebshev_dist
 from iges import Model, Entity116, Entity110
 from misc import pnt_dist, read_airfoil_pts, pnt_pan, share
 from nurbs import Crv, Line, Spline, ConicArc
@@ -355,7 +356,7 @@ class Airfoil(object):
 
     def plot(self, ax):
         (px, py, pz) = zip(*self.pts)
-        ax.plot(px, py)
+        ax.plot(px, py, '.-')
         ax.set_aspect('equal')
 
     def curvature_at(self, rel_pos):
@@ -467,6 +468,9 @@ class Airfoil(object):
             p3d_grid.add(Plot3DBlock.construct_from_array(rear_grid))
 
         return wire_frame, p3d_grid
+
+    def refine(self, rel_pos):
+        self.pts = self.crv.scatter(rel_pos)
 
 
 class WingProfileParam(object):
