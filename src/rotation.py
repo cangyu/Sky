@@ -177,7 +177,12 @@ class Quaternion(object):
     @property
     def u(self):
         st2 = math.sin(self.theta / 2)
-        return np.array([self.comp[1] / st2, self.comp[2] / st2, self.comp[3] / st2])
+        if math.isclose(st2, 0):
+            return np.zeros(3)
+        else:
+            return np.array([self.comp[1] / st2,
+                             self.comp[2] / st2,
+                             self.comp[3] / st2])
 
     @classmethod
     def from_u_theta(cls, u, theta):
