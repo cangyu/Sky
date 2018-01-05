@@ -2,7 +2,7 @@ from win32com import client
 import numpy as np
 from matplotlib import pyplot as plt
 from wing import HWBWingPlanform, WingProfileList, Wing
-from wing import Airfoil, EllipticLiftDist
+from wing import Airfoil, EllipticLiftDist, airfoil_interp
 from grid import uniform, chebshev_dist_multi
 from iges import IGES_Model
 
@@ -59,19 +59,15 @@ wing_cl_ax.set_ylabel('Lift coefficient')
 wing_lift_fig.tight_layout()
 wing_lift_fig.show()
 
-wing_foil = ['NACA64(3)-218_160',
-             'interp1',
-             'interp2',
-             'NACA63(2)-615_161',
-             'SC(2)-0614',
-             'SC(2)-0612',
-             'SC(2)-0712',
-             'SC(2)-0712',
-             'SC(2)-0712',
-             'SC(2)-0712',
-             'SC(2)-0612',
-             'SC(2)-0412',
-             'SC(2)-0012']
+root_airfoil = Airfoil('NACA64(3)-218')
+inner_airfoil = Airfoil('NACA63(2)-615')
+nsp = chebshev_dist_multi((0, 0.5, 1), (81, 81))
+interp1, interp2 = airfoil_interp(root_airfoil, inner_airfoil, [1 / 3, 2 / 3], np.array([nsp, nsp]))
+
+wing_foil = [root_airfoil, interp1, interp2, inner_airfoil,
+             Airfoil('SC(2)-0614'), Airfoil('SC(2)-0612'),
+             Airfoil('SC(2)-0712'), Airfoil('SC(2)-0712'), Airfoil('SC(2)-0712'), Airfoil('SC(2)-0712'),
+             Airfoil('SC(2)-0612'), Airfoil('SC(2)-0412'), Airfoil('SC(2)-0012')]
 
 wing_twist_ang = np.array([-0.202, -0.698, -0.927, -1.306,
                            -0.523, -0.180, -0.637,
