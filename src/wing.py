@@ -1,4 +1,3 @@
-from matplotlib import pyplot as plt
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 import math
@@ -6,9 +5,8 @@ import numpy as np
 from numpy.linalg import norm
 from scipy.integrate import romberg
 from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
-from grid import Plot3D, Plot3DBlock
+from grid import Plot3D, Plot3DBlock, uniform
 from grid import hyperbolic_tangent, single_exponential, double_exponential
-from grid import uniform, chebshev_dist
 from iges import Model, Entity116, Entity110
 from misc import pnt_dist, read_airfoil_pts, pnt_pan, share
 from nurbs import Crv, Line, Spline, ConicArc
@@ -268,18 +266,34 @@ class HWBWingPlanform(WingPlanform):
 
 
 class Airfoil(object):
-    def __init__(self, foil):
+    def __init__(self, *args, **kwargs):
         """
         2D Airfoil, with chord length equals to 1.
         :param foil: Airfoil name(Capital Case).
         :type foil: str
         """
 
-        if foil not in AIRFOIL_LIST:
-            raise FileNotFoundError('Airfoil \'{}\' not included at present.'.format(foil))
-
-        self.name = foil
-        self.pts = read_airfoil_pts(foil)
+        if len(args) == 1:
+            if type(args[0]) == str:
+                foil = args[0]
+                if foil in AIRFOIL_LIST:
+                    self.name = foil
+                    self.pts = read_airfoil_pts(foil)
+                else:
+                    raise FileNotFoundError('Airfoil \'{}\' not included in local database at present.'.format(foil))
+            elif type(args[0]) == np.ndarray:
+                self.name = kwargs['name'] if 'name' in kwargs else 'UserDefinedAirfoil'
+                assert len(args[0].shape) == 2
+                self.pts = np.copy(args[0])
+            else:
+                raise ValueError('unknown input')
+        elif len(args) == 2:
+            assert type(args[0]) == np.ndarray
+            assert type(args[1]) == str
+            self.pts = np.copy(args[0])
+            self.name = args[1]
+        else:
+            raise ValueError('unknown input')
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.pnt_num)
@@ -473,6 +487,24 @@ class Airfoil(object):
         self.pts = self.crv.scatter(rel_pos)
 
 
+def airfoil_interp(left_foil, right_foil, intermediate_pos):
+    """
+    Interpolate airfoils linearly.
+    :param left_foil: Starting airfoil.
+    :type left_foil: Airfoil
+    :param right_foil: Ending airfoil.
+    :type right_foil: Airfoil
+    :param intermediate_pos: Relative positions between.
+    :return: Intermediate curves.
+    """
+
+    crv1 = left_foil.crv
+    crv2 = right_foil.crv
+    crv2.pan((0, 0, 1))
+    rsf = RuledSurf(crv1, crv2)
+    return [rsf.extract('v', u) for u in intermediate_pos]
+
+
 class WingProfileParam(object):
     def __init__(self, *args, **kwargs):
         """
@@ -519,7 +551,15 @@ class WingProfileParam(object):
             raise ValueError('invalid input')
 
         # Relative thickness, input in percentage [0, 100]
-        self.tc = kwargs['thickness'] if 'thickness' in kwargs else float(self.airfoil[-2:])
+        if 'thickness' in kwargs:
+            self.tc = kwargs['thickness']
+        else:
+            guess = self.airfoil[-2:]
+            if guess.isdigit():
+                self.tc = float(guess)
+            else:
+                self.tc = 12.0  # by default we assume is 12%
+
         self.tc *= 0.01
         assert 0.0 <= self.tc <= 1.0
 
