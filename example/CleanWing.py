@@ -59,9 +59,9 @@ wing_cl_ax.set_ylabel('Lift coefficient')
 wing_lift_fig.tight_layout()
 wing_lift_fig.show()
 
-wing_foil = ['NACA64(3)-218',
-             'NACA0017',
-             'NACA0016',
+wing_foil = ['NACA64(3)-218_160',
+             'interp1',
+             'interp2',
              'NACA63(2)-615_161',
              'SC(2)-0614',
              'SC(2)-0612',
@@ -73,7 +73,7 @@ wing_foil = ['NACA64(3)-218',
              'SC(2)-0412',
              'SC(2)-0012']
 
-wing_twist_ang = np.array([-0.202, 2, 2, -1.306,
+wing_twist_ang = np.array([-0.202, -0.698, -0.927, -1.306,
                            -0.523, -0.180, -0.637,
                            -0.439, -0.303, -0.418, -0.306,
                            -0.071, -0.000])
