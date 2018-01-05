@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
+from collections import Iterable
 import math
 import numpy as np
 from numpy.linalg import norm
@@ -8,11 +9,12 @@ from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
 from grid import Plot3D, Plot3DBlock, uniform
 from grid import hyperbolic_tangent, single_exponential, double_exponential
 from iges import Model, Entity116, Entity110
-from misc import pnt_dist, read_airfoil_pts, pnt_pan, share
+from misc import pnt_dist, read_airfoil_pts, pnt_pan, share, normalize
 from nurbs import Crv, Line, Spline, ConicArc
 from nurbs import GlobalInterpolatedCrv, LocalCubicInterpolatedCrv
 from nurbs import Surf, Skinned, RuledSurf, point_inverse
 from settings import AIRFOIL_LIST
+from rotation import pnt_rotate
 
 global_origin = np.array([0., 0., 0.])
 x_axis_positive = np.array([1., 0, 0])
@@ -268,11 +270,13 @@ class HWBWingPlanform(WingPlanform):
 class Airfoil(object):
     def __init__(self, *args, **kwargs):
         """
-        2D Airfoil, with chord length equals to 1.
-        :param foil: Airfoil name(Capital Case).
-        :type foil: str
+        2D Airfoil.
+        Attention: We assume that the chord length is 1!!!
+        :param args: Basic parameters.
+        :param kwargs: Properties and options.
         """
 
+        # Basic pts and name
         if len(args) == 1:
             if type(args[0]) == str:
                 foil = args[0]
@@ -285,6 +289,10 @@ class Airfoil(object):
                 self.name = kwargs['name'] if 'name' in kwargs else 'UserDefinedAirfoil'
                 assert len(args[0].shape) == 2
                 self.pts = np.copy(args[0])
+            elif isinstance(args[0], Airfoil):
+                cp = args[0]
+                self.name = cp.name
+                self.pts = np.copy(cp.pts)
             else:
                 raise ValueError('unknown input')
         elif len(args) == 2:
@@ -294,6 +302,17 @@ class Airfoil(object):
             self.name = args[1]
         else:
             raise ValueError('unknown input')
+
+        # Aerodynamic properties
+        if len(args) == 1 and isinstance(args[0], Airfoil):
+            cp = args[0]
+            self.cl = cp.cl
+            self.cd = cp.cd
+            self.cm = cp.cm
+        else:
+            self.cl = 0.0 if 'cl' not in kwargs else kwargs['cl']
+            self.cd = 0.0 if 'cd' not in kwargs else kwargs['cd']
+            self.cm = 0.0 if 'cm' not in kwargs else kwargs['cm']
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.pnt_num)
@@ -341,6 +360,15 @@ class Airfoil(object):
     @property
     def chord_len(self):
         return pnt_dist(self.front, self.tail)
+
+    @property
+    def thickness(self):
+        # TODO
+        return 0.12
+
+    @property
+    def max_height(self):
+        return self.thickness * self.chord_len
 
     @property
     def is_blunt(self):
@@ -487,7 +515,7 @@ class Airfoil(object):
         self.pts = self.crv.scatter(rel_pos)
 
 
-def airfoil_interp(left_foil, right_foil, intermediate_pos):
+def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
     """
     Interpolate airfoils linearly.
     :param left_foil: Starting airfoil.
@@ -495,14 +523,32 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos):
     :param right_foil: Ending airfoil.
     :type right_foil: Airfoil
     :param intermediate_pos: Relative positions between.
-    :return: Intermediate curves.
+    :param sample_pos: Sampling positions on each curve.
+    :return: Intermediate airfoils.
     """
 
     crv1 = left_foil.crv
     crv2 = right_foil.crv
     crv2.pan((0, 0, 1))
     rsf = RuledSurf(crv1, crv2)
-    return [rsf.extract('v', u) for u in intermediate_pos]
+
+    if type(intermediate_pos) in (float, int):
+        crv = rsf.extract('v', intermediate_pos)
+        assert np.greater_equal(sample_pos, 0) and np.less_equal(sample_pos, 1)
+        pts = crv.scatter(sample_pos)
+        return Airfoil(pts)
+    elif type(intermediate_pos) in (np.ndarray, list):
+        assert len(intermediate_pos) == len(sample_pos)
+        ret = []
+        for k, u in enumerate(intermediate_pos):
+            crv = rsf.extract('v', u)
+            csp = sample_pos[k]
+            assert np.greater_equal(csp, 0).all() and np.less_equal(csp, 1).all()
+            pts = crv.scatter(csp)
+            ret.append(Airfoil(pts))
+        return ret
+    else:
+        raise AssertionError('invalid input')
 
 
 class WingProfileParam(object):
@@ -513,7 +559,7 @@ class WingProfileParam(object):
         :param kwargs: Optional parameters.
         """
 
-        # Name of the airfoil, input in str
+        # Airfoil object
         # Chord length, input in meters
         # Angle of twist, input in degrees
         # Spatial position of the center for twisting, also indicates the position of the profile
@@ -550,27 +596,6 @@ class WingProfileParam(object):
         else:
             raise ValueError('invalid input')
 
-        # Relative thickness, input in percentage [0, 100]
-        if 'thickness' in kwargs:
-            self.tc = kwargs['thickness']
-        else:
-            guess = self.airfoil[-2:]
-            if guess.isdigit():
-                self.tc = float(guess)
-            else:
-                self.tc = 12.0  # by default we assume is 12%
-
-        self.tc *= 0.01
-        assert 0.0 <= self.tc <= 1.0
-
-        # Maximum height
-        self.height = self.tc * self.chord_len
-
-        # Aerodynamic properties
-        self.cl = 0.0 if 'cl' not in kwargs else kwargs['cl']
-        self.cd = 0.0 if 'cd' not in kwargs else kwargs['cd']
-        self.cm = 0.0 if 'cm' not in kwargs else kwargs['cm']
-
     def __repr__(self):
         ret = 'A {:>6.3f}m-long wing-profile'.format(self.chord_len)
         ret += ' based on {:>16},'.format(self.airfoil)
@@ -586,7 +611,7 @@ class WingProfileParam(object):
         :rtype: WingProfileParam
         """
 
-        foil = args[0]  # Name of the airfoil
+        foil = args[0]  # Airfoil object
         length = args[1]  # Chord length
         z_offset = args[2]  # Offset in span-wise direction
         swp_back = args[3]  # Angle of sweep-back
@@ -616,42 +641,39 @@ class WingProfile(Airfoil):
     def __init__(self, foil, ends):
         """
         3D profile at certain position.
-        :param foil: Airfoil name.
-        :type foil: str
+        :param foil: 2D Airfoil.
+        :type foil: Airfoil
         :param ends: Starting and ending points of the profile.
         """
 
+        assert type(foil) is Airfoil  # avoid derived objects
+        original_chord_len = foil.chord_len
+        assert not math.isclose(original_chord_len, 0)
         super(WingProfile, self).__init__(foil)
 
-        '''Inspect endings'''
+        new_chord_len = pnt_dist(ends[0], ends[1])
+        assert not math.isclose(new_chord_len, 0)
+        assert math.isclose(ends[0][2], ends[1][2])
         self.ending = np.copy(ends)
-        if not math.isclose(ends[0][2], ends[1][2]):
-            raise AssertionError("Inconsistent ending coordinates in Z direction!")
 
-        cl = self.chord_len
-        if math.isclose(cl, 0):
-            raise ZeroDivisionError("Invalid ending coordinates in XY direction!")
-
-        rotation = complex((ends[1][0] - ends[0][0]) / cl, (ends[1][1] - ends[0][1]) / cl)
-
-        '''Build profile'''
-        if not self.is_blunt:
-            self.to_blunt()
+        '''Stretch and Z offset'''
+        scale_ratio = new_chord_len / original_chord_len
+        z_off = self.ending[0][2]
         for i in range(self.pnt_num):
-            '''Stretch, Z offset and Thickness'''
-            self.pts[i][0] *= cl
-            self.pts[i][1] *= cl
-            self.pts[i][2] = ends[0][2]
+            self.pts[i][0] *= scale_ratio
+            self.pts[i][1] *= scale_ratio
+            self.pts[i][2] = z_off
 
-            '''Rotate around ends[0]'''
-            origin_vector = complex(self.pts[i][0], self.pts[i][1])
-            origin_vector *= rotation
-            self.pts[i][0] = origin_vector.real
-            self.pts[i][1] = origin_vector.imag
+        '''Rotate around trailing'''
+        ref = share(0.5, self.pts[0], self.pts[-1])
+        delta = self.ending[0] - self.ending[1]
+        ang = math.degrees(math.atan2(delta[1], delta[0])) - 180
+        self.pts = pnt_rotate(ref, z_axis_positive, ang, self.pts)
 
-            '''Move to ends[0]'''
-            self.pts[i][0] += ends[0][0]
-            self.pts[i][1] += ends[0][1]
+        '''Move to ends[1]'''
+        delta = self.ending[-1] - share(0.5, self.pts[0], self.pts[-1])
+        for i in range(self.pnt_num):
+            self.pts[i] += delta
 
     @property
     def front(self):
@@ -773,7 +795,11 @@ class WingProfileList(object):
         return self.pf[idx]
 
     def crv_list_in_nurbs(self):
-        return [elem.crv for elem in self.pf]
+        ret = []
+        for k, elem in enumerate(self.pf):
+            cur_crv = elem.crv
+            ret.append(cur_crv)
+        return ret
 
 
 class Wing(object):
