@@ -2211,26 +2211,23 @@ class Surf(object):
         :rtype: Crv
         """
 
-        if direction not in ('U', 'V'):
-            raise AssertionError('Invalid direction choice!')
         if np.less(uv, 0) or np.greater(uv, 1):
             raise AssertionError('Invalid parameter!')
 
-        if direction == 'U':
+        if direction in ['u', 'U']:
             nqw = np.zeros((self.m + 1, 4))
             for j in range(self.m + 1):
                 spl = BSpline(self.U, self.Pw[:, j, :], self.p)
                 nqw[j] = spl(uv)
-
             return Crv(self.V, nqw)
-
-        else:
+        elif direction in ['v', 'V']:
             npw = np.zeros((self.n + 1, 4))
             for i in range(self.n + 1):
                 spl = BSpline(self.V, self.Pw[i, :, :], self.q)
                 npw[i] = spl(uv)
-
             return Crv(self.U, npw)
+        else:
+            raise AssertionError('invalid direction choice')
 
     def refine(self, direction, extra_knot):
         """
@@ -2624,7 +2621,7 @@ class RuledSurf(Surf):
         :param _c1: 第1条曲线
         :type _c1: Crv
         :param _c2: 第2条曲线
-        :type _c2: ClampedNURBSCrv
+        :type _c2: Crv
         """
 
         '''Not change original curve'''
@@ -2747,11 +2744,11 @@ class Coons(Surf):
                c0u
 
         :param c0u:沿U方向第1条曲线
-        :type c0u: ClampedNURBSCrv
+        :type c0u: Crv
         :param c1u:沿U方向第2条曲线
-        :type c1u: ClampedNURBSCrv
+        :type c1u: Crv
         :param c0v:沿V方向第1条曲线
-        :type c0v: ClampedNURBSCrv
+        :type c0v: Crv
         :param c1v:沿V方向第2条曲线
         :type c1v: Crv
         """
