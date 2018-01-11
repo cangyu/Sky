@@ -1,10 +1,10 @@
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
-from collections import Iterable
 import math
 import numpy as np
 from numpy.linalg import norm
 from scipy.integrate import romberg
+from scipy.misc import derivative
 from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
 from grid import Plot3D, Plot3DBlock, uniform
 from grid import hyperbolic_tangent, single_exponential, double_exponential
@@ -40,12 +40,12 @@ class EllipticLiftDist(object):
         :type vel_inf: float
         """
 
-        self.payload = w * 1000 * 9.8 / 2
+        self.payload = w * 1000 * 9.8
         self.span2 = spn / 2
         self.rho = rho_inf
         self.v = vel_inf
         self.p_inf = 0.5 * self.rho * self.v ** 2
-        self.root_lift = self.payload / (0.25 * math.pi * self.span2)
+        self.root_lift = (self.payload / 2) / (math.pi * self.span2 / 4)
 
     def lift_at(self, rel_pos):
         return self.root_lift * math.sqrt(1 - rel_pos ** 2)
@@ -101,6 +101,13 @@ class WingPlanform(metaclass=ABCMeta):
         """
 
         pass
+
+    def x_025(self, u):
+        return share(0.25, self.x_front(u), self.x_tail(u))
+
+    def swp_025(self, u, delta=1e-3):
+        tangent = derivative(self.x_025, u, dx=delta)
+        return math.degrees(math.atan2(tangent, self.span / 2))
 
     def chord_len(self, u):
         return self.x_tail(u) - self.x_front(u)
