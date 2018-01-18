@@ -25,537 +25,73 @@ z_axis_positive = np.array([0, 0, 1.])
 z_axis_negative = np.array([0, 0, -1.])
 
 
-class EllipticLiftDist(object):
-    def __init__(self, w, spn, rho_inf, vel_inf):
+class WingProfile(Airfoil):
+    def __init__(self, foil, ends):
         """
-        Elliptic Lift distribution in span-wise direction.
-        This is the ideal distribution for reducing induced drag.
-        :param w: Weight of the aircraft in cruise, in tons.
-        :type w: float
-        :param spn: Span of the aircraft, in meters.
-        :type spn: float
-        :param rho_inf: Density of the free-stream.
-        :type rho_inf: float
-        :param vel_inf: Velocity of the free-stream.
-        :type vel_inf: float
+        3D profile at certain position.
+        :param foil: 2D Airfoil.
+        :type foil: Airfoil
+        :param ends: Starting and ending points of the profile.
         """
 
-        self.payload = w * 1000 * 9.8
-        self.span2 = spn / 2
-        self.rho = rho_inf
-        self.v = vel_inf
-        self.p_inf = 0.5 * self.rho * self.v ** 2
-        self.root_lift = (self.payload / 2) / (math.pi * self.span2 / 4)
+        assert type(foil) is Airfoil  # avoid derived objects
+        original_chord_len = foil.chord_len
+        assert not math.isclose(original_chord_len, 0)
+        super(WingProfile, self).__init__(foil)
 
-    def lift_at(self, rel_pos):
-        return self.root_lift * math.sqrt(1 - rel_pos ** 2)
+        new_chord_len = pnt_dist(ends[0], ends[1])
+        assert not math.isclose(new_chord_len, 0)
+        assert math.isclose(ends[0][2], ends[1][2])
+        self.ending = np.copy(ends)
 
-    def velocity_circulation_at(self, rel_pos):
-        return self.lift_at(rel_pos) / (self.rho * self.v)
+        '''Stretch and Z offset'''
+        scale_ratio = new_chord_len / original_chord_len
+        z_off = self.ending[0][2]
+        for i in range(self.pnt_num):
+            self.pts[i][0] *= scale_ratio
+            self.pts[i][1] *= scale_ratio
+            self.pts[i][2] = z_off
 
-    def cl_at(self, rel_pos, chord_len):
-        return self.lift_at(rel_pos) / (self.p_inf * chord_len)
+        '''Rotate around trailing'''
+        ref = share(0.5, self.pts[0], self.pts[-1])
+        delta = self.ending[0] - self.ending[1]
+        ang = math.degrees(math.atan2(delta[1], delta[0])) - 180
+        self.pts = pnt_rotate(ref, z_axis_positive, ang, self.pts)
 
-
-class WingPlanform(metaclass=ABCMeta):
-    @abstractmethod
-    def x_front(self, u):
-        """
-        Calculate the X-coordinate on leading edge.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: X-coordinate on leading edge.
-        :rtype: float
-        """
-
-        pass
-
-    @abstractmethod
-    def y_front(self, u):
-        pass
-
-    @abstractmethod
-    def x_tail(self, u):
-        """
-        Calculate the X-coordinate on trailing edge.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: X-coordinate on trailing edge.
-        :rtype: float
-        """
-
-        pass
-
-    @abstractmethod
-    def y_tail(self, u):
-        pass
-
-    @abstractmethod
-    def z(self, u):
-        """
-        Calculate the Z-coordinate in span-wise direction.
-        :param u: Relative position parameter.
-        :type u: float
-        :return: Z-coordinate in span-wise direction.
-        :rtype: float
-        """
-
-        pass
-
-    def x_025(self, u):
-        return share(0.25, self.x_front(u), self.x_tail(u))
-
-    def swp_025(self, u, delta=1e-3):
-        tangent = derivative(self.x_025, u, dx=delta)
-        return math.degrees(math.atan2(tangent, self.span / 2))
-
-    def chord_len(self, u):
-        return self.x_tail(u) - self.x_front(u)
-
-    @property
-    def area(self):
-        """
-        Total area of the planar wing. (Not a half)
-        :return: The area.
-        :rtype: float
-        """
-
-        return 2 * math.fabs(romberg(self.chord_len, 0, 1)) * self.z(1)
-
-    @property
-    def mean_aerodynamic_chord(self):
-        """
-        Get the mean aerodynamic chord length of the wing.
-        :return: The MAC.
-        :rtype: float
-        """
-
-        return math.fabs(romberg(lambda u: self.chord_len(u) ** 2, 0, 1)) / (0.5 * self.area) * self.z(1)
-
-    @property
-    def span(self):
-        return 2 * (self.z(1) - self.z(0))
-
-    @property
-    def root_chord_len(self):
-        return self.chord_len(0)
-
-    @property
-    def tip_chord_len(self):
-        return self.chord_len(1)
-
-    @abstractmethod
-    def __repr__(self):
-        pass
-
-    def pic(self, *args, **kwargs):
-        ax = args[0]
-        n = args[1] if len(args) == 2 else 100
-
-        u = uniform(n)
-        spn2 = self.span / 2
-
-        z = np.array([self.z(t) for t in u])
-        leading_x = np.array([self.x_front(t) for t in u])
-        trailing_x = np.array([self.x_tail(t) for t in u])
-
-        if 'direction' in kwargs and kwargs['direction'] == 'vertical':
-            ax.plot(leading_x, z, label='Leading')
-            ax.plot(trailing_x, z, label='Trailing')
-            if 'u' in kwargs:
-                u_pos = np.copy(kwargs['u'])
-                for lu in u_pos:
-                    zp = lu * spn2
-                    ax.plot([self.x_front(lu), self.x_tail(lu)], [zp, zp], '--')
-        elif 'direction' not in kwargs or kwargs['direction'] == 'horizontal':
-            ax.plot(z, leading_x, label='Leading')
-            ax.plot(z, trailing_x, label='Trailing')
-            if 'u' in kwargs:
-                u_pos = np.copy(kwargs['u'])
-                for k, lu in enumerate(u_pos):
-                    zp = lu * spn2
-                    xf = self.x_front(lu)
-                    xt = self.x_tail(lu)
-                    ax.plot([zp, zp], [xf, xt], '--')
-                    ax.text(zp, share(0.5, xf, xt), str(k))
-
-            ax.invert_yaxis()
-        else:
-            raise AttributeError('invalid direction')
-
-        ax.set_aspect('equal')
-        ax.legend()
-
-
-class HWBWingPlanform(WingPlanform):
-    def __init__(self, *args, **kwargs):
-        """
-        Wing Planform for aircraft under Hybrid-Wing-Body configuration.
-        :param args: Geometric parameters describing the shape.
-                        wing_root_len, wing_tip_len, wing_spn2,
-                        wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
-                        wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep
-        :param kwargs: Options.
-        """
-
-        cr, ct, spn2 = args[0:3]
-        leading_inner_delta, leading_middle_delta, leading_outer_swp = args[3:6]
-        trailing_inner_delta, trailing_outer_spn, trailing_outer_swp = args[6:9]
-
-        leading_seg_length = np.empty(3)
-        leading_seg_length[0] = leading_inner_delta[0]
-        leading_seg_length[1] = leading_middle_delta[0]
-        leading_seg_length[2] = spn2 - (leading_seg_length[0] + leading_seg_length[1])
-
-        trailing_seg_length = np.empty(3)
-        trailing_seg_length[0] = trailing_inner_delta[0]
-        trailing_seg_length[2] = trailing_outer_spn
-        trailing_seg_length[1] = spn2 - (trailing_seg_length[0] + trailing_seg_length[2])
-
-        leading_seg_theta = np.empty(3)
-        leading_seg_theta[0] = math.atan2(leading_inner_delta[1], leading_inner_delta[0])
-        leading_seg_theta[1] = math.atan2(leading_middle_delta[1], leading_middle_delta[0])
-        leading_seg_theta[2] = math.radians(leading_outer_swp)
-
-        trailing_seg_theta = np.empty(3)
-        trailing_seg_theta[0] = math.atan2(trailing_inner_delta[1], trailing_inner_delta[0])
-        trailing_seg_theta[2] = math.radians(trailing_outer_swp)
-        leading_dx = sum([leading_seg_length[i] * math.tan(leading_seg_theta[i]) for i in range(3)])
-        dx = leading_dx + ct - math.tan(trailing_seg_theta[2]) * trailing_seg_length[2] - (cr + trailing_inner_delta[1])
-        dz = trailing_seg_length[1]
-        trailing_seg_theta[1] = math.atan2(dx, dz)
-
-        desc_shape = (4, 3)
-        leading_pnt = np.empty(desc_shape, float)
-        leading_tangent = np.empty(desc_shape, float)
-        trailing_pnt = np.empty(desc_shape, float)
-        trailing_tangent = np.empty(desc_shape, float)
-
-        leading_pnt[0] = (0, 0, 0) if 'origin' not in kwargs else kwargs['origin']
-        for i in range(1, 4):
-            delta = (math.tan(leading_seg_theta[i - 1]) * leading_seg_length[i - 1], 0, leading_seg_length[i - 1])
-            leading_pnt[i] = pnt_pan(leading_pnt[i - 1], delta)
-
-        trailing_pnt[0] = pnt_pan(leading_pnt[0], (cr, 0, 0))
-        for i in range(1, 4):
-            delta = (math.tan(trailing_seg_theta[i - 1]) * trailing_seg_length[i - 1], 0, trailing_seg_length[i - 1])
-            trailing_pnt[i] = pnt_pan(trailing_pnt[i - 1], delta)
-
-        leading_tangent[0] = leading_tangent[1] = (math.sin(leading_seg_theta[0]), 0, math.cos(leading_seg_theta[0]))
-        leading_tangent[2] = leading_tangent[3] = (math.sin(leading_seg_theta[2]), 0, math.cos(leading_seg_theta[2]))
-
-        trailing_tangent[0] = trailing_tangent[1] = (math.sin(trailing_seg_theta[0]), 0, math.cos(trailing_seg_theta[0]))
-        trailing_tangent[2] = trailing_tangent[3] = (math.sin(trailing_seg_theta[2]), 0, math.cos(trailing_seg_theta[2]))
-
-        self.Span2 = spn2
-        self.LeadingCrv = LocalCubicInterpolatedCrv(leading_pnt, leading_tangent)
-        self.TrailingCrv = LocalCubicInterpolatedCrv(trailing_pnt, trailing_tangent)
-
-    def z(self, u):
-        return u * self.Span2
-
-    def x_front(self, u):
-        zp = self.z(u)
-        lu = point_inverse(self.LeadingCrv, zp, 2)
-        return self.LeadingCrv(lu)[0]
-
-    def x_tail(self, u):
-        zp = self.z(u)
-        lu = point_inverse(self.TrailingCrv, zp, 2)
-        return self.TrailingCrv(lu)[0]
-
-    def y_front(self, u):
-        return 0
-
-    def y_tail(self, u):
-        return 0
-
-    def __repr__(self):
-        return 'Hybrid-Wing-Body Outer Wing Planform'
-
-
-class Airfoil(object):
-    def __init__(self, *args, **kwargs):
-        """
-        2D Airfoil.
-        Attention: We assume that the chord length is 1!!!
-        :param args: Basic parameters.
-        :param kwargs: Properties and options.
-        """
-
-        # Basic pts and name
-        if len(args) == 1:
-            if type(args[0]) == str:
-                foil = args[0]
-                if foil in AIRFOIL_LIST:
-                    self.name = foil
-                    self.pts = read_airfoil_pts(foil)
-                else:
-                    raise FileNotFoundError('Airfoil \'{}\' not included in local database at present.'.format(foil))
-            elif type(args[0]) == np.ndarray:
-                self.name = kwargs['name'] if 'name' in kwargs else 'UserDefinedAirfoil'
-                assert len(args[0].shape) == 2
-                self.pts = np.copy(args[0])
-            elif isinstance(args[0], Airfoil):
-                cp = args[0]
-                self.name = cp.name
-                self.pts = np.copy(cp.pts)
-            else:
-                raise ValueError('unknown input')
-        elif len(args) == 2:
-            assert type(args[0]) == np.ndarray
-            assert type(args[1]) == str
-            self.pts = np.copy(args[0])
-            self.name = args[1]
-        else:
-            raise ValueError('unknown input')
-
-        # Aerodynamic properties
-        if len(args) == 1 and isinstance(args[0], Airfoil):
-            cp = args[0]
-            self.cl = cp.cl
-            self.cd = cp.cd
-            self.cm = cp.cm
-        else:
-            self.cl = 0.0 if 'cl' not in kwargs else kwargs['cl']
-            self.cd = 0.0 if 'cd' not in kwargs else kwargs['cd']
-            self.cm = 0.0 if 'cm' not in kwargs else kwargs['cm']
-
-    def __repr__(self):
-        return '{} with {} points'.format(self.name, self.pnt_num)
-
-    @property
-    def z(self):
-        return self.pts[0][2]
-
-    @property
-    def pnt_num(self):
-        return len(self.pts)
-
-    @property
-    def crv(self):
-        # return Spline(self.pts)
-        return GlobalInterpolatedCrv(self.pts, 3)
-
-    @property
-    def tail_up(self):
-        return self.pts[0]
-
-    @property
-    def tail_down(self):
-        return self.pts[-1]
-
-    @property
-    def tail(self):
-        return (self.tail_up + self.tail_down) / 2
+        '''Move to ends[1]'''
+        delta = self.ending[-1] - share(0.5, self.pts[0], self.pts[-1])
+        for i in range(self.pnt_num):
+            self.pts[i] += delta
 
     @property
     def front(self):
-        """
-        The most front point of the airfoil.
-        """
-
-        total = self.pnt_num
-        cx = self.pts[0][0]
-        k = 1
-        while k < total and self.pts[k][0] < cx:
-            cx = self.pts[k][0]
-            k += 1
-
-        return self.pts[k - 1]
+        return self.ending[0]
 
     @property
-    def chord_len(self):
-        return pnt_dist(self.front, self.tail)
+    def tail(self):
+        return self.ending[-1]
 
-    @property
-    def thickness(self):
-        # TODO
-        return 0.12
-
-    @property
-    def max_height(self):
-        return self.thickness * self.chord_len
-
-    @property
-    def is_blunt(self):
-        return not math.isclose(norm(self.tail_up - self.tail_down), 0)
-
-    def to_blunt(self):
-        pfx = self.front[0]
-        r0 = self.chord_len
-        self.pts = self.pts[1:-1]
-        r1 = self.chord_len
-        ratio = r0 / r1
-        for k in range(len(self.pts)):
-            self.pts[k][0] = pfx + (self.pts[k][0] - pfx) * ratio
-
-    def save(self, fn):
+    @classmethod
+    def from_profile_param(cls, wpp):
         """
-        Save all coordinates into file.
-        :param fn: File name.
-        :type fn: str
-        :return: None.
+        Construct the profile from parameters in higher level.
+        :param wpp: Wing profile description object.
+        :type wpp: WingProfileParam
+        :return: Target profile.
+        :rtype: WingProfile
         """
 
-        f_out = open(fn, 'w')
-        for p in self.pts:
-            f_out.write('{:10.6f}\t{:10.6f}\t{:10.6f}\n'.format(p[0], p[1], p[2]))
-        f_out.close()
+        theta = math.radians(wpp.twist_ang)
+        pan_dir1 = np.array([-math.cos(theta), math.sin(theta), 0])
+        pan_dir2 = -pan_dir1
+        len1 = wpp.chord_len * wpp.twist_ref
+        len2 = wpp.chord_len - len1
 
-    def plot(self, ax):
-        (px, py, pz) = zip(*self.pts)
-        ax.plot(px, py, '.-')
-        ax.set_aspect('equal')
+        ending = np.empty((2, 3), float)
+        ending[0] = pnt_pan(wpp.twist_center, pan_dir1 * len1)
+        ending[1] = pnt_pan(wpp.twist_center, pan_dir2 * len2)
 
-    def curvature_at(self, rel_pos):
-        """
-        Calculate the curvature at given position.
-        :param rel_pos: Relative position.
-        :type rel_pos: float
-        :return: Curvature.
-        :rtype: float
-        """
-
-        return self.curve.curvature(rel_pos)
-
-    def gen_grid(self, *args, **kwargs):
-        """
-        Generate grid for 2D airfoil or wing profile.
-        :param args: Containing the geometric description and node distribution of the grid.
-        :param kwargs: Extra options on smoothing and spacing.
-        :return: The wire-frame, plot3d-grid and fluent-grid(with predefined BC) of the flow field.
-        """
-
-        '''
-        a: Width of the front part of the flow field.
-        b: Semi-height of the flow field.
-        c: Width of the rear part of the flow field.
-        n0: Num of points along airfoil.
-        n1: Num of points along vertical direction.
-        n2: Num of points along horizontal direction in rear field.
-        n3: Num of Points on the trailing edge.
-        '''
-        assert len(args) == 7
-        a, b, c, n0, n1, n2, n3 = args
-
-        wire_frame = Model()
-        p3d_grid = Plot3D()
-
-        '''Flow-field geometries'''
-        pts = np.empty((8, 3), float)
-        pts[0] = self.tail_up
-        pts[1] = self.tail_down
-        pts[2] = np.array([0, b, self.z])
-        pts[3] = np.array([0, -b, self.z])
-        pts[4] = np.array([c, pts[0][1], self.z])
-        pts[5] = np.array([c, pts[1][1], self.z])
-        pts[6] = np.array([c, b, self.z])
-        pts[7] = np.array([c, -b, self.z])
-
-        crv = [self.crv,  # c0
-               ConicArc(pts[2], (-1, 0, 0), pts[3], (1, 0, 0), (-a, 0, 0)),  # c1
-               Line(pts[0], pts[2]),  # c2
-               Line(pts[1], pts[3]),  # c3
-               Line(pts[4], pts[6]),  # c4
-               Line(pts[5], pts[7]),  # c5
-               Line(pts[0], pts[4]),  # c6
-               Line(pts[1], pts[5]),  # c7
-               Line(pts[2], pts[6]),  # c8
-               Line(pts[3], pts[7]),  # c9
-               Line(pts[0], pts[1]),  # c10
-               Line(pts[4], pts[5])]  # c11
-
-        '''Construct wire-frame'''
-        for p in pts:
-            wire_frame.add(Entity116(p[0], p[1], p[2]))
-        for c in crv:
-            wire_frame.add(c.to_iges())
-
-        '''Knot distribution'''
-        u = [double_exponential(n0, 0.5, -1.5, 0.5),  # c0, c1
-             hyperbolic_tangent(n1, 2),  # c2, c3, c4, c5
-             single_exponential(n2, 3),  # c6, c7, c8, c9
-             uniform(n3)]  # c10, c11
-
-        '''Structured grid blocks'''
-        leading_blk = LinearTFI2D(crv[2], crv[0], crv[3], crv[1])
-        tailing_up_blk = LinearTFI2D(crv[6], crv[2], crv[8], crv[4])
-        tailing_down_blk = LinearTFI2D(crv[3], crv[7], crv[5], crv[9])
-        rear_blk = LinearTFI2D(crv[10], crv[6], crv[11], crv[7])
-
-        '''Construct Plot3D grid for basic checking'''
-        leading_blk.calc_grid(u[1], u[0])
-        leading_tfi_grid = leading_blk.grid
-        leading_smooth_ok = False
-        if 'leading_smooth' in kwargs:
-            smooth = kwargs['leading_smooth']
-            if smooth in ('Laplace', 'laplace'):
-                leading_grid_laplace = Laplace2D(leading_tfi_grid)
-                leading_grid_laplace.smooth()
-                p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_laplace.grid))
-                leading_smooth_ok = True
-            if smooth in ('TM', 'tm', 'Thomas-Middlecoff', 'thomas-middlecoff'):
-                leading_grid_tm = ThomasMiddlecoff2D(leading_tfi_grid)
-                leading_grid_tm.smooth()
-                p3d_grid.add(Plot3DBlock.construct_from_array(leading_grid_tm.grid))
-                leading_smooth_ok = True
-        if not leading_smooth_ok:
-            p3d_grid.add(Plot3DBlock.construct_from_array(leading_tfi_grid))
-
-        tailing_up_blk.calc_grid(u[2], u[1])
-        tailing_up_grid = tailing_up_blk.grid
-        p3d_grid.add(Plot3DBlock.construct_from_array(tailing_up_grid))
-
-        tailing_down_blk.calc_grid(u[1], u[2])
-        tailing_down_grid = tailing_down_blk.grid
-        p3d_grid.add(Plot3DBlock.construct_from_array(tailing_down_grid))
-
-        if self.is_blunt:
-            rear_blk.calc_grid(u[3], u[2])
-            rear_grid = rear_blk.grid
-            p3d_grid.add(Plot3DBlock.construct_from_array(rear_grid))
-
-        return wire_frame, p3d_grid
-
-    def refine(self, rel_pos):
-        self.pts = self.crv.scatter(rel_pos)
-
-
-def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
-    """
-    Interpolate airfoils linearly.
-    :param left_foil: Starting airfoil.
-    :type left_foil: Airfoil
-    :param right_foil: Ending airfoil.
-    :type right_foil: Airfoil
-    :param intermediate_pos: Relative positions between.
-    :param sample_pos: Sampling positions on each curve.
-    :return: Intermediate airfoils.
-    """
-
-    crv1 = left_foil.crv
-    crv2 = right_foil.crv
-    crv2.pan((0, 0, 1))
-    rsf = RuledSurf(crv1, crv2)
-
-    if type(intermediate_pos) in (float, int):
-        crv = rsf.extract('v', intermediate_pos)
-        assert np.greater_equal(sample_pos, 0) and np.less_equal(sample_pos, 1)
-        pts = crv.scatter(sample_pos)
-        return Airfoil(pts)
-    elif type(intermediate_pos) in (np.ndarray, list):
-        assert len(intermediate_pos) == len(sample_pos)
-        ret = []
-        for k, u in enumerate(intermediate_pos):
-            crv = rsf.extract('v', u)
-            csp = sample_pos[k]
-            assert np.greater_equal(csp, 0).all() and np.less_equal(csp, 1).all()
-            pts = crv.scatter(csp)
-            ret.append(Airfoil(pts))
-        return ret
-    else:
-        raise AssertionError('invalid input')
+        return cls(wpp.airfoil, ending)
 
 
 class WingProfileParam(object):
@@ -642,75 +178,6 @@ class WingProfileParam(object):
         twist_center = share(twist_ref, front, tail)
 
         return cls(foil, length, twist, twist_center, twist_ref)
-
-
-class WingProfile(Airfoil):
-    def __init__(self, foil, ends):
-        """
-        3D profile at certain position.
-        :param foil: 2D Airfoil.
-        :type foil: Airfoil
-        :param ends: Starting and ending points of the profile.
-        """
-
-        assert type(foil) is Airfoil  # avoid derived objects
-        original_chord_len = foil.chord_len
-        assert not math.isclose(original_chord_len, 0)
-        super(WingProfile, self).__init__(foil)
-
-        new_chord_len = pnt_dist(ends[0], ends[1])
-        assert not math.isclose(new_chord_len, 0)
-        assert math.isclose(ends[0][2], ends[1][2])
-        self.ending = np.copy(ends)
-
-        '''Stretch and Z offset'''
-        scale_ratio = new_chord_len / original_chord_len
-        z_off = self.ending[0][2]
-        for i in range(self.pnt_num):
-            self.pts[i][0] *= scale_ratio
-            self.pts[i][1] *= scale_ratio
-            self.pts[i][2] = z_off
-
-        '''Rotate around trailing'''
-        ref = share(0.5, self.pts[0], self.pts[-1])
-        delta = self.ending[0] - self.ending[1]
-        ang = math.degrees(math.atan2(delta[1], delta[0])) - 180
-        self.pts = pnt_rotate(ref, z_axis_positive, ang, self.pts)
-
-        '''Move to ends[1]'''
-        delta = self.ending[-1] - share(0.5, self.pts[0], self.pts[-1])
-        for i in range(self.pnt_num):
-            self.pts[i] += delta
-
-    @property
-    def front(self):
-        return self.ending[0]
-
-    @property
-    def tail(self):
-        return self.ending[-1]
-
-    @classmethod
-    def from_profile_param(cls, wpp):
-        """
-        Construct the profile from parameters in higher level.
-        :param wpp: Wing profile description object.
-        :type wpp: WingProfileParam
-        :return: Target profile.
-        :rtype: WingProfile
-        """
-
-        theta = math.radians(wpp.twist_ang)
-        pan_dir1 = np.array([-math.cos(theta), math.sin(theta), 0])
-        pan_dir2 = -pan_dir1
-        len1 = wpp.chord_len * wpp.twist_ref
-        len2 = wpp.chord_len - len1
-
-        ending = np.empty((2, 3), float)
-        ending[0] = pnt_pan(wpp.twist_center, pan_dir1 * len1)
-        ending[1] = pnt_pan(wpp.twist_center, pan_dir2 * len2)
-
-        return cls(wpp.airfoil, ending)
 
 
 class WingProfileList(object):
