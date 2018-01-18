@@ -33,17 +33,6 @@ def angle_from_3pnt(p0, p1, p2):
     return math.degrees(math.acos(np.dot(a, b) / (norm(a) * norm(b))))
 
 
-def read_airfoil_pts(foil_name):
-    """
-    Get the coordinates from local database.
-    :param foil_name: Name of the airfoil(Capital case).
-    :return: n x 3 array with 'z' dimension being 0.
-    """
-
-    fn = os.path.join(AIRFOIL_DIR, foil_name + '.dat')
-    return np.loadtxt(fn)
-
-
 def vector_square(u):
     return sum(map(lambda x: x ** 2, u))
 
