@@ -11,3 +11,4 @@ __pycache__
 *.png
 tmp/
 .vs/
+example/*.dat
