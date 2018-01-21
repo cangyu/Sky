@@ -344,8 +344,8 @@ def planform1():
     # for _spk, param in enumerate(sp):
     #     fsp.write("Case {}:\n".format(_spk))
     #     fsp.write("{:^10} {:^10}\n".format('Profile', 'Twist'))
-    #     for l in range(sec_num):
-    #         fsp.write("{:^10}{:^10.2f}\n".format(l, param[l]))
+    #     for span in range(sec_num):
+    #         fsp.write("{:^10}{:^10.2f}\n".format(span, param[span]))
     #     fsp.write('\n')
     # fsp.close()
 

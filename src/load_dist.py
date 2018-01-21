@@ -19,7 +19,7 @@ class LiftDist(object, metaclass=ABCMeta):
         self.v_inf = v
         self.q_inf = q_inf(rho, v)
         self.m_inf = rho * v
-        self.l = spn
+        self.span = spn
         self.payload = tons2newton(w)
         self.root_lift = root_lift
 
@@ -62,8 +62,8 @@ class EllipticLiftDist(LiftDist):
         root_lift = 4 * tons2newton(w) / (math.pi * spn)
         super(EllipticLiftDist, self).__init__(w, spn, rho, v, root_lift)
 
-    def lift_at(self, rel_pos):
-        return self.root_lift * math.sqrt(1 - rel_pos ** 2)
+    def lift_at(self, u):
+        return self.root_lift * math.sqrt(1 - u ** 2)
 
 
 class LinearLiftDist(LiftDist):
