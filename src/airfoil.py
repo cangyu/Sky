@@ -6,9 +6,11 @@ import math
 import numpy as np
 from numpy.linalg import norm
 from matplotlib import pyplot as plt
+import re
+import collections
 from spacing import uniform, chebshev_dist
 from misc import pnt_dist
-from nurbs import GlobalInterpolatedCrv
+from nurbs import GlobalInterpolatedCrv, Spline
 from nurbs import RuledSurf
 from settings import AIRFOIL_LIST, AIRFOIL_DIR
 
@@ -27,14 +29,18 @@ class AirfoilNotAvailable(Exception):
     pass
 
 
-def naca4_parser(digits):
-    m = float(digits[0]) / 100.0
-    p = float(digits[1]) / 10.0
-    t = float(digits[2:]) / 100.0
+naca4_pattern = re.compile(r'^NACA(\d)(\d)(\d{2})$', re.IGNORECASE)
+
+
+def naca4_parser(naca: str):
+    param = re.search(naca4_pattern, naca).groups()
+    m = int(param[0]) / 100.0
+    p = int(param[1]) / 10.0
+    t = int(param[2]) / 100.0
     return m, p, t
 
 
-def naca4(m, p, t, n, trailing_blunt, half_cosine_spacing):
+def naca4(m, p, t, n, trailing_blunt=True, half_cosine_spacing=True):
     """
     Calculate NACA 4-digit airfoil points.
     :param m: Max Camber.
@@ -71,7 +77,7 @@ def naca4(m, p, t, n, trailing_blunt, half_cosine_spacing):
     a4 = -0.1015 if trailing_blunt else -0.1036
 
     def yt(x):
-        return t / 0.2 * (a0 * x ** 0.5 + a1 * x + a2 * x ** 2 + a3 * x ** 3 + a4 * x ** 4)
+        return t / 0.2 * (a0 * pow(x, 0.5) + x * (a1 + x * (a2 + x * (a3 + x * a4))))
 
     def theta(x):
         return math.atan(dyc(x))
@@ -88,7 +94,7 @@ def naca4(m, p, t, n, trailing_blunt, half_cosine_spacing):
     def yl(x):
         return yc(x) - yt(x) * math.cos(theta(x))
 
-    u = chebshev_dist(0, 1, n + 1) if half_cosine_spacing else uniform(n + 1)
+    u = chebshev_dist(0, 1, n) if half_cosine_spacing else uniform(n)
 
     upper_pnt = [(xu(_u), yu(_u)) for _u in u]
     lower_pnt = [(xl(_u), yl(_u)) for _u in u]
@@ -96,15 +102,19 @@ def naca4(m, p, t, n, trailing_blunt, half_cosine_spacing):
     return np.copy(upper_pnt[::-1] + lower_pnt[1:])
 
 
-def naca5_parser(digits):
-    cl = int(digits[0]) * (3.0 / 20.0)
-    p = int(digits[1]) / 20.0
-    q = bool(int(digits[2]))
-    t = int(digits[3:]) / 100.0
+naca5_pattern = re.compile('^NACA(\d)(\d)(\d)(\d{2})$', re.IGNORECASE)
+
+
+def naca5_parser(naca: str):
+    param = re.search(naca5_pattern, naca).groups()
+    cl = int(param[0]) * (3.0 / 20.0)
+    p = int(param[1]) / 20.0
+    q = bool(param[2])
+    t = int(param[3]) / 100.0
     return cl, p, q, t
 
 
-def naca5(cl, p, q, t, n, trailing_blunt, half_cosine_spacing):
+def naca5(cl, p, q, t, n, trailing_blunt=True, half_cosine_spacing=True):
     """
     Calculate NACA 5-digit airfoil points.
     :param cl: Designed coefficient of lift.
@@ -155,7 +165,7 @@ def naca5(cl, p, q, t, n, trailing_blunt, half_cosine_spacing):
     a4 = -0.1015 if trailing_blunt else -0.1036
 
     def yt(x):
-        return t / 0.2 * (a0 * x ** 0.5 + a1 * x + a2 * x ** 2 + a3 * x ** 3 + a4 * x ** 4)
+        return t / 0.2 * (a0 * pow(x, 0.5) + x * (a1 + x * (a2 + x * (a3 + x * a4))))
 
     def theta(x):
         return math.atan(dyc(x))
@@ -172,12 +182,40 @@ def naca5(cl, p, q, t, n, trailing_blunt, half_cosine_spacing):
     def yl(x):
         return yc(x) - yt(x) * math.cos(theta(x))
 
-    u = chebshev_dist(0, 1, n + 1) if half_cosine_spacing else uniform(n + 1)
+    u = chebshev_dist(0, 1, n) if half_cosine_spacing else uniform(n)
 
     upper_pnt = [(xu(_u), yu(_u)) for _u in u]
     lower_pnt = [(xl(_u), yl(_u)) for _u in u]
 
     return np.copy(upper_pnt[::-1] + lower_pnt[1:])
+
+
+naca6_pattern = re.compile(r'^NACA6(\d)\((\d)\)-(\d)(\d{2})$', re.IGNORECASE)
+
+
+def naca6_parser(naca: str):
+    param = re.search(naca6_pattern, naca).groups()
+    series = int(param[0])
+    low_drag_range = int(param[1]) / 10.0
+    cl_design = int(param[2]) / 10.0
+    thickness = int(param[3]) / 100.0
+    return series, low_drag_range, cl_design, thickness
+
+
+# TODO
+def naca6(ser, rg, cl, t, n, a=1.0, half_cosine_spacing=True):
+    g = -1.0 / (1 - a) * (pow(a, 2) * (0.5 * math.log(a) - 0.25) + 0.25)
+    h = 1.0 / (1 - a) * (0.5 * pow(1 - a, 2) * math.log(1 - a) - 0.25 * (1 - pow(a, 2))) + g
+    alpha = cl * h / (2 * math.pi * (a + 1))
+
+    def yc(x):
+        pass
+
+    def dyc(x):
+        pass
+
+    def yt(x):
+        pass
 
 
 class Airfoil(object):
@@ -186,8 +224,9 @@ class Airfoil(object):
     def __init__(self, pts, name=DEFAULT_AIRFOIL_NAME):
         """
         2D Airfoil, chord length is 1.
-        :param pts:
-        :param name:
+        :param pts: Coordinates describing the airfoil.
+        :param name: Name of the airfoil.
+        :type name: str
         """
 
         self.name = name
@@ -195,23 +234,24 @@ class Airfoil(object):
 
     @classmethod
     def from_file(cls, path, name=DEFAULT_AIRFOIL_NAME):
-        p = np.loadtxt(path)
         if name == Airfoil.DEFAULT_AIRFOIL_NAME:
             name = os.path.basename(path)
             if name.endswith('.dat') or name.endswith('.txt'):
                 base, ext = name.split('.')
                 name = base
-        return cls(p, name)
+
+        p = np.loadtxt(path)
+        return cls(p[:, :2], name)
 
     @classmethod
     def from_local(cls, name):
         name = name.upper()
-        if name in AIRFOIL_LIST:
-            path = os.path.join(AIRFOIL_DIR, name + '.dat')
-            p = np.loadtxt(path)
-            return cls(p, name)
-        else:
+        if name not in AIRFOIL_LIST:
             raise AirfoilNotAvailable('{} not exist'.format(name))
+
+        path = os.path.join(AIRFOIL_DIR, name + '.dat')
+        p = np.loadtxt(path)
+        return cls(p[:, :2], name)
 
     @classmethod
     def from_naca(cls, digits, n, trailing_blunt=True, half_cosine_spacing=True):
@@ -222,32 +262,27 @@ class Airfoil(object):
         :param n: Num of points.
         :type n: int
         :param trailing_blunt: Blunt flag.
+        :type trailing_blunt: bool
         :param half_cosine_spacing: Spacing flag.
+        :type half_cosine_spacing: bool
         :return: Coordinates assembled in the Airfoil object.
         :rtype: Airfoil
         """
 
-        '''Check parameters and Conversions'''
-        if digits.startswith('naca') or digits.startswith('NACA'):
-            digits = digits[4:]
-        assert digits.isdigit()
-
         n = n // 2 + 1
-
-        trailing_blunt = bool(trailing_blunt)
-        half_cosine_spacing = bool(half_cosine_spacing)
+        foil = 'NACA' + digits
 
         '''Calculate points'''
-        if len(digits) == 4:
-            m, p, t = naca4_parser(digits)
+        if re.match(naca4_pattern, foil) is not None:
+            m, p, t = naca4_parser(foil)
             pts = naca4(m, p, t, n, trailing_blunt, half_cosine_spacing)
-            return cls(pts, 'NACA' + digits)
-        elif len(digits) == 5:
-            l, p, q, t = naca5_parser(digits)
+            return cls(pts, foil)
+        elif re.match(naca5_pattern, foil) is not None:
+            l, p, q, t = naca5_parser(foil)
             pts = naca5(l, p, q, t, n, trailing_blunt, half_cosine_spacing)
-            return cls(pts, 'NACA' + digits)
+            return cls(pts, foil)
         else:
-            raise AirfoilNotAvailable('NACA{} not resolvable.'.format(digits))
+            raise AirfoilNotAvailable('{} not resolvable.'.format(foil))
 
     def __repr__(self):
         return '{} with {} points'.format(self.name, self.size)
@@ -256,10 +291,8 @@ class Airfoil(object):
     def size(self):
         return len(self.pts)
 
-    @property
-    def crv(self):
-        # return Spline(self.pts)
-        return GlobalInterpolatedCrv(self.pts, 3)
+    def to_nurbs_crv(self):
+        return Spline(np.array([[p[0], p[1], 0] for p in self.pts]))
 
     @property
     def tail_up(self):
@@ -305,13 +338,16 @@ class Airfoil(object):
     def is_blunt(self):
         return not math.isclose(norm(self.tail_up - self.tail_down), 0)
 
-    def save(self, fn):
+    def save(self, fn=''):
         """
         Save all coordinates into file.
         :param fn: File name.
         :type fn: str
         :return: None.
         """
+
+        if fn == '':
+            fn = self.name + '.dat'
 
         f_out = open(fn, 'w')
         for p in self.pts:
@@ -327,21 +363,27 @@ class Airfoil(object):
         (px, py) = zip(*self.pts)
         plt.plot(px, py, '.-')
         plt.gca().set_aspect('equal')
+        plt.title(self.name)
         plt.show()
 
     def curvature_at(self, rel_pos):
         """
         Calculate the curvature at given position.
         :param rel_pos: Relative position.
-        :type rel_pos: float
         :return: Curvature.
-        :rtype: float
         """
 
-        return self.curve.curvature(rel_pos)
+        crv = self.to_nurbs_crv()
+
+        if isinstance(rel_pos, collections.Iterable):
+            return np.array([crv.curvature(u) for u in rel_pos])
+        else:
+            return crv.curvature(rel_pos)
 
     def refine(self, rel_pos):
-        self.pts = self.crv.scatter(rel_pos)
+        assert isinstance(rel_pos, collections.Iterable)
+        crv = self.to_nurbs_crv()
+        self.pts = crv.scatter(rel_pos)[:, :2]
 
 
 def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
@@ -356,8 +398,8 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
     :return: Intermediate airfoils.
     """
 
-    crv1 = left_foil.crv
-    crv2 = right_foil.crv
+    crv1 = left_foil.to_nurbs_crv()
+    crv2 = right_foil.to_nurbs_crv()
     crv2.pan((0, 0, 1))
     rsf = RuledSurf(crv1, crv2)
 
@@ -381,18 +423,18 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
 
 
 if __name__ == '__main__':
-    naca0012 = Airfoil.from_naca('0012', 161)
-    naca0012.save('NACA0012.dat')
+    naca0012 = Airfoil.from_naca('0012', 201)
+    naca0012.save()
     naca0012.show()
 
+    naca13015 = Airfoil.from_naca('13015', 201)
+    naca13015.save()
+    naca13015.show()
+
     naca23015 = Airfoil.from_naca('23015', 201)
-    naca23015.save('NACA23015.dat')
+    naca23015.save()
     naca23015.show()
 
     naca23118 = Airfoil.from_naca('23118', 201)
-    naca23118.save('NACA23118.dat')
+    naca23118.save()
     naca23118.show()
-
-    naca13015 = Airfoil.from_naca('13015', 201)
-    naca13015.save('NACA13015.dat')
-    naca13015.show()
