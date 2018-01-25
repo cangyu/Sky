@@ -427,6 +427,10 @@ if __name__ == '__main__':
     naca0012.save()
     naca0012.show()
 
+    naca1408 = Airfoil.from_naca('1408', 131)
+    naca1408.save()
+    naca1408.show()
+
     naca13015 = Airfoil.from_naca('13015', 201)
     naca13015.save()
     naca13015.show()

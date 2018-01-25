@@ -4,7 +4,7 @@ import os
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print("Usage \'python display.py foil.dat\'")
+        print("Usage \'python show.py foil.dat\'")
         exit(-1)
 
     fn = sys.argv[1]
