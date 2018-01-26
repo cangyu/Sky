@@ -4,10 +4,13 @@
 import math
 import numpy as np
 from misc import share
-from settings import z_axis_positive
+from settings import z_axis_negative
 from load_dist import LiftDist
 from planform import WingPlanform
 from airfoil import Airfoil
+from rotation import pnt_rotate
+from misc import pnt_pan, pnt_dist
+from nurbs import Spline
 
 
 def calc_profile_cl(rel_pos, lift_dist, wing_planform, q_inf):
@@ -41,24 +44,105 @@ def calc_profile_cl(rel_pos, lift_dist, wing_planform, q_inf):
 
 
 class ProfileSpatialParam(object):
-    def __init__(self, chord, twist_ref, twist_center, twist_ang):
-        pass
+    def __init__(self, chord, twist_ang, twist_center, twist_ref):
+        self.chord = chord
+        self.twist_ang = twist_ang
+        self.twist_center = np.copy(twist_center)
+        self.twist_ref = twist_ref
+        la = twist_ref * chord
+        lb = (1.0 - twist_ref) * chord
+        self.leading = pnt_pan(self.twist_center, (-la, 0, 0))
+        self.trailing = pnt_pan(self.twist_center, (lb, 0, 0))
+        self.leading = pnt_rotate(self.twist_center, z_axis_negative, twist_ang, self.leading)
+        self.trailing = pnt_rotate(self.twist_center, z_axis_negative, twist_ang, self.trailing)
+
+    @property
+    def z(self):
+        return self.twist_center[2]
+
+    @property
+    def incidence(self):
+        return self.twist_ang
 
     @classmethod
     def from_leading(cls, leading, chord, incidence):
-        pass
+        return cls(chord, incidence, leading, 0.0)
 
     @classmethod
     def from_trailing(cls, trailing, chord, incidence):
-        pass
+        return cls(chord, incidence, trailing, 1.0)
 
     @classmethod
-    def from_2pnt(cls, leading, trailing):
-        pass
+    def from_2pnt(cls, leading, trailing, twist_ref=1.0):
+        leading = np.copy(leading)
+        trailing = np.copy(trailing)
+        assert len(leading) == len(trailing) == 3
+        assert leading[2] == trailing[2]
+        chord = pnt_dist(leading, trailing)
+        delta = leading - trailing
+        twist_ang = math.degrees(math.atan2(delta[1], -delta[0]))
+        twist_center = share(twist_ref, leading, trailing)
+        return cls(chord, twist_ang, twist_center, twist_ref)
 
     @classmethod
-    def from_spatial(cls, chord, z_off, twist_ang, dihedral_ang, twist_ref=1.0, x_ref=0, y_ref=0, z_ref=0):
-        pass
+    def from_spatial_desc(cls, planar_chord, z_off, swp, twist, dihedral, twist_ref=1.0, x_ref=0, y_ref=0, z_ref=0):
+        """
+        There's a little bit difference from constructors above as the given chord is not the final chord,
+        and this is due to the way we view these given parameters. Here the parameters are basically viewed
+        as planar, and the twist effect is not considered at initial setup.
+        :param planar_chord: Initial/Planar chord length.
+        :type planar_chord: float
+        :param z_off: Offset in Z direction.
+        :type z_off: float
+        :param swp: Angle of sweep-back.
+        :type swp: float
+        :param twist: Angle of twist/incidence.
+        :type twist: float
+        :param dihedral: Angle of dihedral.
+        :type dihedral: float
+        :param twist_ref: Relative position of the center of twist along the chord.
+        :type twist_ref: float
+        :param x_ref: Reference ordinate in X direction.
+        :type x_ref: float
+        :param y_ref:Reference ordinate in X direction.
+        :type y_ref: float
+        :param z_ref:Reference ordinate in X direction.
+        :type z_ref: float
+        :return: Description of the spatial configuration.
+        :rtype: ProfileSpatialParam
+        """
+
+        lx = x_ref + z_off * math.tan(math.radians(swp))
+        ly = y_ref + z_off * math.tan(math.radians(dihedral))
+        lz = z_ref + z_off
+        leading = np.array([lx, ly, lz])
+        trailing = pnt_pan(leading, (planar_chord, 0, 0))
+        twist_center = share(twist_ref, leading, trailing)
+        chord = planar_chord / math.cos(math.radians(twist))
+        return cls(chord, twist, twist_center, twist_ref)
+
+
+def _build_profile_pts(foil, desc):
+    """
+    Compute the real profile coordinates from airfoil.
+    :param foil: Ref airfoil.
+    :type foil: Airfoil
+    :param desc: Spatial position and pose description.
+    :type desc: ProfileSpatialParam
+    :return: 3D Points describing the profile in XFOIL format.
+    """
+
+    '''Scale airfoil to real profile'''
+    chord = desc.chord
+    scaled = np.array([(p[0] * chord, p[1] * chord, desc.z) for p in foil.pts])
+
+    '''Move to trailing'''
+    cur_trailing = (scaled[0] + scaled[-1]) / 2
+    pan_dir = desc.trailing - cur_trailing
+    paned = np.array([pnt_pan(p, pan_dir) for p in scaled])
+
+    '''Rotate around trailing'''
+    return pnt_rotate(desc.trailing, z_axis_negative, desc.twist_ang, paned)
 
 
 class Profile(object):
@@ -73,228 +157,32 @@ class Profile(object):
 
         self.foil = airfoil
         self.spatial_param = param
+        self.pts = _build_profile_pts(airfoil, param)
+
+    def generate_nurbs_crv(self):
+        return Spline(self.pts)
 
 
-class WingProfile(object):
-    def __init__(self, foil, ends):
-        assert type(foil) is Airfoil  # avoid derived objects
-        original_chord_len = foil.chord_len
-        assert not math.isclose(original_chord_len, 0)
-        super(WingProfile, self).__init__(foil)
-
-        new_chord_len = pnt_dist(ends[0], ends[1])
-        assert not math.isclose(new_chord_len, 0)
-        assert math.isclose(ends[0][2], ends[1][2])
-        self.ending = np.copy(ends)
-
-        '''Stretch and Z offset'''
-        scale_ratio = new_chord_len / original_chord_len
-        z_off = self.ending[0][2]
-        for i in range(self.pnt_num):
-            self.pts[i][0] *= scale_ratio
-            self.pts[i][1] *= scale_ratio
-            self.pts[i][2] = z_off
-
-        '''Rotate around trailing'''
-        ref = share(0.5, self.pts[0], self.pts[-1])
-        delta = self.ending[0] - self.ending[1]
-        ang = math.degrees(math.atan2(delta[1], delta[0])) - 180
-        self.pts = pnt_rotate(ref, z_axis_positive, ang, self.pts)
-
-        '''Move to ends[1]'''
-        delta = self.ending[-1] - share(0.5, self.pts[0], self.pts[-1])
-        for i in range(self.pnt_num):
-            self.pts[i] += delta
-
-    @property
-    def front(self):
-        return self.ending[0]
-
-    @property
-    def tail(self):
-        return self.ending[-1]
-
-    @classmethod
-    def from_profile_param(cls, wpp):
-        """
-        Construct the profile from parameters in higher level.
-        :param wpp: Wing profile description object.
-        :type wpp: WingProfileParam
-        :return: Target profile.
-        :rtype: WingProfile
-        """
-
-        theta = math.radians(wpp.twist_ang)
-        pan_dir1 = np.array([-math.cos(theta), math.sin(theta), 0])
-        pan_dir2 = -pan_dir1
-        len1 = wpp.chord_len * wpp.twist_ref
-        len2 = wpp.chord_len - len1
-
-        ending = np.empty((2, 3), float)
-        ending[0] = pnt_pan(wpp.twist_center, pan_dir1 * len1)
-        ending[1] = pnt_pan(wpp.twist_center, pan_dir2 * len2)
-
-        return cls(wpp.airfoil, ending)
-
-
-class WingProfileParam(object):
-    def __init__(self, *args, **kwargs):
-        """
-        Intrinsic descriptions for profile in span-wise direction.
-        :param args: Elementary parameters.
-        :param kwargs: Optional parameters.
-        """
-
-        # Airfoil object
-        # Chord length, input in meters
-        # Angle of twist, input in degrees
-        # Spatial position of the center for twisting, also indicates the position of the profile
-        # Twist position along the chord
-
-        if len(args) == 1:
-            self.airfoil = args[0]
-            self.chord_len = 1.0
-            self.twist_ang = 0.0
-            self.twist_center = np.array([self.chord_len, 0, 0])
-            self.twist_ref = 1.0
-        elif len(args) == 2:
-            self.airfoil = args[0]
-            self.chord_len = args[1]
-            self.twist_ang = 0.0
-            self.twist_center = np.array([self.chord_len, 0, 0])
-            self.twist_ref = 1.0
-        elif len(args) == 3:
-            self.airfoil = args[0]
-            self.chord_len = args[1]
-            self.twist_ang = args[2]
-            self.twist_center = np.array([self.chord_len, 0, 0])
-            self.twist_ref = 1.0
-        elif len(args) == 4:
-            raise ValueError('incomplete twist info')
-        elif len(args) == 5:
-            self.airfoil = args[0]
-            self.chord_len = args[1]
-            self.twist_ang = args[2]
-            self.twist_center = args[3]
-            assert len(self.twist_center) == 3
-            self.twist_ref = args[4]
-            assert 0.0 <= self.twist_ref <= 1.0
-        else:
-            raise ValueError('invalid input')
-
-    def __repr__(self):
-        ret = 'A {:>6.3f}m-long wing-profile'.format(self.chord_len)
-        ret += ' based on {:>16},'.format(self.airfoil)
-        ret += ' with{:>6.2f} degrees of twist'.format(self.twist_ang)
-        ret += ' referring at the {:>5.1f}% of chord.'.format(self.twist_ref)
-        return ret
-
-    @classmethod
-    def from_geom_param(cls, *args, **kwargs):
-        """
-        Construct the profile from geometric descriptions.
-        :return: Target profile param representation.
-        :rtype: WingProfileParam
-        """
-
-        foil = args[0]  # Airfoil object
-        length = args[1]  # Chord length
-        z_offset = args[2]  # Offset in span-wise direction
-        swp_back = args[3]  # Angle of sweep-back
-        twist = args[4]  # Angle of twist
-        dihedral = args[5]  # Angle of dihedral
-
-        '''Referring coordinates'''
-        x_ref = kwargs['x_ref'] if 'x_ref' in kwargs else 0.0
-        y_ref = kwargs['y_ref'] if 'y_ref' in kwargs else 0.0
-        z_ref = kwargs['z_ref'] if 'z_ref' in kwargs else 0.0
-
-        '''Initial endings'''
-        front = np.array([x_ref + z_offset * math.tan(math.radians(swp_back)),
-                          y_ref + z_offset * math.tan(math.radians(dihedral)),
-                          z_ref + z_offset])
-        tail = pnt_pan(front, (length, 0, 0))
-
-        '''Center of twist'''
-        twist_ref = kwargs['twist_ref'] if 'twist_ref' in kwargs else 1.0
-        assert 0.0 <= twist_ref <= 1.0
-        twist_center = share(twist_ref, front, tail)
-
-        return cls(foil, length, twist, twist_center, twist_ref)
-
-
-class WingProfileList(object):
-    def __init__(self, *args):
+class ProfileList(object):
+    def __init__(self):
         """
         Construct several wing profiles in one pass.
-        :param args: Geom parameters.
         """
 
         self.pf = []
-
-        if len(args) == 6:
-            '''from intrinsic parameters'''
-            # check params
-            n = len(args[0])
-            for i in range(1, 6):
-                assert len(args[i]) == n
-            # separate params
-            airfoil, z, xf, yf, xt, yt = args
-            # construct wing profile
-            for k in range(n):
-                ending = np.array([[xf[k], yf[k], z[k]], [xt[k], yt[k], z[k]]])
-                wp = WingProfile(airfoil[k], ending)
-                self.pf.append(wp)
-        elif len(args) == 2:
-            '''from final parameters'''
-            assert len(args[0]) == len(args[1])
-            n = len(args[0])
-            airfoil, ending = args
-            for k in range(n):
-                self.pf.append(WingProfile(airfoil[k], ending[k]))
-        elif len(args) == 10:
-            '''from initial geometric parameters'''
-            # check params
-            n = len(args[0])
-            for i in range(1, 10):
-                assert len(args[i]) == n
-            # separate params
-            airfoil, length, z_off, sweep, twist, dihedral, twist_ref, x_ref, y_ref, z_ref = args
-            # construct wing profile
-            for k in range(n):
-                wpp = WingProfileParam.from_geom_param(airfoil[k], length[k], z_off[k], sweep[k], twist[k], dihedral[k], twist_ref=twist_ref[k], x_ref=x_ref[k], y_ref=y_ref[k], z_ref=z_ref[k])
-                wp = WingProfile.from_profile_param(wpp)
-                self.pf.append(wp)
-        elif len(args) == 5:
-            '''from planform'''
-            # check params
-            n = len(args[1])
-            for i in range(2, 5):
-                assert len(args[i]) == n
-            # separate params
-            planform, airfoil, twist_ang, twist_ref, rel_pos = args
-            # Construct the wing with given planform
-            for i in range(n):
-                cu = rel_pos[i]
-                cz = planform.z(cu)
-                leading = np.array([planform.x_front(cu), planform.y_front(cu), cz])
-                trailing = np.array([planform.x_tail(cu), planform.y_tail(cu), cz])
-                tst_ref = twist_ref[i]
-                tst_center = share(tst_ref, leading, trailing)
-                tst_ang = twist_ang[i]
-                cur_twist = math.radians(tst_ang)
-                actual_len = planform.chord_len(cu) / math.cos(cur_twist)
-                wpp = WingProfileParam(airfoil[i], actual_len, tst_ang, tst_center, tst_ref)
-                wp = WingProfile.from_profile_param(wpp)
-                self.pf.append(wp)
-        else:
-            raise ValueError('unknown input')
 
     @property
     def size(self):
         return len(self.pf)
 
     def add(self, p):
+        """
+        Append profile to the container.
+        :param p: Target profile.
+        :type p: Profile
+        :return: None.
+        """
+
         self.pf.append(p)
 
     def clear(self):
@@ -306,14 +194,76 @@ class WingProfileList(object):
         :param idx: Index of the element.
         :type idx: int
         :return: Profile at given index.
-        :rtype: WingProfile
+        :rtype: Profile
         """
 
         return self.pf[idx]
 
-    def crv_list_in_nurbs(self):
-        ret = []
-        for k, elem in enumerate(self.pf):
-            cur_crv = elem.crv
-            ret.append(cur_crv)
+    def generate_nurbs_crv_list(self):
+        return [elem.generate_nurbs_crv() for elem in self.pf]
+
+    @classmethod
+    def from_intrinsic_param(cls, airfoil, z, xf, yf, xt, yt):
+        assert len(airfoil) == len(z) == len(xf) == len(yf) == len(xt) == len(yt)
+        n = len(airfoil)
+        ret = cls()
+        for k in range(n):
+            leading = (xf[k], yf[k], z[k])
+            trailing = (xt[k], yt[k], z[k])
+            param = ProfileSpatialParam.from_2pnt(leading, trailing)
+            wp = Profile(airfoil[k], param)
+            ret.add(wp)
+        return ret
+
+    @classmethod
+    def from_final_param(cls, airfoil, ending):
+        assert len(airfoil) == len(ending)
+        n = len(airfoil)
+        ret = cls()
+        for k in range(n):
+            param = ProfileSpatialParam.from_2pnt(ending[0], ending[1])
+            wp = Profile(airfoil[k], param)
+            ret.add(wp)
+        return ret
+
+    @classmethod
+    def from_initial_geometric_param(cls, airfoil, length, z_off, sweep, twist, dihedral, twist_ref, x_ref, y_ref, z_ref):
+        assert len(airfoil) == len(length) == len(z_off) == len(sweep) == len(twist) == len(dihedral) == len(twist_ref) == len(x_ref) == len(y_ref) == len(z_ref)
+        n = len(airfoil)
+        ret = cls()
+        for k in range(n):
+            param = ProfileSpatialParam.from_spatial_desc(length[k], z_off[k], sweep[k], twist[k], dihedral[k], twist_ref[k], x_ref[k], y_ref[k], z_ref[k])
+            wp = Profile(airfoil[k], param)
+            ret.add(wp)
+        return ret
+
+    @classmethod
+    def from_planform(cls, planform, airfoil, twist_ang, twist_ref, rel_pos):
+        """
+        Build wing from planform description.
+        :param planform: Planform description.
+        :type planform: WingPlanform
+        :param airfoil: Airfoil on each profile.
+        :param twist_ang: Twist angle of each profile.
+        :param twist_ref: Relative twist position on each chord.
+        :param rel_pos: Span-wise position for each chord along the planform.
+        :return: Target profile list.
+        """
+
+        assert len(airfoil) == len(twist_ang) == len(twist_ref) == len(rel_pos)
+        n = len(airfoil)
+        ret = cls()
+        for i in range(n):
+            cu = rel_pos[i]
+            cz = planform.z(cu)
+            leading = np.array([planform.x_front(cu), planform.y_front(cu), cz])
+            trailing = np.array([planform.x_tail(cu), planform.y_tail(cu), cz])
+            tst_ref = twist_ref[i]
+            tst_center = share(tst_ref, leading, trailing)
+            tst_ang = twist_ang[i]
+            cur_twist = math.radians(tst_ang)
+            actual_len = planform.chord_len(cu) / math.cos(cur_twist)
+            param = ProfileSpatialParam(actual_len, tst_ang, tst_center, tst_ref)
+            wp = Profile(airfoil[i], param)
+            ret.add(wp)
         return ret
