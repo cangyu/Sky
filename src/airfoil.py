@@ -11,7 +11,7 @@ import collections
 from spacing import uniform, chebshev_dist
 from nurbs import Spline
 from nurbs import RuledSurf
-from settings import AIRFOIL_LIST, AIRFOIL_DIR
+from settings import AIRFOIL_LIST, AIRFOIL_DIR, XFOIL_PATH
 
 """
 Implementation of the Airfoil utilities.
@@ -309,7 +309,7 @@ class Airfoil(object):
     def is_blunt(self):
         return not math.isclose(norm(self.trailing_up - self.trailing_down), 0)
 
-    def save(self, fn=''):
+    def save(self, fn='', with_name=False):
         """
         Save all coordinates into file.
         :param fn: File name.
@@ -321,8 +321,11 @@ class Airfoil(object):
             fn = self.name + '.dat'
 
         f_out = open(fn, 'w')
+        if with_name:
+            f_out.write(self.name + '\n')
+
         for p in self.pts:
-            f_out.write('{:.8f}\t{:.8f}\n'.format(p[0], p[1]))
+            f_out.write('{:10.6f}\t{:10.6f}\n'.format(p[0], p[1]))
         f_out.close()
 
     def plot(self, ax):
@@ -393,26 +396,106 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
         raise AssertionError('invalid input')
 
 
+def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alfa_only=True):
+    """
+    Find the AoA of given airfoil under specific conditions.
+    :param foil: Target foil.
+    :type foil: Airfoil
+    :param reynolds: Reynolds Number.
+    :type reynolds: float
+    :param ma: Mach Number.
+    :type ma: float
+    :param cl: Target Lift Coefficient.
+    :type cl: float
+    :param iter_cnt: Num of iteration.
+    :type iter_cnt: int
+    :return: None.
+    """
+
+    foil_name = '_foil.dat'
+    foil.save(foil_name)
+    foil_path = os.path.join(os.getcwd(), foil_name)
+
+    polar_fn = '_polar.dat'
+    polar_path = os.path.join(os.getcwd(), polar_fn)
+
+    cmd_fn = '_command.in'
+    cmd_path = os.path.join(os.getcwd(), cmd_fn)
+    cmd_stream = open(cmd_path, 'w')
+
+    tmp_fn = '_tmp.out'
+    tmp_path = os.path.join(os.getcwd(), tmp_fn)
+
+    def issue_cmd(cmd):
+        cmd_stream.write(cmd + '\n')
+
+    '''Generate command file'''
+    issue_cmd('load ' + foil_path)
+    issue_cmd(foil.name)
+    issue_cmd('panel')
+    issue_cmd('oper')
+    issue_cmd('visc {}'.format(reynolds))
+    issue_cmd('M {}'.format(ma))
+    issue_cmd('type 1')
+    issue_cmd('pacc')
+    issue_cmd(polar_fn)
+    issue_cmd('')
+    issue_cmd('iter')
+    issue_cmd(str(iter_cnt))
+    issue_cmd('cl {}'.format(cl))
+    issue_cmd('')
+    issue_cmd('')
+    issue_cmd('quit')
+    cmd_stream.close()
+
+    '''Execute XFOIL commands'''
+    os.system(XFOIL_PATH + ' < ' + cmd_path + ' > ' + tmp_path)
+    os.remove(cmd_path)
+    os.remove(foil_path)
+    os.remove(tmp_path)
+
+    '''Extract results'''
+    polar_stream = open(polar_path)
+    lines = polar_stream.readlines()
+    polar_stream.close()
+    os.remove(polar_path)
+
+    '''Output'''
+    results = lines[-1].split()
+    alpha = float(results[0])
+    foil_cl = float(results[1])
+    foil_cd = float(results[2])
+    foil_cm = float(results[4])
+    foil_ld = foil_cl / foil_cd
+
+    if alfa_only:
+        return alpha
+    else:
+        return alpha, foil_cl, foil_cd, foil_cm, foil_ld
+
+
 if __name__ == '__main__':
     naca0012 = Airfoil.from_naca('0012', 201)
-    naca0012.save()
-    naca0012.show()
+    # naca0012.save()
+    # naca0012.show()
 
     naca1408 = Airfoil.from_naca('1408', 131)
-    naca1408.save()
-    naca1408.show()
+    # naca1408.save()
+    # naca1408.show()
 
     naca13015 = Airfoil.from_naca('13015', 201)
-    naca13015.save()
-    naca13015.show()
+    # naca13015.save()
+    # naca13015.show()
 
     naca23015 = Airfoil.from_naca('23015', 201)
-    naca23015.save()
-    naca23015.show()
+    # naca23015.save()
+    # naca23015.show()
 
     naca23118 = Airfoil.from_naca('23118', 201)
-    naca23118.save()
-    naca23118.show()
+    # naca23118.save()
+    # naca23118.show()
 
     sc0712 = Airfoil.from_local('SC(2)-0712')
-    sc0712.show()
+    # sc0712.show()
+    aoa = find_alpha(sc0712, 6e7, 0.8, 0.91)
+    print(aoa)
