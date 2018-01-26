@@ -2,8 +2,9 @@ from win32com import client
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from planform import HWBWingPlanform, WingProfileList, Wing
+from planform import HWBWingPlanform
 from load_dist import EllipticLiftDist
+from profile import ProfileList, calc_profile_cl
 from airfoil import Airfoil, airfoil_interp
 from spacing import uniform, chebshev_dist_multi
 from iges import IGES_Model
@@ -33,8 +34,7 @@ wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
                                 wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
                                 wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
 
-wing_u = np.array([0.0000, 0.0400, 0.0985, 0.1793, 0.2600,
-                   0.3850, 0.5100, 0.6200, 0.7400, 0.8500, 0.9300, 1.0000])
+wing_u = np.array([0, 0.04, 0.09, 0.18, 0.26, 0.38, 0.51, 0.62, 0.74, 0.85, 0.93, 1])
 wing_n = len(wing_u)
 wing_chord = np.array([wing_planform.chord_len(u) for u in wing_u])
 wing_z = wing_u * wing_spn2
@@ -46,18 +46,15 @@ a = 299.5
 ma = 0.75
 v = ma * a
 p_inf = 0.5 * rho * v ** 2
-s = wing_planform.area
 
-wing_lift_dist = EllipticLiftDist(payload, wing_spn2 * 2, rho, v)
-
-
-
+wing_lift_dist = EllipticLiftDist(payload, 2 * wing_spn2, rho, v)
 wing_swp_025 = np.array([wing_planform.swp_025(u) for u in wing_u])
 
-wing_cl2 = w / s / p_inf
-wing_cl3 = [1.1 * wing_cl2 / math.cos(math.radians(theta)) ** 2 for theta in wing_swp_025]
-# for cl in wing_cl3:
-#     print('{:.3f}'.format(cl))
+wing_cl2 = calc_profile_cl(wing_u, wing_lift_dist, wing_planform, p_inf)
+print(wing_cl2)
+
+wing_cl3 = np.array([1.1 * wing_cl2[i] / math.cos(math.radians(wing_swp_025[i])) ** 2 for i in range(wing_n)])
+print(wing_cl3)
 
 # wing_lift_fig = plt.figure()
 # wing_vc_ax = wing_lift_fig.add_subplot(111)
@@ -100,10 +97,10 @@ wing_twist_ang = np.array([1.685, 0.974, 0.339, -0.358, -0.430,
                            -0.498, -0.498, -0.498, -0.498, -0.498, -0.498, 0])
 wing_twist_ref = np.array([1.0] * wing_n)
 
-wpl = WingProfileList(wing_planform, wing_foil, wing_twist_ang, wing_twist_ref, wing_u)
+wpl = ProfileList.from_planform(wing_planform, wing_foil, wing_twist_ang, wing_twist_ref, wing_u)
 
 model = IGES_Model()
-pfl = wpl.crv_list_in_nurbs()
+pfl = wpl.generate_nurbs_crv_list()
 for c in pfl:
     model.add(c.to_iges())
 model.save('HWB.igs')
