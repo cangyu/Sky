@@ -3,7 +3,7 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 from planform import HWBWingPlanform
-from load_dist import EllipticLiftDist
+from load_dist import EllipticLiftDist, LinearLiftDist, UniformLiftDist
 from profile import ProfileList, calc_profile_cl
 from airfoil import Airfoil, airfoil_interp
 from spacing import uniform, chebshev_dist_multi
@@ -34,27 +34,27 @@ wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
                                 wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
                                 wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
 
-wing_u = np.array([0, 0.04, 0.09, 0.18, 0.26, 0.38, 0.51, 0.62, 0.74, 0.85, 0.93, 1])
+wing_u = uniform(51)
 wing_n = len(wing_u)
 wing_chord = np.array([wing_planform.chord_len(u) for u in wing_u])
 wing_z = wing_u * wing_spn2
 
-payload = 120
+payload = 135
 w = payload * 1000 * 9.8
 rho = 0.4135
 a = 299.5
-ma = 0.75
+ma = 0.8
 v = ma * a
 p_inf = 0.5 * rho * v ** 2
 
-wing_lift_dist = EllipticLiftDist(payload, 2 * wing_spn2, rho, v)
+wing_lift_dist = LinearLiftDist(payload, 2 * wing_spn2, rho, v)
 wing_swp_025 = np.array([wing_planform.swp_025(u) for u in wing_u])
 
-wing_cl2 = calc_profile_cl(wing_u, wing_lift_dist, wing_planform, p_inf)
-print(wing_cl2)
-
-wing_cl3 = np.array([1.1 * wing_cl2[i] / math.cos(math.radians(wing_swp_025[i])) ** 2 for i in range(wing_n)])
+wing_cl3 = calc_profile_cl(wing_u, wing_lift_dist, wing_planform, p_inf)
 print(wing_cl3)
+
+wing_cl2 = np.array([1.1 * wing_cl3[i] / math.cos(math.radians(wing_swp_025[i])) ** 2 for i in range(wing_n)])
+print(wing_cl2)
 
 # wing_lift_fig = plt.figure()
 # wing_vc_ax = wing_lift_fig.add_subplot(111)
