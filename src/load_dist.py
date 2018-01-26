@@ -13,6 +13,10 @@ def tons2newton(w):
     return w * 1000 * g
 
 
+def calc_global_cl(w, s, ma, rho, a):
+    return tons2newton(w) / (s * q_inf(rho, ma * a))
+
+
 class LiftDist(object, metaclass=ABCMeta):
     def __init__(self, w, spn, rho, v, root_lift):
         self.rho_inf = rho
@@ -107,3 +111,7 @@ class UniformLiftDist(LiftDist):
 
     def lift_at(self, u):
         return self.root_lift
+
+
+if __name__ == '__main__':
+    print(calc_global_cl(135, 220, 0.8, 0.4135, 299.5))
