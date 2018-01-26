@@ -20,6 +20,7 @@ class LiftDist(object, metaclass=ABCMeta):
         self.q_inf = q_inf(rho, v)
         self.m_inf = rho * v
         self.span = spn
+        self.span2 = spn / 2
         self.payload = tons2newton(w)
         self.root_lift = root_lift
 
@@ -41,7 +42,7 @@ class LiftDist(object, metaclass=ABCMeta):
         return self.lift_at(rel_pos) / (self.q_inf * b)
 
     def lift_between(self, rel_begin, rel_end):
-        return romberg(self.lift_at, rel_begin, rel_end)
+        return romberg(self.lift_at, rel_begin, rel_end) * self.span2
 
 
 class EllipticLiftDist(LiftDist):
