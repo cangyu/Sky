@@ -9,8 +9,7 @@ from matplotlib import pyplot as plt
 import re
 import collections
 from spacing import uniform, chebshev_dist
-from misc import pnt_dist
-from nurbs import GlobalInterpolatedCrv, Spline
+from nurbs import Spline
 from nurbs import RuledSurf
 from settings import AIRFOIL_LIST, AIRFOIL_DIR
 
@@ -291,52 +290,24 @@ class Airfoil(object):
     def size(self):
         return len(self.pts)
 
-    def to_nurbs_crv(self):
+    def generate_nurbs_crv(self):
         return Spline(np.array([[p[0], p[1], 0] for p in self.pts]))
 
     @property
-    def tail_up(self):
+    def trailing_up(self):
         return self.pts[0]
 
     @property
-    def tail_down(self):
+    def trailing_down(self):
         return self.pts[-1]
 
     @property
-    def tail(self):
-        return (self.tail_up + self.tail_down) / 2
-
-    @property
-    def front(self):
-        """
-        The most front point of the airfoil.
-        """
-
-        total = self.size
-        cx = self.pts[0][0]
-        k = 1
-        while k < total and self.pts[k][0] < cx:
-            cx = self.pts[k][0]
-            k += 1
-
-        return self.pts[k - 1]
-
-    @property
-    def chord_len(self):
-        return pnt_dist(self.front, self.tail)
-
-    @property
-    def thickness(self):
-        # TODO
-        return 0.12
-
-    @property
-    def max_height(self):
-        return self.thickness * self.chord_len
+    def trailing(self):
+        return (self.trailing_up + self.trailing_down) / 2
 
     @property
     def is_blunt(self):
-        return not math.isclose(norm(self.tail_up - self.tail_down), 0)
+        return not math.isclose(norm(self.trailing_up - self.trailing_down), 0)
 
     def save(self, fn=''):
         """
@@ -373,7 +344,7 @@ class Airfoil(object):
         :return: Curvature.
         """
 
-        crv = self.to_nurbs_crv()
+        crv = self.generate_nurbs_crv()
 
         if isinstance(rel_pos, collections.Iterable):
             return np.array([crv.curvature(u) for u in rel_pos])
@@ -382,7 +353,7 @@ class Airfoil(object):
 
     def refine(self, rel_pos):
         assert isinstance(rel_pos, collections.Iterable)
-        crv = self.to_nurbs_crv()
+        crv = self.generate_nurbs_crv()
         self.pts = crv.scatter(rel_pos)[:, :2]
 
 
@@ -398,8 +369,8 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
     :return: Intermediate airfoils.
     """
 
-    crv1 = left_foil.to_nurbs_crv()
-    crv2 = right_foil.to_nurbs_crv()
+    crv1 = left_foil.generate_nurbs_crv()
+    crv2 = right_foil.generate_nurbs_crv()
     crv2.pan((0, 0, 1))
     rsf = RuledSurf(crv1, crv2)
 
@@ -442,3 +413,6 @@ if __name__ == '__main__':
     naca23118 = Airfoil.from_naca('23118', 201)
     naca23118.save()
     naca23118.show()
+
+    sc0712 = Airfoil.from_local('SC(2)-0712')
+    sc0712.show()

@@ -294,8 +294,8 @@ class FluentMSHTestCase(unittest.TestCase):
         Span = z_offset[-1]
 
         sf = wg.surf()
-        C01 = Line(wg.section[0].tail_up, wg.section[0].tail_down)
-        C89 = Line(wg.section[-1].tail_up, wg.section[-1].tail_down)
+        C01 = Line(wg.section[0].trailing_up, wg.section[0].trailing_down)
+        C89 = Line(wg.section[-1].trailing_up, wg.section[-1].trailing_down)
         C08 = sf.extract('U', 0)
         C19 = sf.extract('U', 1)
 
