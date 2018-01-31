@@ -1169,8 +1169,9 @@ class Spline(Crv):
         :param bc: 在两端点处的边界条件，默认取自然边界条件
         """
 
-        sp = calc_pnt_param(np.copy(pts), method)
-        f = make_interp_spline(sp, np.copy(pts), k=p, bc_type=bc)
+        pts = np.copy(pts)
+        sp = calc_pnt_param(pts, method)
+        f = make_interp_spline(sp, pts, k=p, bc_type=bc)
         pw = np.ones((len(f.t) - p - 1, 4), float)
         for k, pnt in enumerate(f.c):
             for d in range(3):
