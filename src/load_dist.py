@@ -111,7 +111,3 @@ class UniformLiftDist(LiftDist):
 
     def lift_at(self, u):
         return self.root_lift
-
-
-if __name__ == '__main__':
-    print(calc_global_cl(135, 220, 0.8, 0.4135, 299.5))
