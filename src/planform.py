@@ -7,8 +7,9 @@ import numpy as np
 from scipy.integrate import romberg
 from scipy.misc import derivative
 from spacing import uniform
-from misc import pnt_pan, share
-from nurbs import LocalCubicInterpolatedCrv, point_inverse
+from misc import pnt_pan, share, normalize
+from nurbs import LocalCubicInterpolatedCrv, point_inverse, Spline
+from settings import z_axis_positive
 
 
 class WingPlanform(metaclass=ABCMeta):
@@ -115,6 +116,10 @@ class WingPlanform(metaclass=ABCMeta):
         return 2 * (self.z(1) - self.z(0))
 
     @property
+    def half_span(self):
+        return 0.5 * self.span
+
+    @property
     def root_chord_len(self):
         return self.chord_len(0)
 
@@ -122,9 +127,8 @@ class WingPlanform(metaclass=ABCMeta):
     def tip_chord_len(self):
         return self.chord_len(1)
 
-    @abstractmethod
     def __repr__(self):
-        pass
+        return 'Wing Planform'
 
     def pic(self, *args, **kwargs):
         ax = args[0]
@@ -165,7 +169,7 @@ class WingPlanform(metaclass=ABCMeta):
         ax.legend()
 
 
-class HWBWingPlanform(WingPlanform):
+class HWBInnerStraightPlanform(WingPlanform):
     def __init__(self, *args, **kwargs):
         """
         Wing Planform for aircraft under Hybrid-Wing-Body configuration.
@@ -248,5 +252,99 @@ class HWBWingPlanform(WingPlanform):
     def y_tail(self, u):
         return 0
 
-    def __repr__(self):
-        return 'Hybrid-Wing-Body Outer Wing Planform'
+
+class HWBNoseBluntPlanform(WingPlanform):
+    def __init__(self, *args, **kwargs):
+        root_chord, mid_chord, tip_chord, p1, p2, p3, p4, p5, p6, p7, p8, p9 = args
+        tension = np.ones(9) if 'tension' not in kwargs else kwargs['tension']
+        assert len(tension) == 9
+
+        self.p = np.zeros((13, 3))
+        self.t = np.zeros((9, 3))
+
+        if 'ref' in kwargs:
+            tmp = kwargs['ref']
+            for i in range(3):
+                self.p[0][i] = tmp[i]
+        for i in range(1, 13):
+            self.p[i][1] = self.p[0][1]
+
+        def assign_helper(dst, src):
+            dst[0] = src[0]
+            dst[2] = src[1]
+
+        assign_helper(self.p[1], p1)
+        assign_helper(self.p[2], p2)
+        assign_helper(self.p[3], p3)
+        assign_helper(self.p[4], p4)
+        assign_helper(self.p[5], p5)
+        assign_helper(self.p[6], p6)
+        assign_helper(self.p[7], p7)
+        self.p[8] = pnt_pan(self.p[0], (root_chord, 0, 0))
+        assign_helper(self.p[9], p8)
+        self.p[10] = pnt_pan(self.p[6], (mid_chord, 0, 0))
+        assign_helper(self.p[11], p9)
+        self.p[12] = pnt_pan(self.p[7], (tip_chord, 0, 0))
+
+        self.t[0] = z_axis_positive
+        self.t[2] = self.t[1] = normalize(self.p[3] - self.p[2])
+        self.t[4] = self.t[3] = normalize(self.p[7] - self.p[6])
+        self.t[6] = self.t[5] = normalize(self.p[9] - self.p[8])
+        self.t[8] = self.t[7] = normalize(self.p[12] - self.p[11])
+
+        for i in range(9):
+            self.t[i] *= tension[i]
+
+        self.seg1 = Spline(self.p[:3], p=3, bc=([(1, self.t[0])], [(1, self.t[1])]))
+        self.seg2 = Spline(self.p[3:7], p=3, bc=([(1, self.t[2])], [(1, self.t[3])]))
+        self.seg3 = Spline(self.p[9:12], p=3, bc=([(1, self.t[6])], [(1, self.t[7])]))
+
+    @property
+    def span(self):
+        return 2 * (self.p[7][2] - self.p[0][2])
+
+    def z(self, u):
+        return u * self.half_span
+
+    def x_front(self, u):
+        z = self.z(u)
+
+        if z < self.p[0][2]:
+            raise ValueError('out of boundary')
+        elif z < self.p[2][2]:
+            lu = point_inverse(self.seg1, z, 2)
+            return self.seg1(lu)[0]
+        elif z < self.p[3][2]:
+            ratio = (z - self.p[2][2]) / (self.p[3][2] - self.p[2][2])
+            return share(ratio, self.p[2][0], self.p[3][0])
+        elif z < self.p[6][2]:
+            lu = point_inverse(self.seg2, z, 2)
+            return self.seg2(lu)[0]
+        elif z <= self.p[7][2]:
+            ratio = (z - self.p[6][2]) / (self.p[7][2] - self.p[6][2])
+            return share(ratio, self.p[6][0], self.p[7][0])
+        else:
+            raise ValueError('out of boundary')
+
+    def x_tail(self, u):
+        z = self.z(u)
+
+        if z < self.p[8][2]:
+            raise ValueError('out of boundary')
+        elif z < self.p[9][2]:
+            ratio = (z - self.p[8][2]) / (self.p[9][2] - self.p[8][2])
+            return share(ratio, self.p[8][0], self.p[9][0])
+        elif z < self.p[11][2]:
+            lu = point_inverse(self.seg3, z, 3)
+            return self.seg3(lu)[0]
+        elif z <= self.p[12][2]:
+            ratio = (z - self.p[11][2]) / (self.p[12][2] - self.p[11][2])
+            return share(ratio, self.p[11][0], self.p[12][0])
+        else:
+            raise ValueError('out of boundary')
+
+    def y_front(self, u):
+        return self.p[0][1]
+
+    def y_tail(self, u):
+        return self.p[0][1]
