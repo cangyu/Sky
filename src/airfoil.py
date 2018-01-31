@@ -396,7 +396,7 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
         raise AssertionError('invalid input')
 
 
-def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alfa_only=True):
+def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alpha_only=True):
     """
     Find the AoA of given airfoil under specific conditions.
     :param foil: Target foil.
@@ -409,7 +409,9 @@ def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alfa_only=True):
     :type cl: float
     :param iter_cnt: Num of iteration.
     :type iter_cnt: int
-    :return: None.
+    :param alpha_only: Indicate if only the target AoA is returned.
+    :type alpha_only: bool
+    :return: Target alpha or more detailed info.
     """
 
     foil_name = '_foil.dat'
@@ -468,7 +470,7 @@ def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alfa_only=True):
     foil_cm = float(results[4])
     foil_ld = foil_cl / foil_cd
 
-    if alfa_only:
+    if alpha_only:
         return alpha
     else:
         return alpha, foil_cl, foil_cd, foil_cm, foil_ld
