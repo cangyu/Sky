@@ -3,32 +3,31 @@
 
 import math
 import numpy as np
-from misc import share
+from matplotlib import pyplot as plt
 from settings import z_axis_negative
 from load_dist import LiftDist
 from planform import WingPlanform
 from airfoil import Airfoil
 from rotation import pnt_rotate
-from misc import pnt_pan, pnt_dist
+from misc import pnt_pan, pnt_dist, share
 from nurbs import Spline
 
 
-def calc_profile_cl(rel_pos, lift_dist, wing_planform, q_inf):
+def calc_profile_cl(rel_pos, lift_dist, wing_planform):
     """
     Approximate calculation of lift coefficient in a finite area.
-    :param rel_pos: Relative position list.
-    :param lift_dist: Lift distribution. It is assumed to be sorted in ascending order.
+    :param rel_pos: Relative position list. It is assumed to be sorted in ascending order.
+    :param lift_dist: Lift distribution.
     :type lift_dist: LiftDist
     :param wing_planform: Planform of the wing, which provides the b(z).
     :type wing_planform: WingPlanform
-    :param q_inf: Dynamic pressure of the free-stream.
-    :type q_inf: float
     :return: Approximate Cl.
     """
 
     n = len(rel_pos)
     lift = np.zeros(n)
     area = np.zeros(n)
+    q_inf = lift_dist.q_inf
 
     pos = [rel_pos[0]]
     for i in range(1, n):
@@ -41,6 +40,25 @@ def calc_profile_cl(rel_pos, lift_dist, wing_planform, q_inf):
         area[i] = wing_planform.area_between(pos[i], pos[i + 1])
 
     return np.array([lift[i] / (q_inf * area[i]) for i in range(n)])
+
+
+def pic_profile_gamma_cl(vc_ax, cl_ax, lift_dist: LiftDist, planform: WingPlanform, n=1000, factor=1.1):
+    x_sp = np.linspace(0, planform.half_span, n)
+    u_sp = np.linspace(0, 1, n)
+
+    vc = [lift_dist.gamma_at(u) for u in u_sp]
+    cl3 = calc_profile_cl(u_sp, lift_dist, planform)
+    swp25 = np.array([planform.swp_025(u) for u in u_sp])
+    cl2 = np.array([factor * cl3[i] / math.cos(math.radians(swp25[i])) ** 2 for i in range(n)])
+
+    vc_ax.plot(x_sp, vc, 'r')
+    vc_ax.set_xlabel('Span-wise position')
+    vc_ax.set_ylabel('Velocity Circulation/({})'.format(r'$m^2 \cdot s^{-1}$'))
+
+    cl_ax.plot(x_sp, cl3, label='Cl in 3D')
+    cl_ax.plot(x_sp, cl2, label='Cl in 2D')
+    cl_ax.set_ylabel('Lift coefficient')
+    cl_ax.legend()
 
 
 class ProfileSpatialParam(object):
