@@ -2,7 +2,7 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 from planform import HWBNoseBluntPlanform
-from load_dist import EllipticLiftDist, LinearLiftDist, UniformLiftDist, calc_global_cl
+from load_dist import EllipticLiftDist, LinearLiftDist, UniformLiftDist, calc_global_cl, HybridLiftDist, AreaAveragedLiftDist
 from profile import ProfileList, calc_profile_cl, pic_profile_gamma_cl
 from airfoil import Airfoil, airfoil_interp, find_alpha
 from spacing import uniform, chebshev_dist_multi
@@ -36,7 +36,13 @@ area = planform.area
 cl_design = calc_global_cl(payload, area, ma, rho, a)
 print('Design Lift Coefficient: {:.3f}'.format(cl_design))
 
-lift_dist = LinearLiftDist(payload, planform.span, rho, v)
+simple_dist = AreaAveragedLiftDist(payload, rho, v, planform)
+linear_dist = LinearLiftDist(payload, planform.span, rho, v)
+elliptic_dist = EllipticLiftDist(payload, planform.span, rho, v)
+lift_dist = HybridLiftDist(payload, planform.span, rho, v)
+lift_dist.add(linear_dist, 0.3)
+lift_dist.add(elliptic_dist, 0.1)
+lift_dist.add(simple_dist, 0.6)
 swp_025 = np.array([planform.swp_025(rel_pos) for rel_pos in u])
 cl3 = calc_profile_cl(u, lift_dist, planform)
 cl2 = np.array([1.1 * cl3[i] / math.cos(math.radians(swp_025[i])) ** 2 for i in range(n)])
@@ -51,8 +57,8 @@ cl2 = np.array([1.1 * cl3[i] / math.cos(math.radians(swp_025[i])) ** 2 for i in 
 # fig.set_size_inches(10.5, 20.5)
 # fig.savefig('HWB_load_and_planform.png', dpi=300)
 
-naca64a218 = Airfoil.from_local('NACA64(3)-218A')
-naca63a615 = Airfoil.from_local('NACA63(2)-615A')
+naca64a218 = Airfoil.from_local('NACA63A218')
+naca63a615 = Airfoil.from_local('NACA63A615')
 sc0714 = Airfoil.from_local('SC(2)-0714')
 sc0712 = Airfoil.from_local('SC(2)-0712')
 sc0012 = Airfoil.from_local('SC(2)-0012')

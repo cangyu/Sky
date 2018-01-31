@@ -1,6 +1,7 @@
 import math
 from scipy.integrate import romberg
 from abc import abstractmethod, ABCMeta
+from planform import WingPlanform
 
 g = 9.80665
 
@@ -111,3 +112,35 @@ class UniformLiftDist(LiftDist):
 
     def lift_at(self, u):
         return self.root_lift
+
+
+class AreaAveragedLiftDist(LiftDist):
+    def __init__(self, w, rho, v, planform: WingPlanform):
+        self.planform = planform
+        self.area = self.planform.area
+        self.averaged_cl = tons2newton(w) / (self.area * q_inf(rho, v))
+        rl = self.averaged_cl * q_inf(rho, v) * planform.root_chord_len
+        super(AreaAveragedLiftDist, self).__init__(w, planform.span, rho, v, rl)
+
+    def lift_at(self, u):
+        return self.averaged_cl * self.q_inf * self.planform.chord_len(u)
+
+
+class HybridLiftDist(LiftDist):
+    def __init__(self, w, spn, rho, v):
+        super(HybridLiftDist, self).__init__(w, spn, rho, v, 0)
+        self.portion = []
+        self.dist = []
+        self.share = 0
+
+    def add(self, dist, portion):
+        self.dist.append(dist)
+        self.portion.append(portion)
+        self.share += portion
+
+    @property
+    def size(self):
+        return len(self.dist)
+
+    def lift_at(self, u):
+        return sum([self.portion[i] * self.dist[i].lift_at(u) for i in range(self.size)]) / self.share
