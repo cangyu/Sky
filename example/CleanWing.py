@@ -2,7 +2,7 @@ from win32com import client
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from planform import HWBWingPlanform
+from planform import HWBInnerStraightPlanform
 from load_dist import EllipticLiftDist, LinearLiftDist, UniformLiftDist
 from profile import ProfileList, calc_profile_cl
 from airfoil import Airfoil, airfoil_interp
@@ -21,7 +21,7 @@ from iges import IGES_Model
 # model_sf = model_part.HybridShapeFactory
 
 
-wing_spn2 = 18.7
+wing_spn2 = 21
 wing_root_len = 18.4
 wing_tip_len = 1.8
 wing_leading_inner_delta = (1.0, 1.55)
@@ -30,11 +30,11 @@ wing_leading_outer_sweep = 28
 wing_trailing_inner_delta = (0.7, -2.3)
 wing_trailing_outer_spn = 13.5
 wing_trailing_outer_sweep = 12
-wing_planform = HWBWingPlanform(wing_root_len, wing_tip_len, wing_spn2,
-                                wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
-                                wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
+wing_planform = HWBInnerStraightPlanform(wing_root_len, wing_tip_len, wing_spn2,
+                                         wing_leading_inner_delta, wing_leading_middle_delta, wing_leading_outer_sweep,
+                                         wing_trailing_inner_delta, wing_trailing_outer_spn, wing_trailing_outer_sweep)
 
-wing_u = uniform(51)
+wing_u = np.array([0, 0.04, 0.09, 0.18, 0.26, 0.38, 0.51, 0.62, 0.74, 0.85, 0.93, 1])
 wing_n = len(wing_u)
 wing_chord = np.array([wing_planform.chord_len(u) for u in wing_u])
 wing_z = wing_u * wing_spn2
@@ -73,28 +73,20 @@ print(wing_cl2)
 # wing_lift_fig.tight_layout()
 # wing_lift_fig.savefig('clean_wing_lift_dist.png', dpi=300)
 
-root_airfoil = Airfoil('NACA64(3)-218A')
-inner_airfoil = Airfoil('NACA63(2)-615A')
+naca64a218 = Airfoil.from_local('NACA64(3)-218A')
+naca63a615 = Airfoil.from_local('NACA63(2)-615A')
+sc0714 = Airfoil.from_local('SC(2)-0714')
+sc0712 = Airfoil.from_local('SC(2)-0712')
+sc0012 = Airfoil.from_local('SC(2)-0012')
+
 nsp = chebshev_dist_multi((0, 0.5, 1), (101, 101))
-interp1, interp2 = airfoil_interp(root_airfoil, inner_airfoil, [1 / 3, 2 / 3], np.array([nsp, nsp]))
-interp1.save('interp1.dat')
-interp2.save('interp2.dat')
+interp1, interp2 = airfoil_interp(naca64a218, naca63a615, [1 / 3, 2 / 3], np.array([nsp, nsp]))
+# interp1.save('interp1.dat')
+# interp2.save('interp2.dat')
 
-wing_foil = [root_airfoil,
-             interp1,
-             interp2,
-             inner_airfoil,
-             Airfoil('SC(2)-0714'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0712'),
-             Airfoil('SC(2)-0012')]
 
-wing_twist_ang = np.array([1.685, 0.974, 0.339, -0.358, -0.430,
-                           -0.498, -0.498, -0.498, -0.498, -0.498, -0.498, 0])
+wing_foil = [naca64a218, interp1, interp2, naca63a615, sc0714, sc0712, sc0712, sc0712, sc0712, sc0712, sc0712, sc0012]
+wing_twist_ang = np.array([1.685, 0.974, 0.339, -0.358, -0.430, -0.498, -0.498, -0.498, -0.498, -0.498, -0.498, 0])
 wing_twist_ref = np.array([1.0] * wing_n)
 
 wpl = ProfileList.from_planform(wing_planform, wing_foil, wing_twist_ang, wing_twist_ref, wing_u)
@@ -105,8 +97,8 @@ for c in pfl:
     model.add(c.to_iges())
 model.save('HWB.igs')
 
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# wing_planform.pic(ax, u=wing_u)
-# fig.tight_layout()
-# fig.savefig('clean_wing.png', dpi=300)
+fig = plt.figure()
+ax = fig.add_subplot(111)
+wing_planform.pic(ax, u=wing_u)
+fig.tight_layout()
+fig.savefig('clean_wing.png', dpi=300)
