@@ -77,15 +77,20 @@ class WingPlanform(metaclass=ABCMeta):
         return share(0.25, self.x_front(u), self.x_tail(u))
 
     def swp_025(self, u, delta=1e-3):
-        tangent = derivative(self.x_025, u, dx=delta)
-        return math.degrees(math.atan2(tangent, self.span / 2))
+        if math.isclose(u, 0):
+            tangent = (self.x_025(delta) - self.x_025(0)) / delta
+        elif math.isclose(u, 1):
+            tangent = (self.x_025(1) - self.x_025(1 - delta)) / delta
+        else:
+            tangent = derivative(self.x_025, u, dx=delta)  # central scheme is applied
+
+        return math.degrees(math.atan2(tangent, self.half_span))
 
     def chord_len(self, u):
         return self.x_tail(u) - self.x_front(u)
 
     def area_between(self, u_begin, u_end):
-        spn2 = self.span / 2
-        return romberg(self.chord_len, u_begin, u_end) * spn2
+        return romberg(self.chord_len, u_begin, u_end) * self.half_span
 
     @property
     def area(self):
@@ -255,8 +260,11 @@ class HWBInnerStraightPlanform(WingPlanform):
 
 class HWBNoseBluntPlanform(WingPlanform):
     def __init__(self, *args, **kwargs):
-        root_chord, mid_chord, tip_chord, p1, p2, p3, p4, p5, p6, p7, p8, p9 = args
-        tension = np.ones(9) if 'tension' not in kwargs else kwargs['tension']
+        chord, cpt = args
+        root_chord, mid_chord, tip_chord = chord
+        p1, p2, p3, p4, p5, p6, p7, p8, p9 = cpt
+
+        tension = np.ones(9) if 'tension' not in kwargs else np.copy(kwargs['tension'])
         assert len(tension) == 9
 
         self.p = np.zeros((13, 3))
@@ -335,7 +343,7 @@ class HWBNoseBluntPlanform(WingPlanform):
             ratio = (z - self.p[8][2]) / (self.p[9][2] - self.p[8][2])
             return share(ratio, self.p[8][0], self.p[9][0])
         elif z < self.p[11][2]:
-            lu = point_inverse(self.seg3, z, 3)
+            lu = point_inverse(self.seg3, z, 2)
             return self.seg3(lu)[0]
         elif z <= self.p[12][2]:
             ratio = (z - self.p[11][2]) / (self.p[12][2] - self.p[11][2])
