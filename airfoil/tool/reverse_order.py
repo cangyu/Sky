@@ -23,10 +23,10 @@ if __name__ == '__main__':
     f = open(fn, 'w')
     i = len(crd[0]) - 1
     while i >= 0:
-        f.write("{:10.6f}\t{:10.6f}\t{:10.6f}\n".format(crd[0][i][0], crd[0][i][1], 0.))
+        f.write("{:10.6f}\t{:10.6f}\n".format(crd[0][i][0], crd[0][i][1]))
         i -= 1
 
     for i in range(1, len(crd[1])):
-        f.write("{:10.6f}\t{:10.6f}\t{:10.6f}\n".format(crd[1][i][0], crd[1][i][1], 0.))
+        f.write("{:10.6f}\t{:10.6f}\n".format(crd[1][i][0], crd[1][i][1]))
         
     f.close()
