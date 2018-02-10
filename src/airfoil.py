@@ -497,7 +497,17 @@ if __name__ == '__main__':
     # naca23118.save()
     # naca23118.show()
 
+    naca63a218 = Airfoil.from_local('NACA63A218')
+    naca63a218.show()
+    aoa = find_alpha(naca63a218, 6e7, 0.8, 0.2)
+    print(aoa)
+
+    naca63a615 = Airfoil.from_local('NACA63A615')
+    naca63a615.show()
+    aoa = find_alpha(naca63a615, 6e7, 0.8, 0.6)
+    print(aoa)
+
     sc0712 = Airfoil.from_local('SC(2)-0712')
-    # sc0712.show()
-    aoa = find_alpha(sc0712, 6e7, 0.8, 0.91)
+    sc0712.show()
+    aoa = find_alpha(sc0712, 6e7, 0.8, 0.7)
     print(aoa)
