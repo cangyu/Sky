@@ -137,7 +137,7 @@ class WingPlanform(metaclass=ABCMeta):
 
     def pic(self, *args, **kwargs):
         ax = args[0]
-        n = args[1] if len(args) == 2 else 100
+        n = args[1] if len(args) == 2 else 500
 
         u = uniform(n)
         spn2 = self.span / 2

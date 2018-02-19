@@ -12,7 +12,9 @@ spn2 = 21.0
 root_chord = 19.2
 middle_chord = 4.50
 tip_chord = 1.9
-leading_cpt = [(1.2, 1.9), (2.9, 3.4), (5.9, 5.4), (8.0, 6.95), (9.3, 8.15), (10.2, 9.6), (17.4, spn2)]
+leading_cpt = [(1.2, 1.9), (2.9, 3.4),
+               (5.9, 5.4), (8.0, 6.95),
+               (9.3, 8.15), (10.2, 9.6), (17.4, spn2)]
 trailing_cpt = [(15.15, 8.25), (15.1, 10.85)]
 
 _chord = [root_chord, middle_chord, tip_chord]
@@ -24,7 +26,7 @@ _num = [4, 3, 4, 5, 7]
 # u = chebshev_dist_multi(_seg, _num)
 u = np.array([0, 0.04, 0.09, 0.18, 0.26, 0.38, 0.51, 0.62, 0.74, 0.85, 0.93, 1])
 n = len(u)
-z = np.array([rel_pos * spn2 for rel_pos in u])
+z = np.array([_r * spn2 for _r in u])
 
 payload = 180
 rho = 0.4135
@@ -34,7 +36,7 @@ v = ma * a
 re = 6e7
 area = planform.area
 cl_design = calc_global_cl(payload, area, ma, rho, a)
-print('Design Lift Coefficient: {:.3f}'.format(cl_design))
+print('Design Lift Coefficient: {:.2f}'.format(cl_design))
 
 simple_dist = AreaAveragedLiftDist(payload, rho, v, planform)
 linear_dist = LinearLiftDist(payload, planform.span, rho, v)
@@ -42,20 +44,20 @@ elliptic_dist = EllipticLiftDist(payload, planform.span, rho, v)
 lift_dist = HybridLiftDist(payload, planform.span, rho, v)
 lift_dist.add(linear_dist, 0.3)
 lift_dist.add(elliptic_dist, 0.1)
-lift_dist.add(simple_dist, 0.6)
+# lift_dist.add(simple_dist, 0.6)
 swp_025 = np.array([planform.swp_025(rel_pos) for rel_pos in u])
 cl3 = calc_profile_cl(u, lift_dist, planform)
 cl2 = np.array([1.1 * cl3[i] / math.cos(math.radians(swp_025[i])) ** 2 for i in range(n)])
 
-# fig = plt.figure()
-# vc_ax = fig.add_subplot(212)
-# cl_ax = vc_ax.twinx()
-# planform_ax = fig.add_subplot(211, sharex=vc_ax)
-# pic_profile_gamma_cl(vc_ax, cl_ax, lift_dist, planform)
-# planform.pic(planform_ax, u=u)
-# fig.tight_layout()
-# fig.set_size_inches(10.5, 20.5)
-# fig.savefig('HWB_load_and_planform.png', dpi=300)
+fig = plt.figure()
+vc_ax = fig.add_subplot(212)
+cl_ax = vc_ax.twinx()
+planform_ax = fig.add_subplot(211, sharex=vc_ax)
+pic_profile_gamma_cl(vc_ax, cl_ax, lift_dist, planform)
+planform.pic(planform_ax, u=u)
+fig.tight_layout()
+fig.set_size_inches(10.5, 20.5)
+fig.savefig('HWB_load_and_planform.png', dpi=300)
 
 naca64a218 = Airfoil.from_local('NACA63A218')
 naca63a615 = Airfoil.from_local('NACA63A615')
