@@ -13,16 +13,6 @@ from nurbs import Spline
 from nurbs import RuledSurf
 from settings import AIRFOIL_LIST, AIRFOIL_DIR, XFOIL_PATH
 
-"""
-Implementation of the Airfoil utilities.
-
-Ref:
-[1] https://github.com/dgorissen/naca
-[2] https://github.com/adeharo9/NACA-airfoil-generator
-[3] http://airfoiltools.com/airfoil/naca4digit
-[4] http://airfoiltools.com/airfoil/naca5digit
-"""
-
 
 class AirfoilNotAvailable(Exception):
     pass
@@ -135,10 +125,13 @@ def naca5(cl, p, q, t, n, trailing_blunt=True, half_cosine_spacing=True):
 
     if not q:
         r = 3.33333333333212 * pow(p, 3) + 0.700000000000909 * pow(p, 2) + 1.19666666666638 * p - 0.00399999999996247
-        k1 = 1514933.33335235 * pow(p, 4) - 1087744.00001147 * pow(p, 3) + 286455.266669048 * pow(p, 2) - 32968.4700001967 * p + 1420.18500000524
+        k1 = 1514933.33335235 * pow(p, 4) - 1087744.00001147 * pow(p, 3) + 286455.266669048 * pow(p,
+                                                                                                  2) - 32968.4700001967 * p + 1420.18500000524
 
         def yc(x):
-            ret = k1 / 6 * (pow(x, 3) - 3 * r * pow(x, 2) + pow(r, 2) * (3 - r) * x) if x < r else k1 / 6 * pow(r, 3) * (1 - x)
+            ret = k1 / 6 * (pow(x, 3) - 3 * r * pow(x, 2) + pow(r, 2) * (3 - r) * x) if x < r else k1 / 6 * pow(r,
+                                                                                                                3) * (
+                                                                                                       1 - x)
             return (cl / 0.3) * ret
 
         def dyc(x):
@@ -150,11 +143,14 @@ def naca5(cl, p, q, t, n, trailing_blunt=True, half_cosine_spacing=True):
         k21 = 85.5279999999984 * pow(p, 3) - 34.9828000000004 * pow(p, 2) + 4.80324000000028 * p - 0.21526000000003
 
         def yc(x):
-            ret = k1 / 6 * (pow(x - r, 3) - k21 * pow(1 - r, 3) * x - pow(r, 3) * x + pow(r, 3)) if x < r else k1 / 6 * (k21 * pow(x - r, 3) - k21 * pow(1 - r, 3) * x + pow(r, 3) * (1 - x))
+            ret = k1 / 6 * (
+                pow(x - r, 3) - k21 * pow(1 - r, 3) * x - pow(r, 3) * x + pow(r, 3)) if x < r else k1 / 6 * (
+                k21 * pow(x - r, 3) - k21 * pow(1 - r, 3) * x + pow(r, 3) * (1 - x))
             return (cl / 0.3) * ret
 
         def dyc(x):
-            ret = k1 / 6 * (3 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3)) if x < r else k1 / 6 * (3 * k21 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3))
+            ret = k1 / 6 * (3 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3)) if x < r else k1 / 6 * (
+                3 * k21 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3))
             return (cl / 0.3) * ret
 
     a0 = +0.2969
@@ -470,10 +466,7 @@ def find_alpha(foil, reynolds, ma, cl, iter_cnt=5000, alpha_only=True):
     foil_cm = float(results[4])
     foil_ld = foil_cl / foil_cd
 
-    if alpha_only:
-        return alpha
-    else:
-        return alpha, foil_cl, foil_cd, foil_cm, foil_ld
+    return alpha if alpha_only else (alpha, foil_cl, foil_cd, foil_cm, foil_ld)
 
 
 if __name__ == '__main__':
