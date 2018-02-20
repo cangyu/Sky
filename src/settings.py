@@ -5,7 +5,7 @@ import numpy as np
 SRC_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_DIR = os.path.join(SRC_DIR, '..')
 AIRFOIL_DIR = os.path.join(PROJECT_DIR, 'airfoil', 'database')
-XFOIL_PATH = os.path.join(PROJECT_DIR, 'airfoil', 'tool', 'XFOIL6.99', 'xfoil')
+XFOIL_PATH = os.path.join(PROJECT_DIR, '3rd_party', 'XFOIL6.99', 'xfoil')
 
 '''Local Airfoils'''
 AIRFOIL_LIST = []
