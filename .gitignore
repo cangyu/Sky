@@ -12,3 +12,4 @@ __pycache__
 tmp/
 .vs/
 example/*.dat
+3rd_party/naca456/biN
