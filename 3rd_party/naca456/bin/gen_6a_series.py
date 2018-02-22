@@ -49,13 +49,13 @@ class NML(object):
         f.close()
 
 
-def gen_foil(x):
-    nml_path = x.name + '.nml'
-    x.save(nml_path)
+def gen_foil(desc):
+    nml_path = desc.name + '.nml'
+    desc.save(nml_path)
     p = subprocess.Popen('python3 gen.py ' + nml_path, shell=True)
     p.wait()
     os.remove(nml_path)
-    print(x.name + ' done!')
+    print(desc.name + ' done!')
 
 
 if __name__ == '__main__':
