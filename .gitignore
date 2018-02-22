@@ -12,4 +12,6 @@ __pycache__
 tmp/
 .vs/
 example/*.dat
-3rd_party/naca456/biN
+3rd_party/naca456/bin/*.nml
+3rd_party/naca456/bin/*.out
+3rd_party/naca456/bin/*.dat
