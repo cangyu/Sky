@@ -15,3 +15,4 @@ example/*.dat
 3rd_party/naca456/bin/*.nml
 3rd_party/naca456/bin/*.out
 3rd_party/naca456/bin/*.dat
+3rd_party/Construct2D/bin/construct2d
