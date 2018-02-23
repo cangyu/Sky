@@ -375,7 +375,7 @@ def airfoil_interp(left_foil, right_foil, intermediate_pos, sample_pos):
 
     if type(intermediate_pos) in (float, int):
         crv = rsf.extract('v', intermediate_pos)
-        assert np.greater_equal(sample_pos, 0) and np.less_equal(sample_pos, 1)
+        assert np.greater_equal(sample_pos, 0).all() and np.less_equal(sample_pos, 1).all()
         pts = crv.scatter(sample_pos)
         return Airfoil(pts)
     elif type(intermediate_pos) in (np.ndarray, list):
