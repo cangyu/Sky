@@ -22,11 +22,9 @@ _chord = [root_chord, tip_chord]
 _cpt = leading_cpt + trailing_cpt
 planform = HWBCommonPlanform(_chord, _cpt)
 
-pos = [0, 1.91, 3.81, 5.92, 8.03,
-       10.48, 14.52, 18.24, 22.86, 26.05,
-       29.85, 33.10, 36.91, 40.72, 44.56,
-       48.33, 54.79, 61.25, 67.71, 74.17,
-       80.62, 87.08, 90.31, 93.54, 97.25, 100]
+pos = [0, 1.91, 3.81, 5.92, 8.03, 10.48, 12.5, 14.52, 16.38, 18.24, 20.55,
+       22.86, 24.46, 26.05, 27.95, 29.85, 31.48, 33.10, 35.01, 36.91, 38.82, 40.72, 42.64,
+       44.56, 48.33, 54.79, 61.25, 67.71, 74.17, 80.62, 87.08, 90.31, 93.54, 97.25, 100]
 u = np.array([0.01 * x for x in pos])
 n = len(u)
 z = np.array([x * spn2 for x in u])
@@ -61,22 +59,22 @@ fsp = chebshev_dist_multi([0, 0.5, 1], [100, 100])
 
 naca64a221 = Airfoil.from_local('NACA64A221')
 naca64a420 = Airfoil.from_local('NACA64A420')
-foil_interp1, foil_interp2 = airfoil_interp(naca64a221, naca64a420, [1 / 3, 2 / 3], [fsp, fsp])
+seg1 = airfoil_interp(naca64a221, naca64a420, np.linspace(1 / 3, 2 / 3, 2), [fsp] * 2)
 naca64a618 = Airfoil.from_local('NACA64A618')
-foil_interp3, foil_interp4 = airfoil_interp(naca64a420, naca64a618, [1 / 3, 2 / 3], [fsp, fsp])
+seg2 = airfoil_interp(naca64a420, naca64a618, np.linspace(1 / 12, 11 / 12, 11), [fsp] * 11)
 sc0712 = Airfoil.from_local('SC(2)-0712')
-middle_interp = airfoil_interp(naca64a618, sc0712, [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], [fsp] * 5)
+seg3 = airfoil_interp(naca64a618, sc0712, np.linspace(1 / 6, 5 / 6, 5), [fsp] * 5)
 sc0412 = Airfoil.from_local('SC(2)-0412')
-foil_interp5 = airfoil_interp(sc0712, sc0412, 0.5, fsp)
+seg4 = airfoil_interp(sc0712, sc0412, 0.5, fsp)
 sc0012 = Airfoil.from_local('SC(2)-0012')
-foil_interp6 = airfoil_interp(sc0412, sc0012, 0.5, fsp)
+seg6 = airfoil_interp(sc0412, sc0012, 0.5, fsp)
 
 foil = [naca64a221, naca64a221, naca64a221,
-        foil_interp1, foil_interp2, naca64a420,
-        foil_interp3, foil_interp4, naca64a618,
-        middle_interp[0], middle_interp[1], middle_interp[2], middle_interp[3], middle_interp[4],
+        seg1[0], seg1[1], naca64a420,
+        seg2[0], seg2[1], seg2[2], seg2[3], seg2[4], seg2[5], seg2[6], seg2[7], seg2[8], seg2[9], seg2[10], naca64a618,
+        seg3[0], seg3[1], seg3[2], seg3[3], seg3[4],
         sc0712, sc0712, sc0712, sc0712, sc0712, sc0712, sc0712, sc0712,
-        foil_interp5, sc0412, foil_interp6, sc0012]
+        seg4, sc0412, seg6, sc0012]
 twist = np.zeros(n)
 twist_ref = np.ones(n)
 wpl = ProfileList.from_planform(planform, foil, twist, twist_ref, u)
