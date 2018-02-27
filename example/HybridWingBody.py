@@ -11,7 +11,6 @@ from spacing import chebshev_dist_multi
 
 spn2 = 21.0
 root_chord = 19.2
-middle_chord = 4.50
 tip_chord = 2.0
 leading_cpt = [(0.18, 0.8), (1.97, 2.2),
                (5.12, 4.17), (7.14, 5.47),
@@ -22,9 +21,9 @@ _chord = [root_chord, tip_chord]
 _cpt = leading_cpt + trailing_cpt
 planform = HWBCommonPlanform(_chord, _cpt)
 
-pf_desc = [[Airfoil.from_local('NACA64A221'), 0.00, 2],
-           [Airfoil.from_local('NACA64A320'), 3.80, 2],
-           [Airfoil.from_local('NACA64A420'), 8.05, 5],
+pf_desc = [[Airfoil.from_local('NACA63A221'), 0.00, 2],
+           [Airfoil.from_local('NACA63A320'), 3.80, 2],
+           [Airfoil.from_local('NACA63A420'), 8.05, 5],
            [Airfoil.from_local('NACA63A518'), 12.50, 3],
            [Airfoil.from_local('NACA63A618'), 18.24, 3],
            [Airfoil.from_local('NACA63A615'), 23.00, 12],
@@ -34,8 +33,11 @@ pf_desc = [[Airfoil.from_local('NACA64A221'), 0.00, 2],
            [Airfoil.from_local('SC(2)-0412'), 97.25, 3],
            [Airfoil.from_local('SC(2)-0012'), 100.00, 0]]
 
+for e in pf_desc:
+    e[0].show()
+
 pf_n = len(pf_desc)
-fsp = chebshev_dist_multi([0, 0.5, 1], [100, 100])
+fsp = chebshev_dist_multi([0, 0.5, 1], [101, 101])
 
 pf_pos = [pf_desc[0][1]]
 foil = [pf_desc[0][0]]

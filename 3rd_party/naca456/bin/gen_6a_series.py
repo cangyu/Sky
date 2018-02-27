@@ -22,29 +22,71 @@ class NML(object):
         self.xtable = kwargs['xtable'] if 'xtable' in kwargs else None
 
     def save(self, fn):
+
+        item = []
+
+        def str_item(name, val):
+            return '{:<10} = \'{:<}\''.format(name, val)
+
+        def val_item(name, val):
+            return '{:<10} = {:<}'.format(name, val)
+
+        if self.name is not None:
+            e = str_item('name', self.name)
+            item.append(e)
+        if self.profile is not None:
+            e = str_item('profile', self.profile)
+            item.append(e)
+        if self.toc is not None:
+            e = val_item('toc', self.toc)
+            item.append(e)
+        if self.camber is not None:
+            e = str_item('camber', self.camber)
+            item.append(e)
+        if self.a is not None:
+            e = val_item('a', self.a)
+            item.append(e)
+        if self.cl is not None:
+            e = val_item('cl', self.cl)
+            item.append(e)
+        if self.chord is not None:
+            e = val_item('chord', self.chord)
+            item.append(e)
+        if self.cmax is not None:
+            e = val_item('cmax', self.cmax)
+            item.append(e)
+        if self.leindex is not None:
+            e = val_item('leindex', self.leindex)
+            item.append(e)
+        if self.ntable is not None:
+            e = val_item('ntable', self.ntable)
+            item.append(e)
+        if self.xmaxc is not None:
+            e = val_item('xmaxc', self.xmaxc)
+            item.append(e)
+        if self.xmaxt is not None:
+            e = val_item('xmaxt', self.xmaxt)
+            item.append(e)
+        if self.xorigin is not None:
+            e = val_item('xorigin', self.xorigin)
+            item.append(e)
+        if self.yorigin is not None:
+            e = val_item('yorigin', self.yorigin)
+            item.append(e)
+        if self.xtable is not None:
+            e = val_item('xtable', self.xtable)
+            item.append(e)
+        if self.dencode is not None:
+            e = val_item('dencode', self.dencode)
+            item.append(e)
+
         f = open(fn, 'w')
-
-        def gen_item(name, val):
-            return '\n  {:<10} = {:<}'.format(name, val)
-
-        f.write('&NACA')
-        f.write(gen_item('a', self.a) if self.a is not None else '')
-        f.write(gen_item('camber', self.camber) if self.camber is not None else '')
-        f.write(gen_item('cl', self.cl) if self.cl is not None else '')
-        f.write(gen_item('chord', self.chord) if self.chord is not None else '')
-        f.write(gen_item('cmax', self.cmax) if self.cmax is not None else '')
-        f.write(gen_item('dencode', self.dencode) if self.dencode is not None else '')
-        f.write(gen_item('leindex', self.leindex) if self.leindex is not None else '')
-        f.write(gen_item('name', self.name) if self.name is not None else '')
-        f.write(gen_item('ntable', self.ntable) if self.ntable is not None else '')
-        f.write(gen_item('profile', self.profile) if self.profile is not None else '')
-        f.write(gen_item('toc', self.toc) if self.toc is not None else '')
-        f.write(gen_item('xmaxc', self.xmaxc) if self.xmaxc is not None else '')
-        f.write(gen_item('xmaxt', self.xmaxt) if self.xmaxt is not None else '')
-        f.write(gen_item('xorigin', self.xorigin) if self.xorigin is not None else '')
-        f.write(gen_item('yorigin', self.yorigin) if self.yorigin is not None else '')
-        f.write(gen_item('xtable', self.xtable) if self.xtable is not None else '')
-        f.write('/\n')
+        f.write('&NACA\n')
+        for k, e in enumerate(item):
+            if k != len(item) - 1:
+                f.write('\t' + e + ',\n')
+            else:
+                f.write('\t' + e + '/\n')
 
         f.close()
 
@@ -67,7 +109,7 @@ if __name__ == '__main__':
     for p in profile:
         for tc in toc:
             nm = 'NACA{}0{:2d}'.format(p, int(tc * 100))
-            x = NML(name=nm, profile=p, toc=tc, camber='\'0\'', cl=0, dencode=3)
+            x = NML(name=nm, profile=p, toc=tc, camber='0', cl=0, dencode=3)
             gen_foil(x)
 
     '''With Camber'''
@@ -75,5 +117,5 @@ if __name__ == '__main__':
         for tc in toc:
             for l in cl:
                 nm = 'NACA{}{:1d}{:2d}'.format(pf, int(10 * l), int(100 * tc))
-                x = NML(name=nm, profile=pf, toc=tc, camber='\'6M\'', cl=l, dencode=3)
+                x = NML(name=nm, profile=pf, toc=tc, camber='6M', cl=l, dencode=3)
                 gen_foil(x)
