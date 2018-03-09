@@ -3,7 +3,6 @@
 
 import math
 import numpy as np
-from matplotlib import pyplot as plt
 from settings import z_axis_negative
 from load_dist import LiftDist
 from planform import WingPlanform
@@ -268,14 +267,53 @@ class ProfileList(object):
         :return: Target profile list.
         """
 
-        assert len(airfoil) == len(twist_ang) == len(twist_ref) == len(rel_pos)
         n = len(airfoil)
+        assert n == len(twist_ang)
+        assert n == len(twist_ref)
+        assert n == len(rel_pos)
+
         ret = cls()
         for i in range(n):
             cu = rel_pos[i]
             cz = planform.z(cu)
             leading = np.array([planform.x_front(cu), planform.y_front(cu), cz])
             trailing = np.array([planform.x_tail(cu), planform.y_tail(cu), cz])
+            tst_ref = twist_ref[i]
+            tst_center = share(tst_ref, leading, trailing)
+            tst_ang = twist_ang[i]
+            cur_twist = math.radians(tst_ang)
+            actual_len = planform.chord_len(cu) / math.cos(cur_twist)
+            param = ProfileSpatialParam(actual_len, tst_ang, tst_center, tst_ref)
+            wp = Profile(airfoil[i], param)
+            ret.add(wp)
+        return ret
+
+    @classmethod
+    def from_planform_with_dihedral(cls, planform, rel_pos, airfoil, twist_ang, twist_ref, dihedral_offset):
+        """
+        Build wing from the planform, twists and dihedral offsets.
+        :param planform: Planform description.
+        :type planform: WingPlanform
+        :param rel_pos: Span-wise position for each chord along the planform.
+        :param airfoil: Airfoil on each profile.
+        :param twist_ang: Twist angle of each profile.
+        :param twist_ref: Relative twist position on each chord.
+        :param dihedral_offset: Offset in Y-Direction relative to the planform surface for each profile.
+        :return: Target profile list.
+        """
+
+        n = len(airfoil)
+        assert n == len(twist_ang)
+        assert n == len(twist_ref)
+        assert n == len(rel_pos)
+        assert n == len(dihedral_offset)
+
+        ret = cls()
+        for i in range(n):
+            cu = rel_pos[i]
+            cz = planform.z(cu)
+            leading = pnt_pan([planform.x_front(cu), planform.y_front(cu), cz], [0, dihedral_offset[i], 0])
+            trailing = pnt_pan([planform.x_tail(cu), planform.y_tail(cu), cz], [0, dihedral_offset[i], 0])
             tst_ref = twist_ref[i]
             tst_center = share(tst_ref, leading, trailing)
             tst_ang = twist_ang[i]

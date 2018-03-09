@@ -32,9 +32,7 @@ pf_u = np.array([0.01 * x for x in pf_pos])
 pf_n = len(pf_u)
 pf_z = np.array([x * spn2 for x in pf_u])
 
-'''
-    Show Planform and Profiles
-'''
+# Show Planform and Profiles
 fig = plt.figure()
 ax = fig.add_subplot(111)
 planform.pic(ax, u=pf_u)
@@ -69,38 +67,37 @@ foil.append(outer_foil)
 foil += foil_interp6
 foil.append(tip_foil)
 
-'''
-    Save all airfoils for XFoil usage
-'''
-for k, f in enumerate(foil):
-    f.save('foil{}.dat'.format(k))
+# Save all airfoils for XFoil usage
+# for k, f in enumerate(foil):
+#     f.save('foil{}.dat'.format(k))
 
 '''
-    Twist Design
+    Twist and Dihedral Design
 '''
-param = np.array([[0.2953, 0.000],  # 0 - 64A221
-                  [0.2998, 0.000],  # 1
-                  [0.3006, 0.000],  # 2 - 64A221
-                  [0.6039, 0.750],  # 3
-                  [0.8702, 1.500],  # 4 - 63A418
-                  [0.9114, 1.101],  # 5
-                  [0.9855, 0.702],  # 6 - 63A615
-                  [0.8002, 0.304],  # 7
-                  [0.8083, -.095],  # 8
-                  [0.7500, -.494],  # 9 - SC(2)-0712
-                  [0.7312, -.443],  # 10
-                  [0.7129, -.392],  # 11
-                  [0.6939, -.341],  # 12
-                  [0.6725, -.290],  # 13
-                  [0.6500, -.240],  # 14 - SC(2)-0612
-                  [0.4340, -.180],  # 15
-                  [0.2154, -.090],  # 16
-                  [0.0000, 0.000]])  # 17 - SC(2)-0012
+param = np.array([[0.2953, 0.000, 1.00, 0.000],  # 0 - 64A221
+                  [0.2998, 0.000, 1.00, 0.000],  # 1
+                  [0.3006, 0.000, 1.00, 0.000],  # 2 - 64A221
+                  [0.6039, 0.750, 1.00, 0.000],  # 3
+                  [0.8702, 1.500, 1.00, 0.000],  # 4 - 63A418
+                  [0.9114, 1.101, 1.00, 0.000],  # 5
+                  [0.9855, 0.702, 1.00, 0.000],  # 6 - 63A615
+                  [0.8002, 0.304, 1.00, 0.000],  # 7
+                  [0.8083, -.095, 1.00, 0.000],  # 8
+                  [0.7500, -.494, 1.00, 0.000],  # 9 - SC(2)-0712
+                  [0.7312, -.443, 1.00, 0.000],  # 10
+                  [0.7129, -.392, 1.00, 0.000],  # 11
+                  [0.6939, -.341, 1.00, 0.000],  # 12
+                  [0.6725, -.290, 1.00, 0.000],  # 13
+                  [0.6500, -.240, 1.00, 0.000],  # 14 - SC(2)-0612
+                  [0.4340, -.180, 1.00, 0.000],  # 15
+                  [0.2154, -.090, 1.00, 0.000],  # 16
+                  [0.0000, 0.000, 1.00, 0.000]])  # 17 - SC(2)-0012
 
 cl2 = param[:, 0]
 twist = param[:, 1]
-twist_ref = np.ones(pf_n)
-wpl = ProfileList.from_planform(planform, foil, twist, twist_ref, pf_u)
+twist_ref = param[:, 2]
+y_off = param[:, 3]
+wpl = ProfileList.from_planform_with_dihedral(planform, pf_u, foil, twist, twist_ref, y_off)
 
 '''
     Write IGES file
