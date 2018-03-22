@@ -3,100 +3,122 @@ import math
 from matplotlib import pyplot as plt
 from planform import HWBCommonPlanform
 from airfoil import Airfoil, airfoil_interp
-from profile import ProfileList, calc_profile_cl
+from profile import ProfileList
 from iges import IGES_Model
-from load_dist import calc_global_cl
-from load_dist import LinearLiftDist, EllipticLiftDist, HybridLiftDist
 from spacing import chebshev_dist_multi
 
 '''
     Planform Design
 '''
+fuselage_len = 27.0
 spn2 = 21.0
 root_chord = 19.2
-tip_chord = 1.8
+tip_chord = 2.0
 leading_cpt = [(0.3, 0.8), (1.97, 2.2),
-               (5.12, 4.17), (7.14, 5.47),
-               (8.5, 6.95), (10.2, 9.6), (17.4, spn2)]
-trailing_cpt = [(17.23, 3.83), (16.1, 6.97), (16.25, 10.15)]
+               (5.12, 4.17), (7.00, 5.47),
+               (8.45, 6.95), (9.91, 9.6), (15.20, spn2)]
+trailing_cpt = [(17.1, 3.83), (16.0, 6.97), (15.95, 10.15)]
 
 _chord = [root_chord, tip_chord]
 _cpt = leading_cpt + trailing_cpt
 planform = HWBCommonPlanform(_chord, _cpt)
+mac = planform.mean_aerodynamic_chord
+area2 = planform.area / 2
+print('Planform Info:')
+print('  MAC: {:.3f} m'.format(mac))
+print('  Area: {:.2f} m^2'.format(area2))
 
-pf_pos = [0.00, 5.24, 10.48, 15.24, 20.00,
-          24.54, 28.89, 34.50, 40.00,
-          45.70, 55.33, 64.95, 74.57, 84.00,
-          93.61, 95.87, 97.94, 100.00]
+pf_pos = [0.00, 10.48, 20.00, 26.55, 33.10, 39.40,
+          45.70, 61.35, 77.20, 93.50, 96.85, 100.00]
 pf_u = np.array([0.01 * x for x in pf_pos])
 pf_n = len(pf_u)
 pf_z = np.array([x * spn2 for x in pf_u])
+pf_swp = np.array([planform.swp_025(_u) for _u in pf_u])
+print('25% Sweep on each profile:')
+for i in range(pf_n):
+    print('{:>3d}: {:.2f}'.format(i, pf_swp[i]))
 
 # Show Planform and Profiles
 fig = plt.figure()
 ax = fig.add_subplot(111)
 planform.pic(ax, u=pf_u)
+lx = np.array([x[1] for x in leading_cpt])
+ly = np.array([x[0] for x in leading_cpt])
+ax.scatter(lx, ly, c='r', marker='x')
+tx = np.array([x[1] for x in trailing_cpt])
+ty = np.array([x[0] for x in trailing_cpt])
+ax.scatter(tx, ty, c='r', marker='x')
 fig.tight_layout()
 plt.show()
 
 '''
     Airfoil Selection and Interpolation
 '''
-root_foil = Airfoil.from_local('NACA64A221')
-cabin_foil = Airfoil.from_local('NACA64A221')
-fusion_foil = Airfoil.from_local('NACA63A418')
-inner_foil = Airfoil.from_local('NACA63A615')
+root_foil = Airfoil.from_local('NACA64A021')
+cabin_foil = Airfoil.from_local('NACA64A220')
+fusion_foil = Airfoil.from_local('SC(2)-0518')
+inner_foil = Airfoil.from_local('SC(2)-0614')
 wing_foil = Airfoil.from_local('SC(2)-0712')
 outer_foil = Airfoil.from_local('SC(2)-0612')
+extend_foil = Airfoil.from_local('SC(2)-0412')
 tip_foil = Airfoil.from_local('SC(2)-0012')
 
 fsp = chebshev_dist_multi([0, 0.5, 1], [101, 101])
-foil_interp1 = airfoil_interp(root_foil, cabin_foil, 0.5, fsp)
-foil_interp2 = airfoil_interp(cabin_foil, fusion_foil, 0.5, fsp)
 foil_interp3 = airfoil_interp(fusion_foil, inner_foil, 0.5, fsp)
-foil_interp4 = airfoil_interp(inner_foil, wing_foil, [1 / 3, 2 / 3], [fsp] * 2)
-foil_interp5 = airfoil_interp(wing_foil, outer_foil, [1 / 5, 2 / 5, 3 / 5, 4 / 5], [fsp] * 4)
-foil_interp6 = airfoil_interp(outer_foil, tip_foil, [1 / 3, 2 / 3], [fsp] * 2)
+foil_interp4 = airfoil_interp(inner_foil, wing_foil, 0.5, fsp)
+foil_interp5 = airfoil_interp(wing_foil, outer_foil, [1 / 3, 2 / 3], [fsp] * 2)
 
-foil = [root_foil, foil_interp1, cabin_foil, foil_interp2, fusion_foil, foil_interp3, inner_foil]
-foil += foil_interp4
-foil.append(wing_foil)
+foil = [root_foil, cabin_foil, fusion_foil, foil_interp3, inner_foil, foil_interp4, wing_foil]
 foil += foil_interp5
 foil.append(outer_foil)
-foil += foil_interp6
+foil.append(extend_foil)
 foil.append(tip_foil)
 
 # Save all airfoils for XFoil usage
-# for k, f in enumerate(foil):
-#     f.save('foil{}.dat'.format(k))
+for k, f in enumerate(foil):
+    f.save('foil{}.dat'.format(k))
 
 '''
     Twist and Dihedral Design
 '''
-param = np.array([[0.2953, 0.000, 1.00, 0.000],  # 0 - 64A221
-                  [0.2998, 0.000, 1.00, 0.070],  # 1
-                  [0.3006, 0.000, 1.00, 0.180],  # 2 - 64A221
-                  [0.6039, 0.750, 1.00, 0.125],  # 3
-                  [0.8702, 1.500, 1.00, 0.080],  # 4 - 63A418
-                  [0.9114, 1.101, 1.00, 0.220],  # 5
-                  [0.9855, 0.702, 1.00, 0.300],  # 6 - 63A615
-                  [0.8002, 0.304, 1.00, 0.460],  # 7
-                  [0.8083, -.095, 1.00, 0.575],  # 8
-                  [0.7500, -.494, 1.00, 0.655],  # 9 - SC(2)-0712
-                  [0.7312, -.443, 1.00, 0.705],  # 10
-                  [0.7129, -.392, 1.00, 0.756],  # 11
-                  [0.6939, -.341, 1.00, 0.806],  # 12
-                  [0.6725, -.290, 1.00, 0.856],  # 13
-                  [0.6500, -.240, 1.00, 0.905],  # 14 - SC(2)-0612
-                  [0.4340, -.180, 1.00, 0.925],  # 15
-                  [0.2154, -.090, 1.00, 0.940],  # 16
-                  [0.0000, 0.000, 1.00, 0.945]])  # 17 - SC(2)-0012
+Ma = 0.8
+a = 299.5
+kinematic_viscosity = 3.52509e-5
+Re = a * Ma * mac / kinematic_viscosity
+print('Mach Num: {:.2f}'.format(Ma))
+print('Reynolds Num: {:.2f}'.format(Re))
 
-cl2 = param[:, 0]
-twist = param[:, 1]
-twist_ref = param[:, 2]
-y_off = param[:, 3]
-wpl = ProfileList.from_planform_with_dihedral(planform, pf_u, foil, twist, twist_ref, y_off)
+pf_ma = [Ma * math.cos(math.radians(pf_swp[i])) for i in range(pf_n)]
+print('Ma_2D on each profile:')
+for i in range(pf_n):
+    print('  {:>2d}: {:.4f}'.format(i, pf_ma[i]))
+
+pf_tc = np.array([0.21, 0.2, 0.18, 0.16, 0.14, 0.13,
+                  0.12, 0.12, 0.12, 0.12, 0.12, 0.12])
+print('Relative thickness on each profile:')
+for i in range(pf_n):
+    print('  {:>2d}: {:.2f}'.format(i, pf_tc[i] * 100))
+
+estimated_cl = [10 * (0.95 - pf_tc[i] - pf_ma[i]) for i in range(pf_n)]
+print('Estimated CL_2D on each profile:')
+for i in range(pf_n):
+    print('  {:>2d}: {:.4f}'.format(i, estimated_cl[i]))
+
+# Profile Params:   Cl_2D  Twist    Pos  Y_off
+param = np.array([[0.0000, 0.500, 0.375, 0.000],  # 0 - 64A021
+                  [0.4148, 2.000, 0.380, 0.145],  # 1 - 64A220
+                  [0.6409, 1.500, 0.480, 0.730],  # 2 - SC(2)-0518
+                  [0.0000, 0.850, 0.480, 1.050],  # 3
+                  [0.6199, -.150, 1.000, 1.240],  # 4 - SC(2)-0614
+                  [0.0000, -.285, 1.000, 1.380],  # 5
+                  [0.7018, -.435, 1.000, 1.490],  # 6 - SC(2)-0712
+                  [0.0000, -.350, 1.000, 1.770],  # 7
+                  [0.0000, -.270, 1.000, 2.020],  # 8
+                  [0.6057, -.185, 1.000, 2.220],  # 9 - SC(2)-0612
+                  [0.3400, -.025, 1.000, 2.300],  # 10 - SC(2)-0412
+                  [0.0000, 0.000, 1.000, 2.335]])  # 11 - SC(2)-0012
+
+wpl = ProfileList.from_planform_with_dihedral(planform, pf_u, foil, param[:, 1], param[:, 2], param[:, 3])
 
 '''
     Write IGES file
