@@ -131,7 +131,7 @@ def naca5(cl, p, q, t, n, trailing_blunt=True, half_cosine_spacing=True):
         def yc(x):
             ret = k1 / 6 * (pow(x, 3) - 3 * r * pow(x, 2) + pow(r, 2) * (3 - r) * x) if x < r else k1 / 6 * pow(r,
                                                                                                                 3) * (
-                                                                                                       1 - x)
+                                                                                                           1 - x)
             return (cl / 0.3) * ret
 
         def dyc(x):
@@ -144,13 +144,13 @@ def naca5(cl, p, q, t, n, trailing_blunt=True, half_cosine_spacing=True):
 
         def yc(x):
             ret = k1 / 6 * (
-                pow(x - r, 3) - k21 * pow(1 - r, 3) * x - pow(r, 3) * x + pow(r, 3)) if x < r else k1 / 6 * (
-                k21 * pow(x - r, 3) - k21 * pow(1 - r, 3) * x + pow(r, 3) * (1 - x))
+                    pow(x - r, 3) - k21 * pow(1 - r, 3) * x - pow(r, 3) * x + pow(r, 3)) if x < r else k1 / 6 * (
+                    k21 * pow(x - r, 3) - k21 * pow(1 - r, 3) * x + pow(r, 3) * (1 - x))
             return (cl / 0.3) * ret
 
         def dyc(x):
             ret = k1 / 6 * (3 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3)) if x < r else k1 / 6 * (
-                3 * k21 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3))
+                    3 * k21 * pow(x - r, 2) - k21 * pow(1 - r, 3) - pow(r, 3))
             return (cl / 0.3) * ret
 
     a0 = +0.2969
@@ -305,11 +305,15 @@ class Airfoil(object):
     def is_blunt(self):
         return not math.isclose(norm(self.trailing_up - self.trailing_down), 0)
 
-    def save(self, fn='', with_name=False):
+    def save(self, fn='', with_name=False, style='ICEM'):
         """
         Save all coordinates into file.
         :param fn: File name.
         :type fn: str
+        :param with_name: Option to record the name of the airfoil.
+        :type with_name: bool
+        :param style: Output Style option, 'XFOIL' or 'ICEM'.
+        :type style: str
         :return: None.
         """
 
@@ -317,11 +321,17 @@ class Airfoil(object):
             fn = self.name + '.dat'
 
         f_out = open(fn, 'w')
+
         if with_name:
             f_out.write(self.name + '\n')
 
-        for p in self.pts:
-            f_out.write('{:10.6f}\t{:10.6f}\n'.format(p[0], p[1]))
+        if style is 'ICEM':
+            f_out.write('{:d}\n'.format(len(self.pts)))
+            for p in self.pts:
+                f_out.write('{:>10.6f}{:>10.6f}{:>10.6f}\n'.format(p[0], p[1], 0))
+        else:
+            for p in self.pts:
+                f_out.write('{:>10.6f}{:>10.6f}\n'.format(p[0], p[1]))
         f_out.close()
 
     def plot(self, ax):
