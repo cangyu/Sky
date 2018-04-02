@@ -94,7 +94,7 @@ class NML(object):
 def gen_foil(desc):
     nml_path = desc.name + '.nml'
     desc.save(nml_path)
-    proc = subprocess.Popen('python3 gen.py ' + nml_path, shell=True)
+    proc = subprocess.Popen('python gen.py ' + nml_path, shell=True)
     proc.wait()
     os.remove(nml_path)
     print(desc.name + ' done!')

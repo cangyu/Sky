@@ -54,7 +54,7 @@ plt.show()
 '''
     Airfoil Selection and Interpolation
 '''
-root_foil = Airfoil.from_local('NACA64A021')
+root_foil = Airfoil.from_local('NACA64A221')
 cabin_foil = Airfoil.from_local('NACA64A220')
 fusion_foil = Airfoil.from_local('SC(2)-0518')
 inner_foil = Airfoil.from_local('SC(2)-0614')
@@ -99,24 +99,29 @@ print('Relative thickness on each profile:')
 for i in range(pf_n):
     print('  {:>2d}: {:.2f}'.format(i, pf_tc[i] * 100))
 
+plt.plot(pf_z, pf_tc, '^-')
+plt.gca().set_ylim([0, 0.25])
+plt.show()
+
+# Empirical formula for super-critical airfoils
 estimated_cl = [10 * (0.95 - pf_tc[i] - pf_ma[i]) for i in range(pf_n)]
 print('Estimated CL_2D on each profile:')
 for i in range(pf_n):
     print('  {:>2d}: {:.4f}'.format(i, estimated_cl[i]))
 
 # Profile Params:   Cl_2D  Twist    Pos  Y_off
-param = np.array([[0.0000, 0.500, 0.375, 0.000],  # 0 - 64A021
-                  [0.4148, 2.000, 0.380, 0.145],  # 1 - 64A220
-                  [0.6409, 1.500, 0.480, 0.730],  # 2 - SC(2)-0518
-                  [0.0000, 0.850, 0.480, 1.050],  # 3
-                  [0.6199, -.150, 1.000, 1.240],  # 4 - SC(2)-0614
-                  [0.0000, -.285, 1.000, 1.380],  # 5
-                  [0.7018, -.435, 1.000, 1.490],  # 6 - SC(2)-0712
-                  [0.0000, -.350, 1.000, 1.770],  # 7
-                  [0.0000, -.270, 1.000, 2.020],  # 8
-                  [0.6057, -.185, 1.000, 2.220],  # 9 - SC(2)-0612
-                  [0.3400, -.025, 1.000, 2.300],  # 10 - SC(2)-0412
-                  [0.0000, 0.000, 1.000, 2.335]])  # 11 - SC(2)-0012
+param = np.array([[0.0000, 0.750, 0.375, 0.000],  # 0 - 64A221
+                  [0.4148, 2.000, 1.000, 0.145],  # 1 - 64A220
+                  [0.6409, 1.500, 0.500, 1.020],  # 2 - SC(2)-0518
+                  [0.0000, 0.850, 0.650, 1.340],  # 3
+                  [0.6199, -.150, 1.000, 1.600],  # 4 - SC(2)-0614
+                  [0.0000, -.285, 1.000, 1.740],  # 5
+                  [0.7018, -.435, 1.000, 1.850],  # 6 - SC(2)-0712
+                  [0.0000, -.350, 1.000, 2.130],  # 7
+                  [0.0000, -.270, 1.000, 2.380],  # 8
+                  [0.6057, -.185, 1.000, 2.570],  # 9 - SC(2)-0612
+                  [0.3400, -.025, 1.000, 2.625],  # 10 - SC(2)-0412
+                  [0.0000, 0.000, 1.000, 2.660]])  # 11 - SC(2)-0012
 
 wpl = ProfileList.from_planform_with_dihedral(planform, pf_u, foil, param[:, 1], param[:, 2], param[:, 3])
 
