@@ -1,12 +1,12 @@
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from planform import HWBNoseBluntPlanform
-from load_dist import EllipticLiftDist, LinearLiftDist, UniformLiftDist, calc_global_cl, HybridLiftDist, AreaAveragedLiftDist
-from profile import ProfileList, calc_profile_cl, pic_profile_gamma_cl
-from airfoil import Airfoil, airfoil_interp, find_alpha
-from spacing import uniform, chebshev_dist_multi
-from iges import IGES_Model
+from aircraft.planform import HWBNoseBluntPlanform
+from aircraft.load_dist import EllipticLiftDist, LinearLiftDist, calc_global_cl, HybridLiftDist, AreaAveragedLiftDist
+from aircraft.profile import ProfileList, calc_profile_cl, pic_profile_gamma_cl
+from aircraft.airfoil import Airfoil, airfoil_interp
+from grid.spacing import chebshev_dist_multi
+from cad.iges import IGES_Model
 
 spn2 = 21.0
 root_chord = 19.2

@@ -2,13 +2,13 @@ import unittest
 import math
 import numpy as np
 from copy import deepcopy
-from iges import Model
+from cad.iges import Model
 from misc import read_airfoil_pts, sqrt2, sqrt3
-from src.nurbs import Quaternion
-from src.nurbs import find_span, all_basis_val, point_to_line, line_intersection, to_homogeneous
-from src.nurbs import Crv, Line, ConicArc, Circle, GlobalInterpolatedCrv, point_inverse, Spline
-from src.nurbs import Surf, BilinearSurf, LocalCubicInterpolatedCrv, GlobalInterpolatedSurf
-from src.nurbs import ExtrudedSurf, Coons, RuledSurf, RevolvedSurf, Skinned
+from cad.nurbs import Quaternion
+from cad.nurbs import find_span, all_basis_val, point_to_line, line_intersection, to_homogeneous
+from cad.nurbs import Crv, Line, ConicArc, Circle, GlobalInterpolatedCrv, point_inverse, Spline
+from cad.nurbs import Surf, BilinearSurf, LocalCubicInterpolatedCrv, GlobalInterpolatedSurf
+from cad.nurbs import ExtrudedSurf, Coons, RuledSurf, RevolvedSurf, Skinned
 
 
 class TransformTestCase(unittest.TestCase):

@@ -1,5 +1,5 @@
 from matplotlib import pyplot as plt
-from wing import Airfoil, airfoil_interp
+from aircraft.wing import Airfoil, airfoil_interp
 from grid import uniform
 
 if __name__ == '__main__':

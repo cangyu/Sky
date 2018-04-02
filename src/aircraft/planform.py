@@ -6,9 +6,9 @@ import math
 import numpy as np
 from scipy.integrate import romberg
 from scipy.misc import derivative
-from spacing import uniform
+from grid.spacing import uniform
 from misc import pnt_pan, share, normalize
-from nurbs import LocalCubicInterpolatedCrv, point_inverse, Spline
+from cad.nurbs import LocalCubicInterpolatedCrv, point_inverse, Spline
 from settings import z_axis_positive
 
 

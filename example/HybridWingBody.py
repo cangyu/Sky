@@ -1,11 +1,11 @@
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from planform import HWBCommonPlanform
-from airfoil import Airfoil, airfoil_interp
-from profile import ProfileList
-from iges import IGES_Model
-from spacing import chebshev_dist_multi
+from aircraft.planform import HWBCommonPlanform
+from aircraft.airfoil import Airfoil, airfoil_interp
+from aircraft.profile import ProfileList
+from cad.iges import IGES_Model
+from grid.spacing import chebshev_dist_multi
 
 '''
     Planform Design

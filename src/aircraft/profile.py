@@ -4,12 +4,11 @@
 import math
 import numpy as np
 from settings import z_axis_negative
-from load_dist import LiftDist
-from planform import WingPlanform
-from airfoil import Airfoil
-from rotation import pnt_rotate
+from aircraft.load_dist import LiftDist
+from aircraft.planform import WingPlanform
+from cad.rotation import pnt_rotate
 from misc import pnt_pan, pnt_dist, share
-from nurbs import Spline
+from cad.nurbs import Spline
 
 
 def calc_profile_cl(rel_pos, lift_dist, wing_planform):

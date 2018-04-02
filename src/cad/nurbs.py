@@ -7,9 +7,9 @@ from scipy.integrate import romberg
 from scipy.interpolate import BSpline, make_interp_spline
 from scipy.linalg import solve
 from scipy.misc import comb
-from iges import Entity110, Entity126, Entity128
+from cad.iges import Entity110, Entity126, Entity128
 from misc import angle_from_3pnt, array_smart_copy, normalize, pnt_dist, sqrt2
-from rotation import Quaternion, DCM
+from cad.rotation import Quaternion, DCM
 
 """
 Implementation of NURBS Basis, Crv, Surf.

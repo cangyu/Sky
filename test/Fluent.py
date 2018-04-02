@@ -3,8 +3,8 @@ import numpy as np
 import math
 from src.grid import FluentMSH, BCType, ThomasMiddlecoff2D, LinearTFI2D, LinearTFI3D
 from src.grid import single_exponential, double_exponential, hyperbolic_tangent, chebshev_dist_multi
-from src.nurbs import Circle, Line, Coons, BilinearSurf
-from src.wing import WingProfile
+from cad.nurbs import Circle, Line, Coons, BilinearSurf
+from aircraft.wing import WingProfile
 
 
 def rectangular(u, v, l, w):

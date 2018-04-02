@@ -1,5 +1,5 @@
 import unittest
-from src.iges import Model, Entity116, Entity110
+from cad.iges import Model, Entity116, Entity110
 
 
 class IGESTestCase(unittest.TestCase):

@@ -1,7 +1,7 @@
 import math
 from scipy.integrate import romberg
 from abc import abstractmethod, ABCMeta
-from planform import WingPlanform
+from aircraft.planform import WingPlanform
 
 g = 9.80665
 

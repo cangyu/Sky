@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt
 import numpy as np
-from wing import WingProfile, Airfoil
+from aircraft.wing import WingProfile, Airfoil
 
 if __name__ == '__main__':
     af = Airfoil('NACA0012')

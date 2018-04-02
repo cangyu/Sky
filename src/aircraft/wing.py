@@ -1,12 +1,12 @@
 from copy import deepcopy
 import numpy as np
-from grid import LinearTFI2D, LinearTFI3D, Laplace2D, ThomasMiddlecoff2D
-from grid import Plot3D, Plot3DBlock
-from spacing import hyperbolic_tangent, single_exponential, double_exponential, uniform
-from iges import Model, Entity116, Entity110
-from misc import pnt_dist, read_airfoil_pts, pnt_pan, share, normalize
-from nurbs import Crv, Line, Spline, ConicArc
-from nurbs import Surf, Skinned, RuledSurf, point_inverse
+from grid import LinearTFI2D, LinearTFI3D
+from grid import Plot3D
+from grid.spacing import hyperbolic_tangent, single_exponential, double_exponential, uniform
+from cad.iges import Model, Entity116, Entity110
+from misc import pnt_pan
+from cad.nurbs import Crv, Line, Spline, ConicArc
+from cad.nurbs import Surf, Skinned, RuledSurf
 
 
 class Wing(object):

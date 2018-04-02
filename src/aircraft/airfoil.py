@@ -8,9 +8,9 @@ from numpy.linalg import norm
 from matplotlib import pyplot as plt
 import re
 import collections
-from spacing import uniform, chebshev_dist
-from nurbs import Spline
-from nurbs import RuledSurf
+from grid.spacing import uniform, chebshev_dist
+from cad.nurbs import Spline
+from cad.nurbs import RuledSurf
 from settings import AIRFOIL_LIST, AIRFOIL_DIR, XFOIL_PATH
 
 

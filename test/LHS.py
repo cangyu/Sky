@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src.kriging import LHS
+from opt.kriging import LHS
 
 
 class Person(object):

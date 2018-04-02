@@ -2,10 +2,10 @@ import numpy as np
 import math
 from copy import deepcopy
 from abc import ABCMeta
-from nurbs import to_homogeneous, to_cartesian, point_inverse
-from nurbs import Crv, ConicArc, Line, Circle, LocalCubicInterpolatedCrv, Coons
+from cad.nurbs import to_homogeneous, to_cartesian, point_inverse
+from cad.nurbs import Crv, ConicArc, Line, Circle, LocalCubicInterpolatedCrv, Coons
 from misc import sqrt2, pnt_pan, share
-from wing import WingPlanform, Wing
+from aircraft.wing import WingPlanform, Wing
 
 
 class FuselagePart(metaclass=ABCMeta):

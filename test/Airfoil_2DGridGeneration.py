@@ -1,4 +1,4 @@
-from wing import Airfoil
+from aircraft.wing import Airfoil
 
 if __name__ == '__main__':
     # airfoil, A, B, C, N0, N1, N2, N3

@@ -6,9 +6,9 @@ from scipy.interpolate import make_interp_spline
 from scipy.integrate import romberg
 from scipy.optimize import root
 from grid import chebshev_dist_multi, uniform
-from wing import Wing, WingPlanform
-from iges import Model, Entity110, Entity116
-from nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
+from aircraft.wing import Wing, WingPlanform
+from cad.iges import Model
+from cad.nurbs import point_inverse, LocalCubicInterpolatedCrv, Line, Coons
 from misc import share
 
 

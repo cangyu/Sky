@@ -3,9 +3,9 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from nurbs import to_homogeneous, to_cartesian, Crv, ConicArc, Circle, Line, Coons, RuledSurf
-from iges import Model
-from wing import WingProfile
+from cad.nurbs import to_homogeneous, to_cartesian, Crv, ConicArc, Circle, Line, Coons, RuledSurf
+from cad.iges import Model
+from aircraft.wing import WingProfile
 from misc import sqrt2
 
 '''Area and ratio'''
