@@ -1,7 +1,9 @@
 import unittest
 import numpy as np
 import math
-from src.grid import NeutralMapFile, NMFEntry, uniform, LinearTFI2D
+from grid.nmf import NeutralMapFile, NMFEntry
+from grid.spacing import uniform
+from grid.tfi import LinearTFI2D
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -131,6 +133,7 @@ class NMFTestCase(unittest.TestCase):
         entry.shape_of_blk2 = blk2.shape
         entry.NMF = nmf
         entry.direction_auto_mapping()
+        nmf.add(entry)
 
         data1 = [[(0, 3), (1, 3), (2, 3), (3, 3), (4, 3)],
                  [(0, 2), (1, 2), (2, 2), (3, 2), (4, 2)],
@@ -148,6 +151,8 @@ class NMFTestCase(unittest.TestCase):
                 lp2 = data2[i][j]
                 self.assertTupleEqual(tuple(entry.counterpart(lp1, 1)), lp2)
                 self.assertTupleEqual(tuple(entry.counterpart(lp2, 2)), lp1)
+
+        nmf.save('mapping.nmf')
 
 
 if __name__ == '__main__':
